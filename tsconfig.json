@@ -1,14 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "ES2022"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -18,10 +22,28 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-    "plugins": [{ "name": "next" }]
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["next-env.d.ts", "src/**/*", "tests/**/*", "data/**/*.ts", "drizzle.config.ts"],
-  "exclude": ["node_modules", ".next", "drizzle"]
+  "include": [
+    "next-env.d.ts",
+    "src/**/*",
+    "tests/**/*",
+    "data/**/*.ts",
+    "drizzle.config.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "drizzle"
+  ]
 }
