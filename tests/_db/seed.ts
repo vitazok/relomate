@@ -9,8 +9,7 @@ export interface SeededIds {
 
 /** Insert a single org + user in the test schema. Returns their UUIDs. */
 export async function seedOrgAndUser(handle: TestDbHandle): Promise<SeededIds> {
-  const { db, schemaName } = handle;
-  await db.execute(sql.raw(`SET search_path = "${schemaName}"`));
+  const { db } = handle;
   const [org] = await db
     .insert(schema.organizations)
     .values({ name: 'Test Org', kind: 'personal' })

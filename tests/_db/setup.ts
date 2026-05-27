@@ -31,7 +31,7 @@ function loadDirectUrl(): string {
 }
 
 /** Reads the latest migration SQL and executes it against the given schema. */
-async function applyMigrations(db: Db, schemaName: string): Promise<void> {
+async function applyMigrations(db: Db, _schemaName: string): Promise<void> {
   const migrationsDir = join(process.cwd(), 'drizzle');
   const { readdirSync } = await import('node:fs');
   const files = readdirSync(migrationsDir)
@@ -41,8 +41,6 @@ async function applyMigrations(db: Db, schemaName: string): Promise<void> {
     let raw = readFileSync(join(migrationsDir, file), 'utf8');
     // Strip hardcoded "public"."<table>" references from foreign keys so they resolve within the test schema.
     raw = raw.replace(/"public"\./g, '');
-    // Drizzle migrations don't include schema prefixes; we run them inside `SET search_path = "${schemaName}"`.
-    await db.execute(sql.raw(`SET search_path = "${schemaName}"`));
     // drizzle uses `--> statement-breakpoint` between statements; split on it.
     const statements = raw
       .split('--> statement-breakpoint')
@@ -73,19 +71,33 @@ export interface TestDbHandle {
  *   it('...', async () => { ... use handle.db ... });
  */
 export async function createTestSchema(): Promise<TestDbHandle> {
-  const url = loadDirectUrl();
-  const pool = new Pool({ connectionString: url, max: 4 });
+  const baseUrl = loadDirectUrl();
   const schemaName = `test_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+  // Step 1: bootstrap connection — create the schema using base URL.
+  const bootstrapPool = new Pool({ connectionString: baseUrl, max: 1 });
+  await bootstrapPool.query(`CREATE SCHEMA "${schemaName}"`);
+  await bootstrapPool.end();
+
+  // Step 2: build the per-schema URL by appending `options=-c search_path=<schema>`.
+  // pg parses URL `options` parameter and forwards it as a startup option to the server.
+  const url = new URL(baseUrl);
+  url.searchParams.set('options', `-c search_path=${schemaName}`);
+  const pool = new Pool({ connectionString: url.toString(), max: 4 });
   const db = drizzle(pool, { schema });
-  await db.execute(sql.raw(`CREATE SCHEMA "${schemaName}"`));
-  await db.execute(sql.raw(`SET search_path = "${schemaName}"`));
+
+  // Step 3: apply migrations — every connection from this pool already has the right search_path.
   await applyMigrations(db, schemaName);
+
   return {
     db,
     schemaName,
     cleanup: async () => {
-      await db.execute(sql.raw(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`));
+      // Drop using a fresh bootstrap connection so the test pool can be cleanly closed first.
       await pool.end();
+      const dropPool = new Pool({ connectionString: baseUrl, max: 1 });
+      await dropPool.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+      await dropPool.end();
     },
   };
 }
