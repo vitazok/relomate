@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import yaml from 'js-yaml';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
   AnabinSeed,
   type AnabinInstitution,
