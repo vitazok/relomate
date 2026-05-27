@@ -13,7 +13,7 @@ describe('env', () => {
   });
 
   it('parses a complete environment', async () => {
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string>).NODE_ENV = 'test';
     process.env.DATABASE_URL = 'postgres://u:p@h:6543/db';
     process.env.DIRECT_URL = 'postgres://u:p@h:5432/db';
     const { vi } = await import('vitest');
@@ -24,7 +24,7 @@ describe('env', () => {
   });
 
   it('rejects missing DATABASE_URL', async () => {
-    process.env.NODE_ENV = 'test';
+    (process.env as Record<string, string>).NODE_ENV = 'test';
     const { vi } = await import('vitest');
     vi.resetModules();
     await expect(import('@/lib/env')).rejects.toThrow(/DATABASE_URL/);
