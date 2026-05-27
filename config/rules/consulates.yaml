@@ -1,0 +1,35 @@
+schemaVersion: 1
+lastVerified: '2026-05-25'
+
+bengaluru:
+  officialName: 'Consulate General of the Federal Republic of Germany Bengaluru'
+  url: 'https://india.diplo.de/in-en/ueber-uns/bengaluru'
+  jurisdictionStates:
+    - Karnataka
+    - Kerala
+  appointmentBookingPartner: 'VFS Global'
+  visaFeeEur: 75
+  visaFeePaymentMethod: 'INR_only'
+  documentSetsRequired: 2
+  biometricPhotos:
+    count: 3
+    sizeRequirement: '35x45mm'
+    maxAgeMonths: 6
+    spec: 'German biometric specifications'
+  applicationForm: 'VIDEX online (videx-national.diplo.de), printed twice, signed separately'
+  noStapling: true
+  documentLanguages: ['German', 'English']
+  translationRequired: false
+  contactPhone: '+91 80 45 30 01 00'
+  visaServiceHotline: '+91 80 45 56 01 11 (Mon-Thu, 14:00-15:30 IST)'
+
+  passportRequirements:
+    minRemainingValidityMonths: 12
+    maxAgeYears: 10
+    minBlankPages: 2
+
+  indianApplicantSpecific:
+    distanceLearningClarificationRequired: true
+    markSheetsAllSemestersRequired: true
+    marriageCertificateNeedsApostille: true
+    birthCertificateNeedsApostille: true

@@ -1,0 +1,34 @@
+schemaVersion: 1
+mappings:
+  - keywords: ['software engineer', 'software developer', 'backend engineer', 'frontend engineer', 'full stack']
+    isco: '2512'
+    iscoGroup: '25'
+    isShortageOccupation: true
+  - keywords: ['data engineer', 'data scientist', 'ml engineer']
+    isco: '2511'
+    iscoGroup: '25'
+    isShortageOccupation: true
+  - keywords: ['devops engineer', 'sre', 'site reliability']
+    isco: '2522'
+    iscoGroup: '25'
+    isShortageOccupation: true
+  - keywords: ['ict manager', 'engineering manager', 'tech lead']
+    isco: '1330'
+    iscoGroup: '133'
+    isShortageOccupation: true
+  - keywords: ['mechanical engineer', 'civil engineer', 'electrical engineer']
+    isco: '21'
+    iscoGroup: '21'
+    isShortageOccupation: true
+  - keywords: ['medical doctor', 'physician']
+    isco: '2211'
+    iscoGroup: '221'
+    isShortageOccupation: true
+  - keywords: ['nurse']
+    isco: '2221'
+    iscoGroup: '222'
+    isShortageOccupation: true
+  - keywords: ['teacher', 'professor']
+    isco: '23'
+    iscoGroup: '23'
+    isShortageOccupation: true

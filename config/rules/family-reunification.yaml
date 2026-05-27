@@ -1,0 +1,38 @@
+schemaVersion: 1
+sources:
+  - https://www.gesetze-im-internet.de/aufenthg_2004/__30.html
+  - https://www.bamf.de/EN/Themen/MigrationAufenthalt/ZuwandererDrittstaaten/Familie/NachzugZuDrittstaatlern/nachzug-zu-drittstaatlern-node.html
+  - https://www.visaguard.berlin/en/blue-card-overview/blaue-karte-familiennachzug
+lastVerified: '2026-05-25'
+
+blueCardSpouse:
+  legalBasis:
+    - '§30 Abs. 1 S. 3 Nr. 5 AufenthG'
+    - '§27 Abs. 5 AufenthG'
+  germanLanguageRequirement: none
+  workAuthorization: full_unrestricted_from_day_one
+  waitingPeriodMonths: 0
+  marriageBeforeBlueCardRequired: false
+  minimumAge: 18
+  proofOfAccommodationRequired: false
+  proofOfSubsistenceRequired: false
+
+blueCardChildrenUnder18:
+  legalBasis: '§32 AufenthG'
+  bothParentsRightOfCustodyRequired: false
+  maxAge: 18
+  germanLanguageRequirement: none
+
+parents:
+  legalBasis: '§36 Abs. 2 AufenthG'
+  generalRule: not_eligible_under_blue_card
+  exception: hardship_case_only
+  note: 'Parents are NOT eligible for family reunion under Blue Card privileged rules. Hardship cases handled individually by Ausländerbehörde.'
+
+documentsRequired:
+  - marriage_certificate_apostilled
+  - birth_certificate_apostilled
+  - health_insurance_proof
+  - biometric_photos_germany_spec
+  - valid_passport
+  - visa_application_videx

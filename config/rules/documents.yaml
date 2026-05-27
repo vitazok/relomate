@@ -1,0 +1,318 @@
+schemaVersion: 1
+sources:
+  - https://india.diplo.de/in-en/service/2755736-2755736
+  - https://www.gesetze-im-internet.de/aufenthg_2004/__18g.html
+  - https://videx-national.diplo.de
+lastVerified: '2026-05-26'
+
+# Sections render in this order in the artifact card.
+sections:
+  identity:
+    title: Identity
+  employment:
+    title: Employment
+  qualifications:
+    title: Qualifications
+  family:
+    title: Family
+  other:
+    title: Other
+
+# Base Blue Card document spine. Every applicant gets these (filtered by route).
+# Field semantics:
+#   id              — stable key (used for localStorage checkbox state)
+#   section         — section id from above
+#   label           — short user-facing title
+#   details         — one-sentence "why" / "what"
+#   applicableTo    — applicant | spouse | child | all
+#   copies          — number of physical copies needed (Bengaluru = 2 sets default)
+#   translationRequired — German translation required (most Bengaluru docs accept English)
+#   apostilleRequired   — MEA apostille required
+#   sourceUrl       — official authority for this document
+#   routes          — null = all routes; otherwise array of route ids that include this item
+items:
+  - id: passport
+    section: identity
+    label: Valid passport
+    details: Bengaluru consulate requires ≥12 months remaining validity, ≥2 blank pages, max 10 years old. Bring original + 2 photocopies of bio page.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: biometric_photos
+    section: identity
+    label: Biometric photos
+    details: 3 recent photos (within 6 months), 35×45mm, German biometric specifications. Used across visa form and consulate paperwork.
+    applicableTo: applicant
+    copies: 3
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: visa_application_videx
+    section: identity
+    label: VIDEX visa application
+    details: Complete the application at videx-national.diplo.de, print twice, sign each copy separately (do not staple).
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://videx-national.diplo.de
+    routes: null
+
+  - id: cover_letter
+    section: identity
+    label: Cover letter / motivation
+    details: Brief letter outlining the move purpose and overview of the application — Bengaluru consulate expects this in each set.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: visa_fee
+    section: identity
+    label: Visa fee (€75 in INR)
+    details: Paid in INR at consulate counter, equivalent to €75 at the day's rate. Receipt retained for records.
+    applicableTo: applicant
+    copies: 1
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: signed_employment_contract
+    section: employment
+    label: Signed employment contract
+    details: Must be signed by both parties, German employer, with annual gross salary, contract duration, role, and start date. Quote-side legal basis is §18g AufenthG.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://www.gesetze-im-internet.de/aufenthg_2004/__18g.html
+    routes: null
+
+  - id: declaration_of_employment
+    section: employment
+    label: Declaration of Employment ("Erklärung zum Beschäftigungsverhältnis")
+    details: Standard form, completed and signed by the German employer, attached alongside the contract.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://www.arbeitsagentur.de
+    routes: null
+
+  - id: federal_employment_agency_pre_approval
+    section: employment
+    label: BA pre-approval (§81a) if obtained
+    details: If the employer has already secured Bundesagentur für Arbeit pre-approval under §81a, include the document; otherwise the consulate triggers approval as part of processing.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://www.arbeitsagentur.de
+    routes:
+      - shortage_occupation
+      - recent_graduate
+      - it_no_degree
+
+  - id: cv_resume
+    section: qualifications
+    label: CV in tabular form
+    details: Reverse-chronological CV showing education, employment, and any gaps. Required by §18g for qualification matching review.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: degree_certificate_apostilled
+    section: qualifications
+    label: Degree certificate (apostilled)
+    details: Original degree + MEA apostille. Bengaluru consulate also expects all-semester mark sheets, not just the final certificate.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: true
+    sourceUrl: https://www.mea.gov.in/apostille-menu.htm
+    routes:
+      - standard
+      - shortage_occupation
+      - recent_graduate
+
+  - id: all_semester_marksheets
+    section: qualifications
+    label: All-semester mark sheets
+    details: Bengaluru consulate explicitly requires consolidated mark sheets covering every semester, not just the final transcript.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes:
+      - standard
+      - shortage_occupation
+      - recent_graduate
+
+  - id: anabin_printout
+    section: qualifications
+    label: Anabin printout (institution + degree)
+    details: PDF printouts from anabin.kmk.org showing institution status (H+/H+-) and degree rating (entspricht / gleichwertig). Attach to the application set.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://anabin.kmk.org
+    routes:
+      - standard
+      - shortage_occupation
+      - recent_graduate
+
+  - id: zab_statement
+    section: qualifications
+    label: ZAB Statement of Comparability
+    details: When Anabin does not list the institution or degree as recognized, ZAB issues a Statement of Comparability (~3 months processing).
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://www.kmk.org/zab/zentralstelle-fuer-auslaendisches-bildungswesen.html
+    routes: null
+
+  - id: distance_learning_clarification
+    section: qualifications
+    label: Distance-learning clarification
+    details: If your degree was earned via distance or online mode, include a written explanation of programme structure (mandatory in-person components, exam venues). Bengaluru consulate flags this for Indian applicants.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: it_specialist_experience_pack
+    section: qualifications
+    label: IT specialist experience evidence
+    details: For the §18g(2) IT-no-degree route, compile employment letters, payslip ranges, role descriptions, and project references covering ≥3 of the last 7 years in ICT (ISCO 25 / 133).
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://www.gesetze-im-internet.de/aufenthg_2004/__18g.html
+    routes:
+      - it_no_degree
+
+  - id: health_insurance_proof
+    section: other
+    label: Health insurance proof
+    details: Travel health insurance covering arrival and the first weeks; statutory or private German insurance kicks in once the employment contract starts.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+  - id: proof_of_accommodation
+    section: other
+    label: Proof of accommodation in Germany
+    details: Rental contract, employer-provided housing letter, or temporary accommodation booking covering the first weeks.
+    applicableTo: applicant
+    copies: 2
+    translationRequired: false
+    apostilleRequired: false
+    sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    routes: null
+
+# Family items render once per qualifying spouse / child. Pulled in dynamically by the composer.
+familyItems:
+  spouse:
+    - id: spouse_passport
+      section: family
+      label: Spouse passport
+      details: Valid passport with sufficient remaining validity (12 months recommended).
+      applicableTo: spouse
+      copies: 2
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    - id: spouse_biometric_photos
+      section: family
+      label: Spouse biometric photos
+      details: 3 recent photos (within 6 months), 35×45mm, German biometric specifications.
+      applicableTo: spouse
+      copies: 3
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    - id: spouse_videx
+      section: family
+      label: Spouse VIDEX application
+      details: Separate VIDEX submission for the spouse, printed twice, signed.
+      applicableTo: spouse
+      copies: 2
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://videx-national.diplo.de
+    - id: marriage_certificate_apostilled
+      section: family
+      label: Marriage certificate (apostilled)
+      details: Bengaluru consulate explicitly requires apostille for Indian marriage certificates. MEA apostille via the regional passport office.
+      applicableTo: spouse
+      copies: 2
+      translationRequired: false
+      apostilleRequired: true
+      sourceUrl: https://www.mea.gov.in/apostille-menu.htm
+  child:
+    - id: child_passport
+      section: family
+      label: Child passport
+      details: Valid passport for each accompanying child, with sufficient remaining validity.
+      applicableTo: child
+      copies: 2
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    - id: child_biometric_photos
+      section: family
+      label: Child biometric photos
+      details: 3 recent biometric photos per child, 35×45mm.
+      applicableTo: child
+      copies: 3
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
+    - id: child_videx
+      section: family
+      label: Child VIDEX application
+      details: Separate VIDEX submission per child, signed by the parent with custody.
+      applicableTo: child
+      copies: 2
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://videx-national.diplo.de
+    - id: birth_certificate_apostilled
+      section: family
+      label: Birth certificate (apostilled)
+      details: MEA-apostilled birth certificate per child. Bengaluru consulate flag for Indian applicants.
+      applicableTo: child
+      copies: 2
+      translationRequired: false
+      apostilleRequired: true
+      sourceUrl: https://www.mea.gov.in/apostille-menu.htm
+    - id: custody_consent
+      section: family
+      label: Consent of non-migrating parent (if applicable)
+      details: When custody is shared and only one parent migrates with the child, written consent of the other parent is required.
+      applicableTo: child
+      copies: 2
+      translationRequired: false
+      apostilleRequired: false
+      sourceUrl: https://www.gesetze-im-internet.de/aufenthg_2004/__32.html

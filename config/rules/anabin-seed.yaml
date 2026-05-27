@@ -1,0 +1,262 @@
+# Anabin seed data — German central database of foreign-degree recognition.
+#
+# All entries default to `verifiedByUser: false` and `institutionStatus: unknown`
+# unless a human has cross-checked them in anabin.kmk.org.  See TODO_anabin_verify.md.
+# The loader caches this file in module scope; restart `pnpm dev` after editing.
+schemaVersion: 1
+sources:
+  - https://anabin.kmk.org/anabin.html
+lastVerified: '2026-05-26'
+
+institutions:
+  # ---- Verified-status best-guesses (Priya's profile) -----------------------
+  - id: bits-pilani
+    name: 'Birla Institute of Technology and Science, Pilani'
+    country: IN
+    institutionStatus: 'H+'
+    verifiedByUser: false
+    note: 'Seed best-guess pending manual verification in anabin.kmk.org. See TODO_anabin_verify.md.'
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees:
+      - level: bachelor_eqf6
+        field: 'Engineering / Technology'
+        rating: 'entspricht'
+      - level: master_eqf7
+        field: 'Engineering / Technology'
+        rating: 'entspricht'
+  - id: iiit-hyderabad
+    name: 'International Institute of Information Technology, Hyderabad'
+    country: IN
+    institutionStatus: 'H+'
+    verifiedByUser: false
+    note: 'Seed best-guess pending manual verification in anabin.kmk.org. See TODO_anabin_verify.md.'
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees:
+      - level: bachelor_eqf6
+        field: 'Computer Science / Information Technology'
+        rating: 'entspricht'
+      - level: master_eqf7
+        field: 'Computer Science / Information Technology'
+        rating: 'entspricht'
+
+  # ---- IITs ----------------------------------------------------------------
+  - id: iit-bombay
+    name: 'Indian Institute of Technology Bombay'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-delhi
+    name: 'Indian Institute of Technology Delhi'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-madras
+    name: 'Indian Institute of Technology Madras'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-kanpur
+    name: 'Indian Institute of Technology Kanpur'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-kharagpur
+    name: 'Indian Institute of Technology Kharagpur'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-roorkee
+    name: 'Indian Institute of Technology Roorkee'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-guwahati
+    name: 'Indian Institute of Technology Guwahati'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iit-hyderabad
+    name: 'Indian Institute of Technology Hyderabad'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+
+  # ---- IISc + NITs ---------------------------------------------------------
+  - id: iisc-bangalore
+    name: 'Indian Institute of Science, Bangalore'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: nit-trichy
+    name: 'National Institute of Technology, Tiruchirappalli'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: nit-warangal
+    name: 'National Institute of Technology, Warangal'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: nit-surathkal
+    name: 'National Institute of Technology Karnataka, Surathkal'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: nit-calicut
+    name: 'National Institute of Technology, Calicut'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+
+  # ---- Major universities --------------------------------------------------
+  - id: delhi-university
+    name: 'University of Delhi'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: jnu
+    name: 'Jawaharlal Nehru University'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: anna-university
+    name: 'Anna University'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: jadavpur-university
+    name: 'Jadavpur University'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iiit-bangalore
+    name: 'International Institute of Information Technology, Bangalore'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+
+  # ---- BITS sister campuses ------------------------------------------------
+  - id: bits-goa
+    name: 'Birla Institute of Technology and Science, Pilani — Goa Campus'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: bits-hyderabad
+    name: 'Birla Institute of Technology and Science, Pilani — Hyderabad Campus'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+
+  # ---- Private engineering / multidisciplinary -----------------------------
+  - id: vit-vellore
+    name: 'Vellore Institute of Technology'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: manipal-academy
+    name: 'Manipal Academy of Higher Education'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: srm-institute
+    name: 'SRM Institute of Science and Technology'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: amrita-vishwa-vidyapeetham
+    name: 'Amrita Vishwa Vidyapeetham'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: christ-university
+    name: 'Christ University, Bangalore'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: symbiosis-pune
+    name: 'Symbiosis International (Deemed University)'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+
+  # ---- Business schools ----------------------------------------------------
+  - id: isb-hyderabad
+    name: 'Indian School of Business'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iim-ahmedabad
+    name: 'Indian Institute of Management Ahmedabad'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iim-bangalore
+    name: 'Indian Institute of Management Bangalore'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []
+  - id: iim-calcutta
+    name: 'Indian Institute of Management Calcutta'
+    country: IN
+    institutionStatus: unknown
+    verifiedByUser: false
+    anabinUrl: 'https://anabin.kmk.org/anabin.html'
+    degrees: []

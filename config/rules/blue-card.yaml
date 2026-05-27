@@ -1,0 +1,79 @@
+schemaVersion: 1
+sources:
+  - https://www.make-it-in-germany.com/en/visa-residence/types/eu-blue-card
+  - https://india.diplo.de/in-en/service/2755736-2755736
+  - https://www.gesetze-im-internet.de/aufenthg_2004/__18g.html
+lastVerified: '2026-05-25'
+
+thresholds:
+  - effectiveFrom: '2026-01-01'
+    effectiveUntil: '2026-12-31'
+    standard:
+      annualGrossEur: 50700
+      legalBasis: '§18g Abs. 1 S. 1 AufenthG'
+      pensionCeilingPercent: 50.0
+    reduced:
+      annualGrossEur: 45934.20
+      legalBasis: '§18g Abs. 1 S. 2 AufenthG'
+      pensionCeilingPercent: 45.3
+      appliesTo:
+        - shortage_occupation
+        - recent_graduate
+        - it_specialist_no_degree
+
+shortageOccupationsIscoGroups:
+  - code: '132'
+    description: 'Manufacturing, mining, construction, distribution managers'
+  - code: '133'
+    description: 'ICT service managers'
+  - code: '134'
+    description: 'Professional services managers'
+  - code: '21'
+    description: 'Science and engineering professionals'
+  - code: '221'
+    description: 'Medical doctors'
+  - code: '222'
+    description: 'Nursing and midwifery professionals'
+  - code: '225'
+    description: 'Veterinarians'
+  - code: '226'
+    description: 'Other health professionals'
+  - code: '23'
+    description: 'Teaching professionals'
+  - code: '25'
+    description: 'Information and communications technology professionals'
+
+recentGraduateRule:
+  legalBasis: '§18g Abs. 1 S. 2 Nr. 2 AufenthG'
+  maxYearsSinceDegree: 3
+
+itNoDegreeRule:
+  legalBasis: '§18g Abs. 2 AufenthG'
+  iscoGroups: ['133', '25']
+  minYearsExperience: 3
+  experienceWithinLastYears: 7
+  inForceSince: '2023-11-18'
+
+federalEmploymentAgencyApproval:
+  notRequiredIfSalaryAtLeast: 50700
+  requiredFor:
+    - shortage_occupation_at_reduced_threshold
+    - recent_graduate_at_reduced_threshold
+    - it_specialist_no_degree
+  typicalDelayWeeks: [2, 4]
+
+generalRequirements:
+  minContractDurationMonths: 6
+  jobMustMatchQualification: true
+
+permanentResidencyPath:
+  withB1German:
+    monthsRequired: 21
+    legalBasis: '§18c Abs. 2 AufenthG'
+  withoutB1German:
+    monthsRequired: 27
+    note: 'Sources differ; Make-it-in-Germany cites 27, some legal sources cite 33. Use 27 as default and surface uncertainty to user for cases close to the threshold.'
+
+contractValidityCoverage:
+  durationMonths: 48
+  fallback: 'employment_contract_duration_plus_3_months'

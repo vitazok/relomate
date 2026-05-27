@@ -1,0 +1,46 @@
+schemaVersion: 1
+sources:
+  - https://www.mea.gov.in/apostille-menu.htm
+lastVerified: '2026-05-25'
+
+india:
+  hagueConventionMember: true
+  memberSince: '2005-07-14'
+  apostilleAccepted: true
+  embassyLegalizationRequired: false
+
+  educationalDocumentsFlow:
+    - step: 1
+      action: 'University attestation (verification by issuing institution)'
+      typicalDurationDays: [3, 7]
+    - step: 2
+      action: 'State HRD attestation'
+      stateAuthorityForKarnataka: 'Karnataka HRD Department'
+      typicalDurationDays: [7, 14]
+      typicalCostInr: [500, 1000]
+    - step: 3
+      action: 'MEA Apostille'
+      authority: 'Ministry of External Affairs, decentralized to Regional Passport Offices'
+      bengaluruRpo: true
+      directSubmission: false
+      authorizedAgencyServiceFeeInr: 84
+      scanningFeeInrPerPage: 3
+      stampFeeInr: 50
+      typicalDurationDays: [3, 7]
+
+  personalDocumentsFlow:
+    - step: 1
+      action: 'Notary attestation'
+      typicalDurationDays: [1, 2]
+    - step: 2
+      action: 'State Home Department / GAD attestation'
+      typicalDurationDays: [7, 14]
+    - step: 3
+      action: 'MEA Apostille'
+      typicalDurationDays: [3, 7]
+
+  totalEducationalDurationWeeks: [2, 4]
+  totalPersonalDurationWeeks: [2, 4]
+
+  recommendedStartTiming: 'before_consulate_appointment_booking'
+  rationale: 'Longest pole in the timeline; book consulate appointment only after apostille started.'
