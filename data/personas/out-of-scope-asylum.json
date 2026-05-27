@@ -1,0 +1,56 @@
+{
+  "id": "out-of-scope-asylum",
+  "description": "Syrian national asking about asylum, not Blue Card. Confirms the engine refuses to evaluate Blue Card rules for off-scope visa types.",
+  "profile": {
+    "fullName": "Layla Haddad",
+    "dateOfBirth": "1998-06-30",
+    "nationality": "SY",
+    "passportNumber": "S5544332",
+    "passportExpiry": "2029-03-18",
+    "currentAddress": {
+      "line1": "Unknown",
+      "city": "Damascus",
+      "state": "Damascus",
+      "country": "SY",
+      "postalCode": "00000"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": null,
+      "fieldOfStudy": null,
+      "institution": null,
+      "completionYear": null,
+      "anabinStatus": null,
+      "modeOfStudy": null
+    },
+    "employment": {
+      "employerName": "",
+      "employerCity": "",
+      "jobTitle": "",
+      "iscoCode": "",
+      "annualGrossSalaryEur": 0,
+      "contractType": "permanent",
+      "contractStartDate": "1970-01-01",
+      "priorExperienceYears": null
+    },
+    "family": {
+      "maritalStatus": "single",
+      "spouse": null,
+      "children": []
+    },
+    "target": {
+      "consulate": "bengaluru",
+      "moveDate": null,
+      "visaType": "asylum"
+    }
+  },
+  "expected": {
+    "outOfScope": true,
+    "eligible": false,
+    "route": null,
+    "blockers": [],
+    "warnings": [],
+    "reason": "asylum"
+  }
+}

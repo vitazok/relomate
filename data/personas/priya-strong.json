@@ -1,0 +1,66 @@
+{
+  "id": "priya-strong",
+  "description": "Indian SWE, M.Tech CS from IIT Bombay (Anabin H+), salary €48,500, shortage-occupation route. Married, one child. Happy-path exemplar.",
+  "profile": {
+    "fullName": "Priya Sharma",
+    "dateOfBirth": "1992-03-14",
+    "nationality": "IN",
+    "passportNumber": "M1234567",
+    "passportExpiry": "2031-08-22",
+    "currentAddress": {
+      "line1": "Flat 4B, 12th Cross, Indiranagar",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "country": "IN",
+      "postalCode": "560038"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": "M.Tech",
+      "fieldOfStudy": "Computer Science",
+      "institution": "IIT Bombay",
+      "completionYear": 2016,
+      "anabinStatus": "H+",
+      "modeOfStudy": "full_time"
+    },
+    "employment": {
+      "employerName": "Acme GmbH",
+      "employerCity": "Munich",
+      "jobTitle": "Senior Software Engineer",
+      "iscoCode": "2512",
+      "annualGrossSalaryEur": 48500,
+      "contractType": "permanent",
+      "contractStartDate": "2026-09-01",
+      "priorExperienceYears": 8
+    },
+    "family": {
+      "maritalStatus": "married",
+      "spouse": {
+        "fullName": "Arun Sharma",
+        "dateOfBirth": "1990-07-02",
+        "nationality": "IN"
+      },
+      "children": [
+        {
+          "fullName": "Anaya Sharma",
+          "dateOfBirth": "2020-11-15",
+          "nationality": "IN"
+        }
+      ]
+    },
+    "target": {
+      "consulate": "bengaluru",
+      "moveDate": "2026-10-01",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": true,
+    "route": "shortage_occupation",
+    "blockers": [],
+    "warnings": [],
+    "reason": null
+  }
+}

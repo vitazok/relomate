@@ -1,0 +1,56 @@
+{
+  "id": "arjun-it-no-degree",
+  "description": "Indian DevOps engineer, no formal degree, 5 years documented experience, salary €52,000. Tests §18g(2) IT-specialist route.",
+  "profile": {
+    "fullName": "Arjun Patel",
+    "dateOfBirth": "1994-09-11",
+    "nationality": "IN",
+    "passportNumber": "P7654321",
+    "passportExpiry": "2030-04-10",
+    "currentAddress": {
+      "line1": "27 MG Road",
+      "city": "Pune",
+      "state": "Maharashtra",
+      "country": "IN",
+      "postalCode": "411001"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": null,
+      "fieldOfStudy": null,
+      "institution": null,
+      "completionYear": null,
+      "anabinStatus": null,
+      "modeOfStudy": null
+    },
+    "employment": {
+      "employerName": "Beispiel Cloud GmbH",
+      "employerCity": "Berlin",
+      "jobTitle": "Senior DevOps Engineer",
+      "iscoCode": "2522",
+      "annualGrossSalaryEur": 52000,
+      "contractType": "permanent",
+      "contractStartDate": "2026-11-01",
+      "priorExperienceYears": 5
+    },
+    "family": {
+      "maritalStatus": "single",
+      "spouse": null,
+      "children": []
+    },
+    "target": {
+      "consulate": "bengaluru",
+      "moveDate": "2026-12-01",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": true,
+    "route": "it_no_degree",
+    "blockers": [],
+    "warnings": ["proof_of_experience_required"],
+    "reason": null
+  }
+}

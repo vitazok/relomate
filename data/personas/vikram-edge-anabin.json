@@ -1,0 +1,56 @@
+{
+  "id": "vikram-edge-anabin",
+  "description": "Indian SWE, B.Tech from a non-H+ institution (Anabin status unknown). Forces lookup_anabin + ZAB clarification. Engine refuses to issue a verdict.",
+  "profile": {
+    "fullName": "Vikram Reddy",
+    "dateOfBirth": "1996-01-22",
+    "nationality": "IN",
+    "passportNumber": "Z1029384",
+    "passportExpiry": "2032-02-14",
+    "currentAddress": {
+      "line1": "8-2-293, Jubilee Hills",
+      "city": "Hyderabad",
+      "state": "Telangana",
+      "country": "IN",
+      "postalCode": "500033"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": "B.Tech",
+      "fieldOfStudy": "Information Technology",
+      "institution": "XYZ Engineering College",
+      "completionYear": 2018,
+      "anabinStatus": "unknown",
+      "modeOfStudy": "full_time"
+    },
+    "employment": {
+      "employerName": "Hanseatische Software AG",
+      "employerCity": "Hamburg",
+      "jobTitle": "Software Engineer",
+      "iscoCode": "2512",
+      "annualGrossSalaryEur": 50000,
+      "contractType": "permanent",
+      "contractStartDate": "2026-10-15",
+      "priorExperienceYears": 4
+    },
+    "family": {
+      "maritalStatus": "single",
+      "spouse": null,
+      "children": []
+    },
+    "target": {
+      "consulate": "bengaluru",
+      "moveDate": "2026-11-01",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": false,
+    "route": null,
+    "blockers": ["anabin_status_unknown"],
+    "warnings": ["zab_statement_required", "consulate_clarification_recommended"],
+    "reason": null
+  }
+}
