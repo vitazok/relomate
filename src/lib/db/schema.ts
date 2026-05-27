@@ -6,6 +6,7 @@ import {
   jsonb,
   boolean,
   integer,
+  numeric,
   primaryKey,
 } from 'drizzle-orm/pg-core';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
@@ -112,7 +113,7 @@ export const profileChanges = pgTable('profile_changes', {
   newValue: jsonb('new_value'),
   source: text('source').notNull(),
   sourceTurnId: uuid('source_turn_id'),
-  confidence: integer('confidence'),
+  confidence: numeric('confidence', { precision: 3, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -124,7 +125,7 @@ export const caseChanges = pgTable('case_changes', {
   newValue: jsonb('new_value'),
   source: text('source').notNull(),
   sourceTurnId: uuid('source_turn_id'),
-  confidence: integer('confidence'),
+  confidence: numeric('confidence', { precision: 3, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
