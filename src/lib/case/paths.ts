@@ -60,7 +60,7 @@ function walk(node: z.ZodTypeAny, segments: string[]): WalkResult {
     const shape = u.shape as Record<string, z.ZodTypeAny>;
     const valueSchema = shape['value'];
     if (valueSchema) {
-      return { kind: 'leaf', inner: unwrapNullable(valueSchema) };
+      return { kind: 'leaf', inner: unwrap(valueSchema) };
     }
     return { kind: 'intermediate' };
   }
@@ -70,22 +70,17 @@ function walk(node: z.ZodTypeAny, segments: string[]): WalkResult {
 /** Strip `.optional()` / `.default()` / `.nullable()` wrappers off a Zod node. */
 function unwrap(node: z.ZodTypeAny): z.ZodTypeAny {
   let n: z.ZodTypeAny = node;
-  // ZodOptional / ZodDefault / ZodNullable all expose `_def.innerType`.
+  // ZodOptional / ZodDefault / ZodNullable all expose .unwrap() in Zod 4.
   // Loop a few times to cover Optional<Default<Nullable<...>>>.
   for (let i = 0; i < 5; i++) {
-    const def = (n as unknown as { _def?: { innerType?: z.ZodTypeAny } })._def;
-    if (def?.innerType && def.innerType !== n) {
-      n = def.innerType;
+    const unwrapped = (n as { unwrap?: () => z.ZodTypeAny }).unwrap?.();
+    if (unwrapped && unwrapped !== n) {
+      n = unwrapped;
       continue;
     }
     break;
   }
   return n;
-}
-
-/** For a leaf value schema like `inner.nullable()`, return the underlying inner. */
-function unwrapNullable(node: z.ZodTypeAny): z.ZodTypeAny {
-  return unwrap(node);
 }
 
 /** Validate that a runtime value matches the leaf's inner schema. */

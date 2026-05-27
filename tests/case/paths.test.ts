@@ -26,6 +26,12 @@ describe('validateLeafPath', () => {
   it('rejects an unknown nested segment', () => {
     expect(() => validateLeafPath('employment.notAField')).toThrow(/unknown path/i);
   });
+
+  it('rejects paths with empty segments', () => {
+    expect(() => validateLeafPath('employment.')).toThrow(/invalid path/i);
+    expect(() => validateLeafPath('.employment')).toThrow(/invalid path/i);
+    expect(() => validateLeafPath('employment..salary')).toThrow(/invalid path/i);
+  });
 });
 
 describe('validateLeafValue', () => {
