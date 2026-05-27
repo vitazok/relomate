@@ -239,10 +239,11 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 
 ## Current state (as of 2026-05-27)
 
-- **Phase 0:** declared complete by user. Phase 1 is the next active phase.
-- **Repo status:** not yet a git repo. `git init`, `package.json`, and all TS scaffolding land in Phase 1. Files created before then exist on disk and will be picked up by the first commit.
-- **Persona library v1 shipped:** 4 archetype JSONs at `data/personas/` plus a README. Spec at `docs/superpowers/specs/2026-05-27-persona-library-design.md`. Implementation plan at `docs/superpowers/plans/2026-05-27-persona-library.md`.
-- **Phase 1 follow-ups owed by the persona library:** create `data/personas/schema.ts` (Zod), create `tests/personas/eligibility.test.ts` (Vitest, initially `describe.skip`); after porting Nomad's `evaluateEligibility`, unskip and reconcile open string codes per spec §8 (`anabin_status_unknown`, `zab_statement_required`, `consulate_clarification_recommended`, `proof_of_experience_required`).
+- **Phase 0:** complete (user-declared 2026-05-27).
+- **Phase 1A (foundation scaffolding):** complete. Plan at `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md`. ~21 commits on `main`, pushed to `origin`. Verification gate green: `pnpm test` 35/35, `pnpm build`, `pnpm exec tsc --noEmit`, `pnpm lint`.
+- **Phase 1B (next active phase):** auth, Inngest, AI SDK v5 streaming chat, `update_case` tool, 3-column `/case/[id]` workspace, anonymous→authed continuity, repository layer with Zod parsing at JSONB boundaries. Write a separate plan in `docs/superpowers/plans/`; don't extend the 1A plan.
+- **What's in the repo:** Next.js 16 + Tailwind 4 shell · Zod-validated env · provenance wrapper + `EligibilityVerdict` + `CaseFacts` + identity-only `Profile` · 7 rules YAML files + loader + types · slim eligibility engine (4 routes + out-of-scope + anabin gates) · Drizzle schema for all PRD §4.2 tables (JSONB columns typed via `$type<T>` derived from Zod) · 4 archetype personas with passing harness.
+- **Key Phase 1A architectural decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — those are Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
 ---
 
