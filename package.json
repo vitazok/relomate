@@ -20,6 +20,11 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.41",
-    "typescript": "^5.9.3"
+    "@vitest/coverage-v8": "^4.1.7",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }
