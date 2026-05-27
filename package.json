@@ -16,7 +16,8 @@
     "db:generate": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate",
     "db:push": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs push",
-    "db:studio": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs studio"
+    "db:studio": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs studio",
+    "smoke:1b1": "tsx scripts/smoke-1b1.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
@@ -32,10 +33,12 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3",
     "vitest": "^4.1.7"
   },
   "dependencies": {
+    "ai": "^5.0.192",
     "drizzle-orm": "^0.45.2",
     "js-yaml": "^4.1.1",
     "next": "^16.2.6",
