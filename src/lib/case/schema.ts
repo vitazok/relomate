@@ -38,3 +38,66 @@ export const EligibilityVerdictSchema = z.object({
   rulesVersion: z.string(),
 });
 export type EligibilityVerdict = z.infer<typeof EligibilityVerdictSchema>;
+
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const ContractType = z.enum(['permanent', 'fixed_term']);
+const MaritalStatus = z.enum([
+  'single',
+  'married',
+  'partnership',
+  'engaged_marrying_in_germany',
+  'divorced',
+  'widowed',
+]);
+const DegreeLevel = z.enum([
+  'bachelor_eqf6',
+  'master_eqf7',
+  'phd_eqf8',
+  'tertiary_3yr_eqf6_equivalent',
+  'vocational_non_eqf6',
+  'other',
+]);
+const ModeOfStudy = z.enum(['regular', 'distance', 'online']);
+const AnabinInstitutionStatus = z.enum(['H+', 'H+/-', 'H-', 'unknown']);
+const IntendedVisa = z.enum(['blue_card']);
+const Consulate = z.enum(['bengaluru']);
+
+const Optional = <T extends z.ZodTypeAny>(inner: T) => FieldSchema(inner).optional();
+
+export const CaseFactsSchema = z.object({
+  employment: z
+    .object({
+      employerName: Optional(z.string()),
+      employerCity: Optional(z.string()),
+      jobTitle: Optional(z.string()),
+      iscoCode: Optional(z.string()),
+      annualGrossSalaryEur: Optional(z.number().positive()),
+      contractType: Optional(ContractType),
+      contractStartDate: Optional(IsoDate),
+      priorExperienceYears: Optional(z.number().min(0)),
+    })
+    .optional(),
+  education: z
+    .object({
+      highestDegree: Optional(DegreeLevel),
+      fieldOfStudy: Optional(z.string()),
+      institution: Optional(z.string()),
+      completionYear: Optional(z.number().int()),
+      anabinStatus: Optional(AnabinInstitutionStatus),
+      modeOfStudy: Optional(ModeOfStudy),
+    })
+    .optional(),
+  family: z
+    .object({
+      maritalStatus: Optional(MaritalStatus),
+    })
+    .optional(),
+  target: z
+    .object({
+      intendedVisa: Optional(IntendedVisa),
+      targetConsulate: Optional(Consulate),
+      targetMoveDate: Optional(IsoDate),
+    })
+    .optional(),
+});
+export type CaseFacts = z.infer<typeof CaseFactsSchema>;
