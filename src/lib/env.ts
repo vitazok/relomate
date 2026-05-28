@@ -18,7 +18,7 @@ const optionalEmail = z
   .pipe(z.string().email().optional())
   .optional();
 
-const EnvSchema = z
+export const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     DATABASE_URL: z.string().url(),
@@ -27,6 +27,9 @@ const EnvSchema = z
     AUTH_URL: optionalUrl,
     AUTH_RESEND_KEY: optionalString,
     EMAIL_FROM: optionalEmail,
+    ANTHROPIC_API_KEY: z.string().min(1),
+    INNGEST_EVENT_KEY: optionalString,
+    INNGEST_SIGNING_KEY: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
@@ -49,6 +52,20 @@ const EnvSchema = z
           code: z.ZodIssueCode.custom,
           path: ['AUTH_URL'],
           message: 'AUTH_URL is required in production',
+        });
+      }
+      if (!env.INNGEST_EVENT_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['INNGEST_EVENT_KEY'],
+          message: 'INNGEST_EVENT_KEY is required in production',
+        });
+      }
+      if (!env.INNGEST_SIGNING_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['INNGEST_SIGNING_KEY'],
+          message: 'INNGEST_SIGNING_KEY is required in production',
         });
       }
     }
