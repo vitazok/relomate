@@ -11,6 +11,12 @@ export const UpdateCaseInputSchema = z.object({
 });
 export type UpdateCaseInput = z.infer<typeof UpdateCaseInputSchema>;
 
+export const UpdateCaseInputSchemaForLLM = UpdateCaseInputSchema.omit({
+  caseId: true,
+  sourceTurnId: true,
+});
+export type UpdateCaseInputForLLM = z.infer<typeof UpdateCaseInputSchemaForLLM>;
+
 export interface ContradictionReport {
   path: string;
   previousValue: unknown;
