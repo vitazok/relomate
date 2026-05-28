@@ -73,7 +73,10 @@ describe('POST /api/chat', () => {
     const { POST } = await import('@/app/api/chat/route');
     const res = await POST(new Request('http://localhost/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ caseId, messages: [] }),
+      body: JSON.stringify({
+        caseId,
+        messages: [{ id: 'u', role: 'user', parts: [{ type: 'text', text: 'x' }] }],
+      }),
     }));
     expect(res.status).toBe(401);
   });
@@ -87,7 +90,10 @@ describe('POST /api/chat', () => {
     const { POST } = await import('@/app/api/chat/route');
     const res = await POST(new Request('http://localhost/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ caseId, messages: [] }),
+      body: JSON.stringify({
+        caseId,
+        messages: [{ id: 'u', role: 'user', parts: [{ type: 'text', text: 'x' }] }],
+      }),
     }));
     expect(res.status).toBe(403);
   });

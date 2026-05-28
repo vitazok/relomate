@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 
 const BodySchema = z.object({
   caseId: z.string().uuid(),
-  messages: z.array(z.unknown()),
+  messages: z.array(z.unknown()).min(1),
 });
 
 function extractLastUserText(messages: { role?: string; content?: unknown }[]): string {
@@ -88,9 +88,9 @@ export async function POST(req: Request) {
         console.error('appendChatTurn failed', err);
       }
 
-      const updateCalls = event.toolResults.filter((r) => r.toolName === 'update_case');
-      for (const call of updateCalls) {
-        const data = (call.output as { data?: { updatedPaths?: string[] } })?.data;
+      const updateResults = event.toolResults.filter((r) => r.toolName === 'update_case');
+      for (const result of updateResults) {
+        const data = (result.output as { data?: { updatedPaths?: string[] } })?.data;
         try {
           await inngest.send({
             name: 'case.facts.updated',
