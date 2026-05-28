@@ -8,6 +8,7 @@ import {
   integer,
   numeric,
   primaryKey,
+  unique,
 } from 'drizzle-orm/pg-core';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
@@ -28,13 +29,22 @@ export const users = pgTable('users', {
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
 });
 
-export const userIdentities = pgTable('user_identities', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
-  provider: text('provider').notNull(),
-  providerId: text('provider_id').notNull(),
-  verifiedAt: timestamp('verified_at', { withTimezone: true }),
-});
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    provider: text('provider').notNull(),
+    providerId: text('provider_id').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  },
+  (t) => ({
+    providerProviderIdUnique: unique('user_identities_provider_provider_id_unique').on(
+      t.provider,
+      t.providerId,
+    ),
+  }),
+);
 
 export const profiles = pgTable('profiles', {
   userId: uuid('user_id').primaryKey().references(() => users.id),
