@@ -169,4 +169,33 @@ describe('case repository: applyUpdate', () => {
     expect(loaded.caseFacts.employment?.employerName?.value).toBe('Acme GmbH');
     expect(loaded.caseFacts.employment?.employerName?.confidence).toBe(0.7);
   });
+
+  it('writes a profile-level path to profiles + profile_changes (not case_facts)', async () => {
+    const { repo, caseId } = await freshCase();
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000004',
+      confidence: 0.9,
+      updates: { nationality: 'IN' },
+    });
+
+    const profileRows = await handle.db.execute(
+      sql.raw(`SELECT data FROM "${handle.schemaName}".profiles WHERE user_id = '${seeded.userId}'`),
+    );
+    const profile = profileRows.rows[0] as
+      | { data: { nationality?: { value: string } } }
+      | undefined;
+    expect(profile?.data?.nationality?.value).toBe('IN');
+
+    const profileChanges = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".profile_changes WHERE user_id = '${seeded.userId}'`),
+    );
+    expect((profileChanges.rows[0] as { n: number }).n).toBe(1);
+
+    const caseChanges = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect((caseChanges.rows[0] as { n: number }).n).toBe(0);
+  });
 });

@@ -3,9 +3,6 @@ import { FieldSchema, ProvenanceSourceEnum } from '@/lib/case/schema';
 
 export { ProvenanceSourceEnum };
 
-const ProfileFieldSchema = FieldSchema;
-const ObjectFieldSchema = FieldSchema;
-
 export const Iso2 = z.string().length(2);
 
 export const CurrentAddressValue = z.object({
@@ -16,19 +13,21 @@ export const CurrentAddressValue = z.object({
   postalCode: z.string().nullable(),
 });
 
+const Optional = <T extends z.ZodTypeAny>(inner: T) => FieldSchema(inner).optional();
+
 export const ProfileSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(1).default(1),
 
-  fullName: ProfileFieldSchema(z.string()),
-  dateOfBirth: ProfileFieldSchema(z.string().date()),
-  placeOfBirth: ProfileFieldSchema(z.string()),
-  gender: ProfileFieldSchema(z.enum(['male', 'female', 'diverse'])),
-  nationality: ProfileFieldSchema(Iso2),
+  fullName: Optional(z.string()),
+  dateOfBirth: Optional(z.string().date()),
+  placeOfBirth: Optional(z.string()),
+  gender: Optional(z.enum(['male', 'female', 'diverse'])),
+  nationality: Optional(Iso2),
 
-  passportNumber: ProfileFieldSchema(z.string()),
-  passportExpiry: ProfileFieldSchema(z.string().date()),
+  passportNumber: Optional(z.string()),
+  passportExpiry: Optional(z.string().date()),
 
-  currentAddress: ObjectFieldSchema(CurrentAddressValue),
+  currentAddress: Optional(CurrentAddressValue),
 });
 
 export type Profile = z.infer<typeof ProfileSchema>;
