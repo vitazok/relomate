@@ -92,7 +92,83 @@ export async function promoteToAuthed(
       return { targetUserId: user.id };
     }
 
-    // Branch (c): existing — implemented in Task 4
-    throw new Error('branch (c) not yet implemented');
+    // Branch (c): existing user found
+    const targetUserId = existing.userId;
+
+    // Self-merge (existing == anon): just touch last_seen_at
+    if (anonymousUserId === targetUserId) {
+      await tx
+        .update(schema.users)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(schema.users.id, targetUserId));
+      return { targetUserId };
+    }
+
+    let casesMerged = 0;
+    let profileTransferred = false;
+    let anonOrgId: string | null = null;
+
+    if (anonymousUserId) {
+      // Re-point cases
+      const repointed = await tx
+        .update(schema.cases)
+        .set({ userId: targetUserId })
+        .where(eq(schema.cases.userId, anonymousUserId))
+        .returning({ id: schema.cases.id });
+      casesMerged = repointed.length;
+
+      // Look up anon org id for later deletion (users.organization_id is NOT NULL)
+      const [anonRow] = await tx
+        .select({ orgId: schema.users.organizationId })
+        .from(schema.users)
+        .where(eq(schema.users.id, anonymousUserId));
+      anonOrgId = anonRow?.orgId ?? null;
+
+      // Profile transfer: only if target has none
+      const [targetProfile] = await tx
+        .select({ userId: schema.profiles.userId })
+        .from(schema.profiles)
+        .where(eq(schema.profiles.userId, targetUserId));
+      const [anonProfile] = await tx
+        .select({ userId: schema.profiles.userId })
+        .from(schema.profiles)
+        .where(eq(schema.profiles.userId, anonymousUserId));
+
+      if (anonProfile && !targetProfile) {
+        await tx
+          .update(schema.profiles)
+          .set({ userId: targetUserId })
+          .where(eq(schema.profiles.userId, anonymousUserId));
+        profileTransferred = true;
+      } else if (anonProfile) {
+        await tx
+          .delete(schema.profiles)
+          .where(eq(schema.profiles.userId, anonymousUserId));
+      }
+
+      await tx.delete(schema.users).where(eq(schema.users.id, anonymousUserId));
+      if (anonOrgId) {
+        await tx.delete(schema.organizations).where(eq(schema.organizations.id, anonOrgId));
+      }
+
+      await tx.insert(schema.activityLog).values({
+        userId: targetUserId,
+        kind: 'auth.merged_anon',
+        payload: {
+          from: anonymousUserId,
+          into: targetUserId,
+          email,
+          casesMerged,
+          profileTransferred,
+        } as never,
+      });
+    }
+
+    await tx
+      .update(schema.users)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(schema.users.id, targetUserId));
+
+    return { targetUserId };
   });
 }
