@@ -250,7 +250,7 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **Phase 1B split into 3 sub-phases.** Spec at `docs/superpowers/specs/2026-05-27-phase-1b-design.md`. Sub-phases:
   - **1B-1 (complete, pushed 2026-05-28):** persistence + `update_case`. Plan at `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Verification gate green: `pnpm test` 67/67, `pnpm build`, `pnpm exec tsc --noEmit`, `pnpm lint`, `pnpm smoke:1b1` round-trips against real Supabase EU. Last commit: `f7ab0be`.
   - **1B-2 (complete, pushed 2026-05-28):** Auth.js v5 magic-link via Resend + `visa_session` HMAC cookie + anon→authed continuity. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`, plan at `docs/superpowers/plans/2026-05-28-phase-1b-2-auth.md`. Verification gate green: `pnpm test` 88/88, `pnpm build` (4 routes), `pnpm exec tsc --noEmit`, `pnpm lint`. Manual smokes deferred to user follow-up. Last commit: see `git log`.
-  - **1B-3 (planned, not yet executed):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` (supersedes §4 of the May-27 umbrella spec). Plan at `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — 15 tasks, TDD-where-it-pays. Next agent should execute via `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
+  - **1B-3 (in progress, NOT pushed — 12 commits ahead of `origin/main` — 3 pre-execution design-doc commits + 9 implementation commits from Tasks 1–8):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan at `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — 15 tasks. **Tasks 1–8 of 15 complete and committed locally** (verification gate green at this checkpoint: `pnpm test` 103/103, `pnpm exec tsc --noEmit` clean, `pnpm lint` clean, `pnpm build` green). Tasks 9–15 remain. Next agent: resume with Task 9 via `superpowers:subagent-driven-development`.
 - **What's in the repo from 1B-1:** repository (`src/lib/case/repository.ts`: `createCase`, `loadCase`, `applyUpdate`) · path utilities (`src/lib/case/paths.ts`) · repository types (`src/lib/case/types.ts`) · `update_case` AI SDK tool adapter (`src/lib/ai/tools/update_case.ts`) · per-file Postgres test schema infra (`tests/_db/setup.ts` + `seed.ts`; pool URL has `options=-c search_path=<schema>` baked in) · smoke script (`scripts/smoke-1b1.ts`, `pnpm smoke:1b1`) · first Drizzle migration applied to fresh Supabase EU project (eu-north-1; `.env.local` and `.env.test.local` both point at it).
 - **What's in the repo from 1B-2:** five auth modules (`src/lib/auth/{cookie,session,config,adapter,merge}.ts`) · `/api/auth/[...nextauth]` (Auth.js handler mount) · `/api/claim-anonymous` (post-verification merge route) · `/signin` page + server action · auth seed helpers (`tests/_db/seed-auth.ts`) · vitest setupFile (`tests/_setup/env.ts`) loading `.env.test.local` for env-dependent tests · second Drizzle migration (UNIQUE on `user_identities(provider, provider_id)`).
 - **Key Phase 1A architectural decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — those are Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
@@ -280,24 +280,51 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **Test-time env loading:** `vitest.config.ts` registers `tests/_setup/env.ts` as a setupFile; it loads `.env.test.local` into `process.env` BEFORE any module imports. Without it, `@/lib/env`'s validation runs against an empty env at import time and throws. Don't add a `beforeAll` shim — too late.
 - **No tests for `session.ts`** — its read APIs depend on Next.js's `cookies()` runtime. Exercised by `tests/auth/claim.test.ts` (mocked `cookies()`) and the manual smoke. Task 11 mocking pattern: `vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; }, schema }))` — getter is essential so `beforeAll` can write `testHandle` before the route resolves it.
 
-### Resume point for the next agent: execute Phase 1B-3
+### 1B-3 carry-overs that bind future work (Tasks 1–8, established so far)
 
-Spec and plan are in place; nothing else to brainstorm. Read in order:
+- **shadcn 4.x in this repo:** initialized with `style: "radix-nova"`, `iconLibrary: "lucide"`, full alias map (`ui`, `lib`, `hooks`, `components`, `utils`). The `shadcn` package is **not** a dependency — adding it back contradicts CLAUDE.md. shadcn 4.x's `init` command repeatedly tries to add itself; if you run shadcn CLI again, remove it from `package.json` afterward.
+- **`@import "shadcn/tailwind.css"` is bogus.** `shadcn init` injects this line into `globals.css`; the file doesn't exist as a package export and breaks `pnpm build`. We removed it (commit `d6596e1`). If shadcn's CLI re-injects it after a future `add`, remove it again.
+- **System prompt:** `prompts/agent/v0-stub.md` loaded as a constant via `readFileSync` at module load. `PROMPT_VERSION = 'v0-stub'`. Phase 2 replaces the file with `v0.md` and bumps the constant; logged on every assistant message.
+- **`makeUpdateCaseTool(repo, defaults)` signature:** factory now takes `defaults = { defaultCaseId, defaultSourceTurnId }`. The LLM-facing schema (`UpdateCaseInputSchemaForLLM`) omits `caseId` and `sourceTurnId` — the route injects them. Phase 2 tools that follow the same pattern should pass route-known plumbing as `defaults`, not as LLM input. Tool's `providerOptions.anthropic.cacheControl: { type: 'ephemeral' }` is set so prompt-caching at the tool boundary survives the Phase 2 catalog expansion.
+- **`createCase` now wraps cases + case_facts + threads in a single tx** and returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP. The previous unwrapped two-insert pattern is gone (orphan-case risk closed as a side effect).
+- **`appendChatTurn(input, db?)` is the single chat-persistence path** (`src/lib/ai/chat/persistence.ts`). One tx writes user msg + assistant msg + N tool_calls + updates `threads.lastMessageAt`. Server mints `assistantMessageId`; caller provides `userMessageId`. Returns `{ assistantMessageId }`. Two transactions per turn (tool-side via `update_case` + chat-side via this) — if chat-side fails after tool-side succeeds, the case file is correct but history loses a turn. Accepted degradation; eval workflow in Phase 7 will catch trends.
+- **`buildAgentContext` is a stub** (`src/lib/ai/chat/context-builder.ts`). Currently returns `{ caseFactsJson: JSON.stringify(input.caseFacts) }`. Async signature is intentional — Phase 2 adds awaits for messages/eligibility/knowledge.
+- **`MODEL_ID = 'claude-sonnet-4-7'`** in `src/lib/ai/provider.ts`. Pinned; don't change without checking in.
+- **`@ai-sdk/anthropic` and `@ai-sdk/react` are deps, not just `ai`.** v5 split the React hook surface into a separate package.
+- **Inngest v4 API change:** the plan's `createFunction(opts, trigger, handler)` 3-arg form is OBSOLETE in v4.4. The actual signature is `createFunction(options, handler)` where `triggers` lives inside options: `{ id: 'log-case-event', triggers: [{ event: 'case.facts.updated' }] }`. Verified at `node_modules/inngest/components/Inngest.d.ts:507`. Task 9's `serve({ client, functions })` from `inngest/next` is unchanged; the v4 break is scoped to `createFunction`.
+- **Inngest function handlers exported separately for tests.** `logCaseEventHandler` is exported alongside the wrapped `logCaseEvent`. Tests invoke the handler directly with a fake `step.run<T>(_id, fn) => fn()` rather than booting the Inngest runtime.
+- **Inngest payload shape:** `{ paths, sourceTurnId }` only — `caseId` lives on the `activity_log.case_id` parent column. Don't duplicate. `kind: 'inngest.echo'` for the trivial logger; future workflows add their own kinds.
+- **Inngest event keys are optional in dev, required in prod.** The client uses conditional spreads (`...(env.INNGEST_EVENT_KEY && { eventKey: env.INNGEST_EVENT_KEY })`) so undefined keys aren't passed to `new Inngest({...})`. Same `superRefine` pattern as `AUTH_RESEND_KEY` in `EnvSchema`.
+- **`vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; }, schema }))` getter pattern** is mandatory whenever a route or Inngest handler imports `db` directly (non-lazy). Without the getter, `testHandle` is undefined when vitest hoists the mock factory. Persistence helpers and the repository use lazy `require('@/lib/db/client').db` to sidestep this — but route handlers can't, since hoisted top-level imports don't see lazy require.
+
+### Resume point for the next agent: continue Phase 1B-3 at Task 9
+
+Tasks 1–8 of 15 are complete and committed locally; branch tip is 12 commits ahead of `origin/main` (3 pre-execution design-doc commits + 9 implementation commits from Tasks 1–8). Read in order:
 
 1. `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` — design (canonical when ambiguity arises).
-2. `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — 15 tasks with code, tests, commands.
+2. `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — Tasks 9–15.
 
-Then start executing. Use `superpowers:subagent-driven-development` (recommended; fresh subagent per task with two-stage review) or `superpowers:executing-plans` (inline batch with checkpoints).
+**Pick up at Task 9** (`/api/inngest` webhook route). The remaining 7 tasks:
+- **Task 9** — Mount `serve({client: inngest, functions: [logCaseEvent]})` at `src/app/api/inngest/route.ts`. Verify with `pnpm build`. No automated test (smoke covers it). Watch for the v4 caveat above re: `serve` signature being unchanged.
+- **Task 10** — `POST /api/case/new`: anon session + createCase + 303 redirect. Two route tests with `next/headers` mock.
+- **Task 11** — `POST /api/chat`: full streaming pipeline + `onFinish` persistence + Inngest emit. Heaviest task in the phase. Mock pattern uses the `vi.mock('@/lib/db/client')` getter (above).
+- **Task 12** — Workspace shell: `Nav.tsx` + `Overview.tsx`. Pure RSC, no automated tests.
+- **Task 13** — `ChatPanel.tsx` (client island, `useChat` + `DefaultChatTransport`) + `Layout.tsx`. No automated tests; relies on AI SDK v5 `@ai-sdk/react` types — open `node_modules/@ai-sdk/react/dist/index.d.ts` if `useChat` props feel off.
+- **Task 14** — `/case/[id]/page.tsx` + `not-found.tsx` + replace `src/app/page.tsx` with landing CTA. Manual smoke (browser + Inngest dev UI). Update CLAUDE.md to mark 1B-3 complete and replace this resume-point block. Push.
+- **Task 15** — Final verification gate: `pnpm test`, `pnpm exec tsc --noEmit`, `pnpm lint`, `pnpm build`. No code changes.
 
-Pinned decisions the plan inherits — do NOT redebate without checking in:
+Use `superpowers:subagent-driven-development` to dispatch fresh subagents per task. Two-stage review (spec + quality) is the established pattern from Tasks 1–8.
+
+**Pinned decisions the plan inherits — do NOT redebate:**
 - Server mints `userMessageId`; never trust client-supplied ids.
-- Persistence is two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). If chat-side fails, case file is correct, history loses a turn — accepted degradation for 1B-3.
+- Persistence is two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file is still correct.
 - Inngest emit lives in `/api/chat`'s `onFinish` (best-effort), not in the tool. Repository stays Inngest-free.
 - Prompt cache: system + tool only in 1B-3 (per-message and per-context caching wait for Phase 2).
-- One thread per case; `createCase` inserts the thread row in the same tx.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part.
-- Anthropic model: `claude-sonnet-4-7` from day one.
-- Inngest dev keys are optional; production env validation requires them.
+- Anthropic model: `claude-sonnet-4-7` (pinned in `src/lib/ai/provider.ts`).
+- Inngest dev keys optional; production env validation requires them.
+
+**Last commit before this checkpoint:** `34f0084 feat: inngest client + logCaseEvent echo function`. Branch tip is 12 commits ahead of `origin/main` — 3 pre-execution design-doc commits + 9 implementation commits from Tasks 1–8; user paused execution before Task 9.
 
 After 1B-3 lands, the next phase is Phase 2 per `IMPLEMENTATION_PLAN.md`: real `prompts/agent/v0.md`, real `buildAgentContext` (PRD §8.3), the rest of the tool catalog, eligibility wiring, persona-driven E2E.
 
