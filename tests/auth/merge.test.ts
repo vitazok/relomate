@@ -130,4 +130,87 @@ describe('promoteToAuthed', () => {
       .where(eq(schema.activityLog.userId, target.userId));
     expect((log[0]?.payload as Record<string, unknown>).profileTransferred).toBe(false);
   });
+
+  it('idempotent: calling twice with same inputs yields same end state', async () => {
+    const email = 'kavya@example.com';
+    const anon = await seedAnonUser(handle);
+    await seedCaseFor(handle, anon.userId);
+
+    const r1 = await promoteToAuthed(handle.db, { anonymousUserId: anon.userId, email });
+    expect(r1.targetUserId).toBe(anon.userId);
+
+    // Second call with the same anon id: anon is now authed, no merge needed
+    const r2 = await promoteToAuthed(handle.db, { anonymousUserId: anon.userId, email });
+    expect(r2.targetUserId).toBe(anon.userId);
+
+    const idents = await handle.db
+      .select()
+      .from(schema.userIdentities)
+      .where(eq(schema.userIdentities.providerId, email));
+    expect(idents).toHaveLength(1);
+  });
+
+  it('race: two parallel calls with same anon + email leave consistent state', async () => {
+    const email = 'arjun@example.com';
+    const anon = await seedAnonUser(handle);
+    await seedCaseFor(handle, anon.userId);
+    await seedCaseFor(handle, anon.userId);
+
+    const [r1, r2] = await Promise.all([
+      promoteToAuthed(handle.db, { anonymousUserId: anon.userId, email }),
+      promoteToAuthed(handle.db, { anonymousUserId: anon.userId, email }),
+    ]);
+    expect(r1.targetUserId).toBe(r2.targetUserId);
+
+    const idents = await handle.db
+      .select()
+      .from(schema.userIdentities)
+      .where(eq(schema.userIdentities.providerId, email));
+    expect(idents).toHaveLength(1);
+  });
+
+  it('branch (a): no anon, no existing — creates new user from scratch', async () => {
+    const email = 'vikram@example.com';
+    const { targetUserId } = await promoteToAuthed(handle.db, {
+      anonymousUserId: null,
+      email,
+    });
+
+    const [user] = await handle.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, targetUserId));
+    expect(user?.isAnonymous).toBe(false);
+
+    const idents = await handle.db
+      .select()
+      .from(schema.userIdentities)
+      .where(eq(schema.userIdentities.userId, targetUserId));
+    expect(idents).toHaveLength(1);
+    expect(idents[0]?.providerId).toBe(email);
+  });
+
+  it('self-merge: existing user signs in with no anon session', async () => {
+    const email = 'samir@example.com';
+    const { seedAuthedUser } = await import('../_db/seed-auth');
+    const target = await seedAuthedUser(handle, email);
+
+    const before = await handle.db
+      .select()
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.userId, target.userId));
+    expect(before).toHaveLength(0);
+
+    const { targetUserId } = await promoteToAuthed(handle.db, {
+      anonymousUserId: null,
+      email,
+    });
+    expect(targetUserId).toBe(target.userId);
+
+    const after = await handle.db
+      .select()
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.userId, target.userId));
+    expect(after).toHaveLength(0);
+  });
 });
