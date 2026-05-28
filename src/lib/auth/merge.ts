@@ -93,6 +93,7 @@ export async function promoteToAuthed(
     }
 
     // Branch (c): existing user found
+    if (!existing) throw new Error('unreachable');
     const targetUserId = existing.userId;
 
     // Self-merge (existing == anon): just touch last_seen_at
