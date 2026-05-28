@@ -61,3 +61,68 @@ describe('case repository: createCase + loadCase', () => {
     ).rejects.toThrow(/not found/i);
   });
 });
+
+describe('case repository: applyUpdate', () => {
+  let handle: TestDbHandle;
+  let seeded: SeededIds;
+
+  beforeAll(async () => {
+    handle = await createTestSchema();
+    seeded = await seedOrgAndUser(handle);
+  }, 30_000);
+
+  afterAll(async () => {
+    await handle.cleanup();
+  });
+
+  async function freshCase() {
+    const repo = makeRepository(handle.db, handle.schemaName);
+    const { caseId } = await repo.createCase({
+      userId: seeded.userId,
+      visaType: 'blue_card',
+      targetCountry: 'DE',
+      targetConsulate: 'bengaluru',
+    });
+    return { repo, caseId };
+  }
+
+  it('writes a single case-facts path with full provenance', async () => {
+    const { repo, caseId } = await freshCase();
+    const turnId = '00000000-0000-4000-8000-000000000001';
+    const result = await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: turnId,
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 48500 },
+    });
+    expect(result.updatedPaths).toEqual(['employment.annualGrossSalaryEur']);
+    expect(result.contradictions).toEqual([]);
+
+    const loaded = await repo.loadCase(caseId);
+    expect(loaded.caseFacts.employment?.annualGrossSalaryEur).toMatchObject({
+      value: 48500,
+      source: 'user_stated',
+      sourceTurnId: turnId,
+      confidence: 0.9,
+    });
+    expect(loaded.caseFacts.employment?.annualGrossSalaryEur?.updatedAt).toMatch(/^\d{4}-/);
+
+    const changes = await handle.db.execute(
+      sql.raw(`SELECT field_path, new_value, source, confidence FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect(changes.rows.length).toBe(1);
+    const change = changes.rows[0] as { field_path: string; source: string; confidence: string };
+    expect(change.field_path).toBe('employment.annualGrossSalaryEur');
+    expect(change.source).toBe('user_stated');
+    expect(Number(change.confidence)).toBeCloseTo(0.9, 2);
+
+    const activity = await handle.db.execute(
+      sql.raw(`SELECT kind, payload FROM "${handle.schemaName}".activity_log WHERE case_id = '${caseId}'`),
+    );
+    expect(activity.rows.length).toBe(1);
+    const entry = activity.rows[0] as { kind: string; payload: { paths: string[] } };
+    expect(entry.kind).toBe('case.facts.updated');
+    expect(entry.payload.paths).toEqual(['employment.annualGrossSalaryEur']);
+  });
+});

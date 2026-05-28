@@ -1,8 +1,14 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '@/lib/db/schema';
 import { CaseFactsSchema, type CaseFacts } from '@/lib/case/schema';
 import { ProfileSchema, type Profile } from '@/lib/profile/schema';
+import { validateLeafPath, validateLeafValue, setAtPath, getAtPath } from '@/lib/case/paths';
+import type {
+  UpdateCaseInput,
+  UpdateCaseResult,
+  ContradictionReport,
+} from '@/lib/case/types';
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -31,6 +37,7 @@ export interface LoadedCase {
 export interface Repository {
   createCase(input: CreateCaseInput): Promise<{ caseId: string }>;
   loadCase(caseId: string): Promise<LoadedCase>;
+  applyUpdate(input: UpdateCaseInput): Promise<UpdateCaseResult>;
 }
 
 function getDefaultDb(): Db {
@@ -44,7 +51,7 @@ function getDefaultDb(): Db {
  * pool's search_path (set at pool construction in tests, defaults to
  * `public` in prod).
  */
-export function makeRepository(db?: Db, schemaName: string | null = null): Repository {
+export function makeRepository(db?: Db, _schemaName: string | null = null): Repository {
   const dbInstance = db ?? getDefaultDb();
   return {
     async createCase(input) {
@@ -88,5 +95,149 @@ export function makeRepository(db?: Db, schemaName: string | null = null): Repos
         caseFacts: parsedFacts,
       };
     },
+
+    async applyUpdate(input) {
+      const { caseId, source, sourceTurnId, confidence, updates } = input;
+
+      const flat = Object.entries(updates).map(([path, newValue]) => {
+        const resolved = validateLeafPath(path);
+        validateLeafValue(resolved.inner, newValue);
+        return { path, newValue, kind: resolved.kind };
+      });
+
+      const updatedAt = new Date().toISOString();
+      const contradictions: ContradictionReport[] = [];
+
+      await dbInstance.transaction(async (tx) => {
+        const factsRows = await tx
+          .select({ data: schema.caseFacts.data })
+          .from(schema.caseFacts)
+          .where(eq(schema.caseFacts.caseId, caseId))
+          .for('update');
+        const factsRow = factsRows[0];
+        if (!factsRow) throw new Error(`case_facts not found for case ${caseId}`);
+
+        const caseRows = await tx
+          .select({ userId: schema.cases.userId })
+          .from(schema.cases)
+          .where(eq(schema.cases.id, caseId));
+        const caseRow = caseRows[0];
+        if (!caseRow) throw new Error(`case not found: ${caseId}`);
+        const userId = caseRow.userId;
+
+        const profileRows = await tx
+          .select({ data: schema.profiles.data })
+          .from(schema.profiles)
+          .where(eq(schema.profiles.userId, userId))
+          .for('update');
+        const profileRow = profileRows[0];
+
+        let nextFacts: CaseFacts = (factsRow.data ?? {}) as CaseFacts;
+        let nextProfile: Profile = (profileRow?.data ?? { schemaVersion: 1 }) as Profile;
+
+        for (const { path, newValue, kind } of flat) {
+          const wrapper = {
+            value: newValue,
+            source,
+            sourceTurnId,
+            confidence,
+            updatedAt,
+          };
+          const target =
+            kind === 'case'
+              ? (nextFacts as Record<string, unknown>)
+              : (nextProfile as unknown as Record<string, unknown>);
+          const existing = getAtPath(target, path) as
+            | { value: unknown; confidence: number }
+            | undefined;
+          if (existing && existing.confidence >= confidence && !deepEqual(existing.value, newValue)) {
+            contradictions.push({
+              path,
+              previousValue: existing.value,
+              previousConfidence: existing.confidence,
+              newValue,
+              newConfidence: confidence,
+            });
+          }
+          const merged = setAtPath(target, path, wrapper);
+          if (kind === 'case') nextFacts = merged as CaseFacts;
+          else nextProfile = merged as unknown as Profile;
+
+          const oldValueLog = existing?.value ?? null;
+          if (kind === 'case') {
+            await tx.insert(schema.caseChanges).values({
+              caseId,
+              fieldPath: path,
+              oldValue: oldValueLog,
+              newValue,
+              source,
+              sourceTurnId,
+              confidence: String(confidence),
+            });
+          } else {
+            await tx.insert(schema.profileChanges).values({
+              userId,
+              fieldPath: path,
+              oldValue: oldValueLog,
+              newValue,
+              source,
+              sourceTurnId,
+              confidence: String(confidence),
+            });
+          }
+        }
+
+        // Safety belt: refuse to write a malformed JSONB.
+        CaseFactsSchema.parse(nextFacts);
+
+        await tx
+          .update(schema.caseFacts)
+          .set({ data: nextFacts, updatedAt: new Date() })
+          .where(eq(schema.caseFacts.caseId, caseId));
+
+        const wroteProfilePath = flat.some((f) => f.kind === 'profile');
+        if (wroteProfilePath) {
+          ProfileSchema.parse(nextProfile);
+          await tx
+            .insert(schema.profiles)
+            .values({ userId, data: nextProfile })
+            .onConflictDoUpdate({
+              target: schema.profiles.userId,
+              set: { data: nextProfile, updatedAt: new Date() },
+            });
+        }
+
+        const payload = {
+          kind: 'case.facts.updated' as const,
+          paths: flat.map((f) => f.path),
+          source,
+          sourceTurnId,
+          contradictions: contradictions.length,
+        };
+        await tx.insert(schema.activityLog).values({
+          caseId,
+          userId,
+          kind: 'case.facts.updated',
+          payload,
+        });
+
+        // Touch sql import so it's not unused if drizzle changes the FOR UPDATE API.
+        void sql;
+      });
+
+      return {
+        caseId,
+        updatedPaths: flat.map((f) => f.path),
+        contradictions,
+      };
+    },
   };
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== 'object') return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
