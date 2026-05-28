@@ -279,4 +279,34 @@ describe('case repository: applyUpdate', () => {
     );
     expect((changes.rows[0] as { n: number }).n).toBe(0);
   });
+
+  it('serialises concurrent writes to the same case (row lock)', async () => {
+    const { repo, caseId } = await freshCase();
+    const a = repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-00000000000b',
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 48500 },
+    });
+    const b = repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-00000000000c',
+      confidence: 0.9,
+      updates: { 'employment.employerName': 'Acme' },
+    });
+    const [ra, rb] = await Promise.all([a, b]);
+    expect(ra.updatedPaths.length).toBe(1);
+    expect(rb.updatedPaths.length).toBe(1);
+
+    const changes = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect((changes.rows[0] as { n: number }).n).toBe(2);
+
+    const loaded = await repo.loadCase(caseId);
+    expect(loaded.caseFacts.employment?.annualGrossSalaryEur?.value).toBe(48500);
+    expect(loaded.caseFacts.employment?.employerName?.value).toBe('Acme');
+  });
 });
