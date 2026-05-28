@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
@@ -13,7 +13,6 @@ function messageContainsUpdateCase(message: UIMessage): boolean {
   for (const part of message.parts) {
     const t = (part as { type?: string }).type ?? '';
     if (t.startsWith('tool-update_case')) return true;
-    if (t === 'tool-call' && (part as { toolName?: string }).toolName === 'update_case') return true;
   }
   return false;
 }
@@ -22,10 +21,10 @@ export function ChatPanel({ caseId, initialMessages }: { caseId: string; initial
   const router = useRouter();
   const [input, setInput] = useState('');
 
-  const transport = new DefaultChatTransport({
-    api: '/api/chat',
-    body: { caseId },
-  });
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: '/api/chat', body: { caseId } }),
+    [caseId],
+  );
 
   const { messages, sendMessage, status } = useChat({
     // reason: dual-package install — project pins `ai@^5` while `@ai-sdk/react@3.x` transitively bundles `ai@6`.
