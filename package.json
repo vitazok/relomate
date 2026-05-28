@@ -17,7 +17,7 @@
     "db:migrate": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate",
     "db:push": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs push",
     "db:studio": "node --env-file=.env.local node_modules/drizzle-kit/bin.cjs studio",
-    "smoke:1b1": "tsx scripts/smoke-1b1.ts"
+    "smoke:1b1": "node --env-file=.env.local --import tsx scripts/smoke-1b1.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
