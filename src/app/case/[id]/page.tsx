@@ -19,11 +19,15 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   let loaded;
   try {
     loaded = await repo.loadCase(id);
-  } catch {
+  } catch (err) {
+    console.error('[CasePage] loadCase threw for', { id, userId, err });
     notFound();
   }
 
-  if (loaded.case.userId !== userId) redirect('/');
+  if (loaded.case.userId !== userId) {
+    console.error('[CasePage] ownership mismatch', { id, caseUserId: loaded.case.userId, cookieUserId: userId });
+    redirect('/');
+  }
 
   const recent = await db
     .select()
