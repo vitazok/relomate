@@ -125,4 +125,48 @@ describe('case repository: applyUpdate', () => {
     expect(entry.kind).toBe('case.facts.updated');
     expect(entry.payload.paths).toEqual(['employment.annualGrossSalaryEur']);
   });
+
+  it('writes three paths in one call: 1 activity row, 3 change rows', async () => {
+    const { repo, caseId } = await freshCase();
+    const result = await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000002',
+      confidence: 0.85,
+      updates: {
+        'employment.annualGrossSalaryEur': 48500,
+        'employment.employerName': 'Acme GmbH',
+        'education.anabinStatus': 'H+',
+      },
+    });
+    expect(result.updatedPaths.sort()).toEqual([
+      'education.anabinStatus',
+      'employment.annualGrossSalaryEur',
+      'employment.employerName',
+    ]);
+
+    const changes = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect((changes.rows[0] as { n: number }).n).toBe(3);
+
+    const activity = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".activity_log WHERE case_id = '${caseId}'`),
+    );
+    expect((activity.rows[0] as { n: number }).n).toBe(1);
+  });
+
+  it('loadCase round-trips provenance after applyUpdate', async () => {
+    const { repo, caseId } = await freshCase();
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000003',
+      confidence: 0.7,
+      updates: { 'employment.employerName': 'Acme GmbH' },
+    });
+    const loaded = await repo.loadCase(caseId);
+    expect(loaded.caseFacts.employment?.employerName?.value).toBe('Acme GmbH');
+    expect(loaded.caseFacts.employment?.employerName?.confidence).toBe(0.7);
+  });
 });
