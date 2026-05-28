@@ -198,4 +198,85 @@ describe('case repository: applyUpdate', () => {
     );
     expect((caseChanges.rows[0] as { n: number }).n).toBe(0);
   });
+
+  it('reports a contradiction when the same path is written twice with different values', async () => {
+    const { repo, caseId } = await freshCase();
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000005',
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 48500 },
+    });
+    const second = await repo.applyUpdate({
+      caseId,
+      source: 'user_corrected',
+      sourceTurnId: '00000000-0000-4000-8000-000000000006',
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 55000 },
+    });
+    expect(second.contradictions.length).toBe(1);
+    const c = second.contradictions[0]!;
+    expect(c.path).toBe('employment.annualGrossSalaryEur');
+    expect(c.previousValue).toBe(48500);
+    expect(c.newValue).toBe(55000);
+
+    const loaded = await repo.loadCase(caseId);
+    expect(loaded.caseFacts.employment?.annualGrossSalaryEur?.value).toBe(55000);
+  });
+
+  it('does not report a contradiction when the value is unchanged', async () => {
+    const { repo, caseId } = await freshCase();
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000007',
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 48500 },
+    });
+    const second = await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-000000000008',
+      confidence: 0.9,
+      updates: { 'employment.annualGrossSalaryEur': 48500 },
+    });
+    expect(second.contradictions).toEqual([]);
+  });
+
+  it('rejects an unknown path and writes nothing', async () => {
+    const { repo, caseId } = await freshCase();
+    await expect(
+      repo.applyUpdate({
+        caseId,
+        source: 'user_stated',
+        sourceTurnId: '00000000-0000-4000-8000-000000000009',
+        confidence: 0.9,
+        updates: { 'employment.nonsense': 'x' },
+      }),
+    ).rejects.toThrow(/unknown path/i);
+
+    const changes = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect((changes.rows[0] as { n: number }).n).toBe(0);
+  });
+
+  it('rejects an invalid leaf value and writes nothing', async () => {
+    const { repo, caseId } = await freshCase();
+    await expect(
+      repo.applyUpdate({
+        caseId,
+        source: 'user_stated',
+        sourceTurnId: '00000000-0000-4000-8000-00000000000a',
+        confidence: 0.9,
+        updates: { 'employment.annualGrossSalaryEur': 'forty thousand' },
+      }),
+    ).rejects.toThrow();
+
+    const changes = await handle.db.execute(
+      sql.raw(`SELECT count(*)::int AS n FROM "${handle.schemaName}".case_changes WHERE case_id = '${caseId}'`),
+    );
+    expect((changes.rows[0] as { n: number }).n).toBe(0);
+  });
 });
