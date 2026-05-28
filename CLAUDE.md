@@ -159,6 +159,12 @@ These bit us before (carried over from Nomad). Don't redo.
 - Don't use `@auth/drizzle-adapter`; don't add `accounts` or `sessions` tables. Auth.js sends magic link, verifies token, writes a JWT cookie. Our HMAC `visa_session` cookie is the app session of record.
 - **`signIn` callback fires twice for the email provider:** once at request time with `email.verificationRequest: true` (return `true` to send), once after click. Returning a redirect string short-circuits before Auth.js sets JWT — use the `redirect` callback instead.
 - Resend account required before production sign-in works. Dev path uses console-log override.
+- **Adapter type imports:** `next-auth@5` re-exports adapter types at `next-auth/adapters` (NOT `@auth/core/adapters` — that's a transitive package and importing from it couples to pnpm hoist).
+- **Production-mode env validation runs during `next build`.** `EnvSchema.superRefine` requires `AUTH_RESEND_KEY`, `EMAIL_FROM`, `AUTH_URL` in production; during the "Collecting page data" phase Next sets `NODE_ENV=production` and evaluates routes. If `.env.local` is missing those, the build fails. `EMAIL_FROM` must be a plain email (`z.string().email()`) — RFC 5322 display-name format (`"Name <addr>"`) is rejected. Resend's API accepts the display-name form at the provider level, so format conversion happens in the provider call, not the env.
+- **Module-scope env validation breaks vitest imports.** `@/lib/env` runs validation at top-level import. Tests that pull in any env-dependent module (cookie, session, merge) need `tests/_setup/env.ts` registered as `setupFiles` in `vitest.config.ts` — it loads `.env.test.local` into `process.env` before any test module imports. Don't add a `beforeAll(() => process.env.X = ...)` shim; it runs after import.
+- **CJS `require('@/...')` doesn't resolve under vitest.** Inside tests, use `await import('@/...')` for dynamic re-imports. The `@` alias is a Vite resolver; CJS doesn't see it.
+- **`useFormState` from `react-dom` is soft-deprecated in React 19.** Still works in 19.2.x; canonical is `useActionState` from `react`. Migrate when you want the third tuple element (`isPending`) for "Sending…" UI state.
+- **Email normalization:** lowercase + trim at every entry point (server action AND claim handler). The route's `auth()` returns whatever Auth.js parsed; assume it may include casing/whitespace.
 
 ### Rules + eligibility
 - **Rules loader caches in module scope.** Restart `pnpm dev` after YAML edits.
@@ -243,9 +249,10 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **Phase 1A (foundation scaffolding):** complete. Plan at `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md`. Pushed to `origin/main`.
 - **Phase 1B split into 3 sub-phases.** Spec at `docs/superpowers/specs/2026-05-27-phase-1b-design.md`. Sub-phases:
   - **1B-1 (complete, pushed 2026-05-28):** persistence + `update_case`. Plan at `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Verification gate green: `pnpm test` 67/67, `pnpm build`, `pnpm exec tsc --noEmit`, `pnpm lint`, `pnpm smoke:1b1` round-trips against real Supabase EU. Last commit: `f7ab0be`.
-  - **1B-2 (next, not yet planned):** Auth.js v5 magic-link via Resend + anonymous→authed continuity.
-  - **1B-3 (not yet planned):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold.
+  - **1B-2 (complete, pushed 2026-05-28):** Auth.js v5 magic-link via Resend + `visa_session` HMAC cookie + anon→authed continuity. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`, plan at `docs/superpowers/plans/2026-05-28-phase-1b-2-auth.md`. Verification gate green: `pnpm test` 88/88, `pnpm build` (4 routes), `pnpm exec tsc --noEmit`, `pnpm lint`. Manual smokes deferred to user follow-up. Last commit: see `git log`.
+  - **1B-3 (next, not yet planned):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold.
 - **What's in the repo from 1B-1:** repository (`src/lib/case/repository.ts`: `createCase`, `loadCase`, `applyUpdate`) · path utilities (`src/lib/case/paths.ts`) · repository types (`src/lib/case/types.ts`) · `update_case` AI SDK tool adapter (`src/lib/ai/tools/update_case.ts`) · per-file Postgres test schema infra (`tests/_db/setup.ts` + `seed.ts`; pool URL has `options=-c search_path=<schema>` baked in) · smoke script (`scripts/smoke-1b1.ts`, `pnpm smoke:1b1`) · first Drizzle migration applied to fresh Supabase EU project (eu-north-1; `.env.local` and `.env.test.local` both point at it).
+- **What's in the repo from 1B-2:** five auth modules (`src/lib/auth/{cookie,session,config,adapter,merge}.ts`) · `/api/auth/[...nextauth]` (Auth.js handler mount) · `/api/claim-anonymous` (post-verification merge route) · `/signin` page + server action · auth seed helpers (`tests/_db/seed-auth.ts`) · vitest setupFile (`tests/_setup/env.ts`) loading `.env.test.local` for env-dependent tests · second Drizzle migration (UNIQUE on `user_identities(provider, provider_id)`).
 - **Key Phase 1A architectural decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — those are Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
 ### 1B-1 carry-overs that bind future work
@@ -261,12 +268,27 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **`confidence` is `numeric(3, 2)` in DB.** drizzle returns it as a string; `applyUpdate` writes `String(confidence)` and reads expect `Number(...)` casts.
 - **Smoke runner uses Node 20 `--import tsx`:** `pnpm smoke:1b1` resolves to `node --env-file=.env.local --import tsx scripts/smoke-1b1.ts`.
 
-### Resume point for the next agent: Phase 1B-2 (auth)
+### 1B-2 carry-overs that bind future work
 
-No plan yet. Start with brainstorming + writing-plans. Goals:
-- Auth.js v5 magic-link via Resend (verification-only pattern, no `accounts`/`sessions` tables — see "Auth.js v5" gotchas above).
-- App-session `visa_session` HMAC cookie (the source of truth for app sessions; Auth.js's JWT just signals successful verification).
-- Anonymous→authed continuity: a user who started a case anonymously and later signs in keeps their case (org/user/case rows already exist; need to merge or transfer ownership).
+- **`getCurrentUserId()` is RSC-safe; `requireAuthedUserId()` and `ensureAnonymousSession()` are route-handler/server-action only.** Calling the writers from an RSC throws (Next.js can't `cookies().set()` in RSC). Don't paper over with try/catch.
+- **`writeAuthedSession(userId)` and `clearSession()`** are exported from `session.ts` for direct use by routes that bypass `ensureAnonymousSession` (e.g., `/api/claim-anonymous` writes the authed cookie directly).
+- **`promoteToAuthed(db, {anonymousUserId, email})` is the merge.** Three branches: (a) no anon, no existing → new user from scratch; (b) anon present, no existing → promote in place; (c) existing found → re-point cases, transfer profile only if target has none, delete anon user + anon org. Self-merge fast-path (existing.id === anonymousUserId) just touches `last_seen_at`. `email` MUST arrive lowercased + trimmed.
+- **`organizations.kind` strings:** `'individual'` (authed individual users from branch-a or merged-into target), `'individual_anon'` (anon orgs created by `ensureAnonymousSession`). The 1B-1 seed used `'personal'` — diverged on purpose; the column is plain text.
+- **`activity_log` payloads from auth:** `auth.promoted_anon` (branch b) `{email, from: 'anonymous'}` on `userId=anonId`; `auth.merged_anon` (branch c) `{from, into, email, casesMerged, profileTransferred}` on `userId=targetId`. Email is logged INTENTIONALLY in `auth.*` rows — that's the audit trail. Do NOT log email in any other `activity_log.payload` (PII rule).
+- **`onConflictDoNothing({target: [provider, providerId]})` on user_identities** is what makes branch (b) race-safe. The UNIQUE constraint added in migration `0001_high_leo.sql` is what makes the ON CONFLICT clause resolvable. Tests verify both.
+- **`/api/claim-anonymous` is the only place that reads `auth()`.** The Auth.js `redirect` callback unconditionally routes there; the handler reads the verified email, runs `promoteToAuthed`, writes our cookie, calls `signOut({redirect: false})` to drop Auth.js's JWT. Don't add other call sites — the JWT is treated as ephemeral.
+- **Test-time env loading:** `vitest.config.ts` registers `tests/_setup/env.ts` as a setupFile; it loads `.env.test.local` into `process.env` BEFORE any module imports. Without it, `@/lib/env`'s validation runs against an empty env at import time and throws. Don't add a `beforeAll` shim — too late.
+- **No tests for `session.ts`** — its read APIs depend on Next.js's `cookies()` runtime. Exercised by `tests/auth/claim.test.ts` (mocked `cookies()`) and the manual smoke. Task 11 mocking pattern: `vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; }, schema }))` — getter is essential so `beforeAll` can write `testHandle` before the route resolves it.
+
+### Resume point for the next agent: Phase 1B-3 (chat + workspace + Inngest)
+
+No plan yet. Start with brainstorming + writing-plans. Goals (per `docs/superpowers/specs/2026-05-27-phase-1b-design.md` §4):
+- `/case/[id]` 3-column workspace shell (left nav, center Overview, right always-visible chat). Shadcn components: `button`, `card`, `scroll-area`, `input`.
+- AI SDK v5 streaming chat at `/api/chat` with `update_case` registered as the only tool. `stopWhen: stepCountIs(5)`. Anthropic prompt cache enabled per-message.
+- Auto-refresh after `update_case`: client calls `router.refresh()` after each tool result.
+- Inngest webhook at `/api/inngest` with one trivial function (`logCaseEvent`) listening for `case.facts.updated`.
+- Hook `ensureAnonymousSession` into `/api/case/new`. Build a stub landing page that creates a case on click.
+- System prompt placeholder at `prompts/agent/v0-stub.md` (~10 lines).
 
 ---
 
