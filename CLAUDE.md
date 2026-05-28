@@ -250,7 +250,7 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **Phase 1B split into 3 sub-phases.** Spec at `docs/superpowers/specs/2026-05-27-phase-1b-design.md`. Sub-phases:
   - **1B-1 (complete, pushed 2026-05-28):** persistence + `update_case`. Plan at `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Verification gate green: `pnpm test` 67/67, `pnpm build`, `pnpm exec tsc --noEmit`, `pnpm lint`, `pnpm smoke:1b1` round-trips against real Supabase EU. Last commit: `f7ab0be`.
   - **1B-2 (complete, pushed 2026-05-28):** Auth.js v5 magic-link via Resend + `visa_session` HMAC cookie + anon→authed continuity. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`, plan at `docs/superpowers/plans/2026-05-28-phase-1b-2-auth.md`. Verification gate green: `pnpm test` 88/88, `pnpm build` (4 routes), `pnpm exec tsc --noEmit`, `pnpm lint`. Manual smokes deferred to user follow-up. Last commit: see `git log`.
-  - **1B-3 (next, not yet planned):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold.
+  - **1B-3 (planned, not yet executed):** AI SDK v5 streaming chat + 3-col workspace + Inngest scaffold. Spec at `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` (supersedes §4 of the May-27 umbrella spec). Plan at `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — 15 tasks, TDD-where-it-pays. Next agent should execute via `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 - **What's in the repo from 1B-1:** repository (`src/lib/case/repository.ts`: `createCase`, `loadCase`, `applyUpdate`) · path utilities (`src/lib/case/paths.ts`) · repository types (`src/lib/case/types.ts`) · `update_case` AI SDK tool adapter (`src/lib/ai/tools/update_case.ts`) · per-file Postgres test schema infra (`tests/_db/setup.ts` + `seed.ts`; pool URL has `options=-c search_path=<schema>` baked in) · smoke script (`scripts/smoke-1b1.ts`, `pnpm smoke:1b1`) · first Drizzle migration applied to fresh Supabase EU project (eu-north-1; `.env.local` and `.env.test.local` both point at it).
 - **What's in the repo from 1B-2:** five auth modules (`src/lib/auth/{cookie,session,config,adapter,merge}.ts`) · `/api/auth/[...nextauth]` (Auth.js handler mount) · `/api/claim-anonymous` (post-verification merge route) · `/signin` page + server action · auth seed helpers (`tests/_db/seed-auth.ts`) · vitest setupFile (`tests/_setup/env.ts`) loading `.env.test.local` for env-dependent tests · second Drizzle migration (UNIQUE on `user_identities(provider, provider_id)`).
 - **Key Phase 1A architectural decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — those are Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
@@ -280,15 +280,26 @@ Phase 0 (validation per PRD §21) is required before Phase 1. Don't write code u
 - **Test-time env loading:** `vitest.config.ts` registers `tests/_setup/env.ts` as a setupFile; it loads `.env.test.local` into `process.env` BEFORE any module imports. Without it, `@/lib/env`'s validation runs against an empty env at import time and throws. Don't add a `beforeAll` shim — too late.
 - **No tests for `session.ts`** — its read APIs depend on Next.js's `cookies()` runtime. Exercised by `tests/auth/claim.test.ts` (mocked `cookies()`) and the manual smoke. Task 11 mocking pattern: `vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; }, schema }))` — getter is essential so `beforeAll` can write `testHandle` before the route resolves it.
 
-### Resume point for the next agent: Phase 1B-3 (chat + workspace + Inngest)
+### Resume point for the next agent: execute Phase 1B-3
 
-No plan yet. Start with brainstorming + writing-plans. Goals (per `docs/superpowers/specs/2026-05-27-phase-1b-design.md` §4):
-- `/case/[id]` 3-column workspace shell (left nav, center Overview, right always-visible chat). Shadcn components: `button`, `card`, `scroll-area`, `input`.
-- AI SDK v5 streaming chat at `/api/chat` with `update_case` registered as the only tool. `stopWhen: stepCountIs(5)`. Anthropic prompt cache enabled per-message.
-- Auto-refresh after `update_case`: client calls `router.refresh()` after each tool result.
-- Inngest webhook at `/api/inngest` with one trivial function (`logCaseEvent`) listening for `case.facts.updated`.
-- Hook `ensureAnonymousSession` into `/api/case/new`. Build a stub landing page that creates a case on click.
-- System prompt placeholder at `prompts/agent/v0-stub.md` (~10 lines).
+Spec and plan are in place; nothing else to brainstorm. Read in order:
+
+1. `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` — design (canonical when ambiguity arises).
+2. `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md` — 15 tasks with code, tests, commands.
+
+Then start executing. Use `superpowers:subagent-driven-development` (recommended; fresh subagent per task with two-stage review) or `superpowers:executing-plans` (inline batch with checkpoints).
+
+Pinned decisions the plan inherits — do NOT redebate without checking in:
+- Server mints `userMessageId`; never trust client-supplied ids.
+- Persistence is two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). If chat-side fails, case file is correct, history loses a turn — accepted degradation for 1B-3.
+- Inngest emit lives in `/api/chat`'s `onFinish` (best-effort), not in the tool. Repository stays Inngest-free.
+- Prompt cache: system + tool only in 1B-3 (per-message and per-context caching wait for Phase 2).
+- One thread per case; `createCase` inserts the thread row in the same tx.
+- `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part.
+- Anthropic model: `claude-sonnet-4-7` from day one.
+- Inngest dev keys are optional; production env validation requires them.
+
+After 1B-3 lands, the next phase is Phase 2 per `IMPLEMENTATION_PLAN.md`: real `prompts/agent/v0.md`, real `buildAgentContext` (PRD §8.3), the rest of the tool catalog, eligibility wiring, persona-driven E2E.
 
 ---
 
