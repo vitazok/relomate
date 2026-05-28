@@ -16,6 +16,7 @@ describe('env', () => {
     (process.env as Record<string, string>).NODE_ENV = 'test';
     process.env.DATABASE_URL = 'postgres://u:p@h:6543/db';
     process.env.DIRECT_URL = 'postgres://u:p@h:5432/db';
+    process.env.AUTH_SECRET = 'a'.repeat(32);
     const { vi } = await import('vitest');
     vi.resetModules();
     const { env } = await import('@/lib/env');
