@@ -32,10 +32,11 @@ export interface LoadedCase {
   };
   profile: Profile | null;
   caseFacts: CaseFacts;
+  threadId: string;
 }
 
 export interface Repository {
-  createCase(input: CreateCaseInput): Promise<{ caseId: string }>;
+  createCase(input: CreateCaseInput): Promise<{ caseId: string; threadId: string }>;
   loadCase(caseId: string): Promise<LoadedCase>;
   applyUpdate(input: UpdateCaseInput): Promise<UpdateCaseResult>;
 }
@@ -55,20 +56,27 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
   const dbInstance = db ?? getDefaultDb();
   return {
     async createCase(input) {
-      const [row] = await dbInstance
-        .insert(schema.cases)
-        .values({
-          userId: input.userId,
-          status: 'draft',
-          visaType: input.visaType,
-          targetCountry: input.targetCountry,
-          targetConsulate: input.targetConsulate ?? null,
-          targetMoveDate: input.targetMoveDate ?? null,
-        })
-        .returning({ id: schema.cases.id });
-      if (!row) throw new Error('createCase: insert returned no row');
-      await dbInstance.insert(schema.caseFacts).values({ caseId: row.id, data: {} as CaseFacts });
-      return { caseId: row.id };
+      return await dbInstance.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(schema.cases)
+          .values({
+            userId: input.userId,
+            status: 'draft',
+            visaType: input.visaType,
+            targetCountry: input.targetCountry,
+            targetConsulate: input.targetConsulate ?? null,
+            targetMoveDate: input.targetMoveDate ?? null,
+          })
+          .returning({ id: schema.cases.id });
+        if (!row) throw new Error('createCase: insert returned no row');
+        await tx.insert(schema.caseFacts).values({ caseId: row.id, data: {} as CaseFacts });
+        const [thread] = await tx
+          .insert(schema.threads)
+          .values({ caseId: row.id, title: null })
+          .returning({ id: schema.threads.id });
+        if (!thread) throw new Error('createCase: thread insert returned no row');
+        return { caseId: row.id, threadId: thread.id };
+      });
     },
 
     async loadCase(caseId) {
@@ -81,6 +89,12 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
       const profiles = await dbInstance.select().from(schema.profiles).where(eq(schema.profiles.userId, c.userId));
       const profileRow = profiles[0];
       const parsedProfile = profileRow ? ProfileSchema.parse(profileRow.data) : null;
+      const threadRows = await dbInstance
+        .select({ id: schema.threads.id })
+        .from(schema.threads)
+        .where(eq(schema.threads.caseId, caseId));
+      const threadId = threadRows[0]?.id;
+      if (!threadId) throw new Error(`thread not found for case ${caseId}`);
       return {
         case: {
           id: c.id,
@@ -93,6 +107,7 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
         },
         profile: parsedProfile,
         caseFacts: parsedFacts,
+        threadId,
       };
     },
 

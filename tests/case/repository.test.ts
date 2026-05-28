@@ -60,6 +60,35 @@ describe('case repository: createCase + loadCase', () => {
       repo.loadCase('00000000-0000-0000-0000-000000000000'),
     ).rejects.toThrow(/not found/i);
   });
+
+  it('createCase inserts a single thread row alongside cases + case_facts', async () => {
+    const repo = makeRepository(handle.db, handle.schemaName);
+    const { caseId, threadId } = await repo.createCase({
+      userId: seeded.userId,
+      visaType: 'blue_card',
+      targetCountry: 'DE',
+      targetConsulate: 'bengaluru',
+    });
+    expect(threadId).toMatch(/^[0-9a-f-]{36}$/);
+
+    const threads = await handle.db.execute(
+      sql.raw(`SELECT id, case_id FROM "${handle.schemaName}".threads WHERE case_id = '${caseId}'`),
+    );
+    expect(threads.rows.length).toBe(1);
+    expect((threads.rows[0] as { id: string }).id).toBe(threadId);
+  });
+
+  it('loadCase returns the threadId of the case thread', async () => {
+    const repo = makeRepository(handle.db, handle.schemaName);
+    const { caseId, threadId } = await repo.createCase({
+      userId: seeded.userId,
+      visaType: 'blue_card',
+      targetCountry: 'DE',
+      targetConsulate: 'bengaluru',
+    });
+    const loaded = await repo.loadCase(caseId);
+    expect(loaded.threadId).toBe(threadId);
+  });
 });
 
 describe('case repository: applyUpdate', () => {
