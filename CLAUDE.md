@@ -282,9 +282,9 @@ The Pinned decisions below carry forward.
 
 - Server mints `userMessageId`; never trust client-supplied ids.
 - Two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file still correct. Accepted; eval workflow in Phase 7 catches trends.
-- Inngest emit lives in `/api/chat`'s `onFinish` (best-effort), not in the tool. Repository stays Inngest-free.
-- Inngest payload: `{ paths, sourceTurnId }` only — `caseId` lives on `activity_log.case_id`. `kind: 'inngest.echo'` for the trivial logger.
-- `/api/chat` `onFinish` mapping: filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables in route are `updateResults` / `result`.
+- Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free. (Pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved the loop into the factory.)
+- Inngest **event** payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** then writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
+- `onFinish` mapping (now in `buildAgentTurn`): filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables are `updateResults` / `result`.
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: `claude-sonnet-4-7` pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`).
