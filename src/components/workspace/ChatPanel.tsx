@@ -7,6 +7,7 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { resolveRenderer, type ToolOutput } from '@/components/workspace/renderers/registry';
 
 function messageContainsUpdateCase(message: UIMessage): boolean {
   if (!Array.isArray(message.parts)) return false;
@@ -56,12 +57,12 @@ export function ChatPanel({ caseId, initialMessages }: { caseId: string; initial
                   ? m.parts.map((p, i) => {
                       const part = p as { type: string; text?: string };
                       if (part.type === 'text') return <span key={i}>{part.text}</span>;
-                      if (part.type.startsWith('tool-'))
-                        return (
-                          <span key={i} className="opacity-60 text-xs">
-                            [{part.type}]
-                          </span>
-                        );
+                      if (part.type.startsWith('tool-')) {
+                        const out = (part as { output?: ToolOutput }).output;
+                        if (!out?.type) return null;
+                        const Renderer = resolveRenderer(out.type);
+                        return <Renderer key={i} output={out} />;
+                      }
                       return null;
                     })
                   : null}
