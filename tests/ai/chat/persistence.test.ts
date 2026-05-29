@@ -42,7 +42,7 @@ describe('appendChatTurn', () => {
         assistantParts: [{ type: 'text', text: 'hi there' }],
         toolCalls: [],
         toolResults: [],
-        promptVersion: 'v0-stub',
+        promptVersion: 'v0',
         modelVersion: 'claude-sonnet-4-7',
       },
       handle.db,
@@ -59,7 +59,7 @@ describe('appendChatTurn', () => {
     expect(user?.content).toBe('hello');
     expect(assistant?.content).toBe('hi there');
     expect(assistant?.modelVersion).toBe('claude-sonnet-4-7');
-    expect(assistant?.promptVersion).toBe('v0-stub');
+    expect(assistant?.promptVersion).toBe('v0');
 
     const tools = await handle.db.select().from(schema.toolCalls);
     expect(tools).toHaveLength(0);
@@ -96,7 +96,7 @@ describe('appendChatTurn', () => {
             },
           },
         ],
-        promptVersion: 'v0-stub',
+        promptVersion: 'v0',
         modelVersion: 'claude-sonnet-4-7',
       },
       handle.db,
@@ -124,7 +124,7 @@ describe('appendChatTurn', () => {
         assistantParts: [{ type: 'text', text: 'y' }],
         toolCalls: [],
         toolResults: [],
-        promptVersion: 'v0-stub',
+        promptVersion: 'v0',
         modelVersion: 'claude-sonnet-4-7',
       },
       handle.db,
@@ -150,7 +150,7 @@ describe('appendChatTurn', () => {
           assistantParts: [],
           toolCalls: [],
           toolResults: [],
-          promptVersion: 'v0-stub',
+          promptVersion: 'v0',
           modelVersion: 'claude-sonnet-4-7',
         },
         handle.db,
