@@ -257,14 +257,21 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 1A foundation | complete, pushed | plan: `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
 | 1B-1 persistence + `update_case` | complete, pushed 2026-05-28 | plan: `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Last commit `f7ab0be` |
 | 1B-2 auth + anon→authed merge | complete, pushed 2026-05-28 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`. 88/88 tests |
-| 1B-3 chat + workspace + Inngest | complete, ready to push 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
-| 2 | next | real `prompts/agent/v0.md`, real `buildAgentContext` (PRD §8.3), full tool catalog, eligibility wiring, persona-driven E2E |
+| 1B-3 chat + workspace + Inngest | complete, pushed 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
+| 2 (sliced 2A.1/2A.2/2B/2C) | designed; 2A.1 plan ready to build | spec: `docs/superpowers/specs/2026-05-29-phase-2a-1-agent-brain-design.md` |
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Next: Phase 2
+### Next: Phase 2 — sliced into four sessions
 
-Spec/plan TBD. Targets in PRD §8.3: real `prompts/agent/v0.md` (replacing `v0-stub.md`), real `buildAgentContext` (currently a stub returning only `{caseFactsJson}`), full tool catalog beyond `update_case`, eligibility engine wiring into the agent loop, persona-driven E2E. The Pinned decisions below carry forward.
+Phase 2 is too large for one Claude Code session (~1.5–2M tokens). Split to keep each session well below 1M (session-token budget, not API cost, drove the cut — calibrated against the 1B sub-slices):
+
+- **2A.1 — agent brain** *(plan ready: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`; spec: `…/specs/2026-05-29-phase-2a-1-agent-brain-design.md`)*: real `buildAgentContext`, real `prompts/agent/v0.md`, tools `read_case` / `add_case_note` / `out_of_scope`, the `buildAgentTurn` injectable-model seam, and a minimal renderer registry. ~580k/~770k est.
+- **2A.2 — eligibility + knowledge**: tools `check_eligibility`, `simulate_what_if`, `lookup_anabin`; eligibility engine wired into the agent loop.
+- **2B — workspace comes alive**: Overview / Profile / Activity sections rendering real case data.
+- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop; live LLM nightly/on-demand.
+
+The Pinned decisions below carry forward.
 
 `scripts/dev-only/db-state.ts` is the one-shot DB state inspector; runs via `node --env-file=.env.local --import tsx scripts/dev-only/db-state.ts`.
 
@@ -278,10 +285,22 @@ Spec/plan TBD. Targets in PRD §8.3: real `prompts/agent/v0.md` (replacing `v0-s
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: `claude-sonnet-4-7` pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`).
-- Prompt: `prompts/agent/v0-stub.md`, `PROMPT_VERSION = 'v0-stub'`. Phase 2 replaces.
+- Prompt: `prompts/agent/v0-stub.md`, `PROMPT_VERSION = 'v0-stub'`. **2A.1 replaces with `v0.md` / `'v0'`.**
 - `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
 - `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
-- `buildAgentContext` is a stub returning `{ caseFactsJson }`; async signature intentional for Phase 2 awaits.
+- `buildAgentContext` is a stub returning `{ caseFactsJson }`; async signature intentional for Phase 2 awaits. **2A.1 makes it real, returning `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); route composes `system = v0.md + "\n\n" + systemContext`.**
+
+### Phase 2 pinned decisions (set during 2A.1 brainstorming — do NOT redebate)
+
+- **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
+- **`buildAgentTurn({ model, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop (system+context, tools, `stopWhen`, caching, `onFinish`). Route injects the real provider; tests inject a mock. The model-injection seam for 2C. Route keeps only HTTP concerns.
+- **`MockLanguageModelV2` is NOT installed** — `ai/test` needs `msw` (forbidden new dep). Seam tests use the dependency-free pattern from `tests/api/chat.test.ts` (`vi.mock('ai')` capturing `streamText` args + `onFinish`). The fixture-*replay* dep question is resolved in 2C, not 2A.1.
+- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
+- **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
+- **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Built minimal in 2A.1 (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI in 2B.
+- **`v0.md` written for the full Phase 2 tool catalog now** (references `check_eligibility`/`lookup_anabin` as "available from a later build step"); 2A.1 registers only the 4 existing tools, so a live smoke can't call a missing tool.
 - `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`).
 - CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts.
 
