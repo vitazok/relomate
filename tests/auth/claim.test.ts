@@ -40,7 +40,7 @@ describe('/api/claim-anonymous', () => {
   beforeAll(async () => {
     testHandle = await createTestSchema();
   });
-  afterAll(async () => { await testHandle.cleanup(); });
+  afterAll(async () => { if (testHandle) await testHandle.cleanup(); });
   beforeEach(() => {
     cookieStore.clear();
     vi.clearAllMocks();

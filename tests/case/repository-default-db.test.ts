@@ -18,7 +18,7 @@ describe('makeRepository() with no db argument falls back to the default client 
   }, 30_000);
 
   afterAll(async () => {
-    await testHandle.cleanup();
+    if (testHandle) await testHandle.cleanup();
   });
 
   it('createCase + loadCase work without an injected db', async () => {

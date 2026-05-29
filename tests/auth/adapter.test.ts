@@ -8,7 +8,7 @@ import * as schema from '@/lib/db/schema';
 describe('verificationAdapter', () => {
   let handle: TestDbHandle;
   beforeAll(async () => { handle = await createTestSchema(); });
-  afterAll(async () => { await handle.cleanup(); });
+  afterAll(async () => { if (handle) await handle.cleanup(); });
 
   it('createVerificationToken inserts a row', async () => {
     const adapter = makeVerificationAdapter(handle.db);

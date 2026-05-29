@@ -13,9 +13,14 @@ import { inngest } from '@/lib/inngest/client';
 
 export const runtime = 'nodejs';
 
+// Bound client-supplied input: the browser resends the full transcript each turn,
+// so cap both the raw payload and the message count to keep model cost predictable.
+const MAX_BODY_BYTES = 256 * 1024;
+const MAX_MESSAGES = 100;
+
 const BodySchema = z.object({
   caseId: z.string().uuid(),
-  messages: z.array(z.unknown()).min(1),
+  messages: z.array(z.unknown()).min(1).max(MAX_MESSAGES),
 });
 
 function extractLastUserText(messages: { role?: string; content?: unknown }[]): string {
@@ -33,7 +38,22 @@ function extractLastUserText(messages: { role?: string; content?: unknown }[]): 
 }
 
 export async function POST(req: Request) {
-  const body = BodySchema.parse(await req.json());
+  const rawBody = await req.text();
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
+    return new NextResponse('payload too large', { status: 413 });
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(rawBody);
+  } catch {
+    return new NextResponse('invalid json', { status: 400 });
+  }
+
+  const parsed = BodySchema.safeParse(parsedJson);
+  if (!parsed.success) return new NextResponse('invalid request', { status: 400 });
+  const body = parsed.data;
+
   const userId = await getCurrentUserId();
   if (!userId) return new NextResponse('unauthorized', { status: 401 });
 

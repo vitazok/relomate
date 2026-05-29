@@ -28,7 +28,7 @@ describe('appendChatTurn', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await handle.cleanup();
+    if (handle) await handle.cleanup();
   });
 
   it('writes one user + one assistant message and zero tool_calls when no tools fired', async () => {

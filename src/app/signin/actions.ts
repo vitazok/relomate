@@ -20,9 +20,11 @@ export async function requestMagicLink(
     await signIn('resend', { email, redirect: false });
     return { status: 'sent', email };
   } catch (err) {
+    // Don't surface provider/Auth.js internals to the client; log server-side only.
+    console.error('requestMagicLink failed', err);
     return {
       status: 'error',
-      message: err instanceof Error ? err.message : 'Could not send magic link.',
+      message: 'Could not send the magic link. Please try again.',
     };
   }
 }
