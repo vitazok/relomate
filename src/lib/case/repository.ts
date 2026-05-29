@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-postgres';
+import { db as defaultDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { CaseFactsSchema, type CaseFacts } from '@/lib/case/schema';
 import { ProfileSchema, type Profile } from '@/lib/profile/schema';
@@ -41,11 +42,6 @@ export interface Repository {
   applyUpdate(input: UpdateCaseInput): Promise<UpdateCaseResult>;
 }
 
-function getDefaultDb(): Db {
-  // Lazy import to avoid triggering env validation in test imports
-  return require('@/lib/db/client').db;
-}
-
 /**
  * Build a repository scoped to a Drizzle client. The optional `schemaName`
  * is informational only — the actual Postgres schema is selected by the
@@ -53,7 +49,7 @@ function getDefaultDb(): Db {
  * `public` in prod).
  */
 export function makeRepository(db?: Db, _schemaName: string | null = null): Repository {
-  const dbInstance = db ?? getDefaultDb();
+  const dbInstance = db ?? defaultDb;
   return {
     async createCase(input) {
       return await dbInstance.transaction(async (tx) => {

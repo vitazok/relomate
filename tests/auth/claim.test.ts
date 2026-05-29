@@ -33,7 +33,6 @@ vi.mock('@/lib/db/client', () => {
     get db() {
       return testHandle.db;
     },
-    schema,
   };
 });
 

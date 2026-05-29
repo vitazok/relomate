@@ -19,7 +19,6 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/db/client', () => ({
   get db() { return testHandle.db; },
-  schema,
 }));
 
 describe('POST /api/case/new', () => {

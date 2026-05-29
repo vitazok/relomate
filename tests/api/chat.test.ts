@@ -27,7 +27,6 @@ vi.mock('@/lib/inngest/client', () => ({
 let testHandle: TestDbHandle;
 vi.mock('@/lib/db/client', () => ({
   get db() { return testHandle.db; },
-  schema,
 }));
 
 // Mock streamText to call onFinish synchronously with a fixture and return a no-op stream response.

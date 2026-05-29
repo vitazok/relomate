@@ -10,7 +10,6 @@ vi.mock('@/lib/db/client', () => ({
   get db() {
     return testHandle.db;
   },
-  schema,
 }));
 
 describe('logCaseEvent handler', () => {

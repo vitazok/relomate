@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-postgres';
+import { db as defaultDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
@@ -29,16 +30,11 @@ export interface AppendChatTurnInput {
   modelVersion: string;
 }
 
-function getDefaultDb(): Db {
-  // Lazy import to avoid triggering env validation in test imports
-  return require('@/lib/db/client').db;
-}
-
 export async function appendChatTurn(
   input: AppendChatTurnInput,
   db?: Db,
 ): Promise<{ assistantMessageId: string }> {
-  const dbInstance = db ?? getDefaultDb();
+  const dbInstance = db ?? defaultDb;
   const assistantMessageId = crypto.randomUUID();
 
   await dbInstance.transaction(async (tx) => {
