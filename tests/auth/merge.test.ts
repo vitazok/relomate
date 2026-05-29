@@ -8,7 +8,7 @@ import * as schema from '@/lib/db/schema';
 describe('promoteToAuthed', () => {
   let handle: TestDbHandle;
   beforeAll(async () => { handle = await createTestSchema(); });
-  afterAll(async () => { await handle.cleanup(); });
+  afterAll(async () => { if (handle) await handle.cleanup(); });
 
   it('branch (b): promotes anon user in place when no existing identity', async () => {
     const anon = await seedAnonUser(handle);
@@ -51,7 +51,7 @@ describe('promoteToAuthed', () => {
     expect((log[0]?.payload as Record<string, unknown>).email).toBe(email);
   });
 
-  it('branch (c): re-points cases, deletes anon, deletes anon org, transfers profile when target has none', async () => {
+  it('branch (c): re-points cases, tombstones anon + anon org, transfers profile when target has none', async () => {
     const email = 'rahul@example.com';
     const anon = await seedAnonUser(handle);
     await seedCaseFor(handle, anon.userId);
@@ -77,17 +77,18 @@ describe('promoteToAuthed', () => {
       .where(eq(schema.cases.userId, target.userId));
     expect(targetCases).toHaveLength(3);
 
+    // Anon user + org are tombstoned, not deleted, so audit-row FKs stay valid.
     const anonExists = await handle.db
       .select()
       .from(schema.users)
       .where(eq(schema.users.id, anon.userId));
-    expect(anonExists).toHaveLength(0);
+    expect(anonExists).toHaveLength(1);
 
     const anonOrgExists = await handle.db
       .select()
       .from(schema.organizations)
       .where(eq(schema.organizations.id, anon.organizationId));
-    expect(anonOrgExists).toHaveLength(0);
+    expect(anonOrgExists).toHaveLength(1);
 
     const targetProfile = await handle.db
       .select()
@@ -129,6 +130,58 @@ describe('promoteToAuthed', () => {
       .from(schema.activityLog)
       .where(eq(schema.activityLog.userId, target.userId));
     expect((log[0]?.payload as Record<string, unknown>).profileTransferred).toBe(false);
+  });
+
+  it('branch (c): preserves anon-owned audit rows (activity_log + profile_changes) instead of orphaning them', async () => {
+    const email = 'audit@example.com';
+    const anon = await seedAnonUser(handle);
+    const { caseId } = await seedCaseFor(handle, anon.userId);
+    const target = await (await import('../_db/seed-auth')).seedAuthedUser(handle, email);
+
+    // Rows that repository.applyUpdate writes under the anon user during an anonymous chat session.
+    await handle.db.insert(schema.activityLog).values({
+      caseId,
+      userId: anon.userId,
+      kind: 'case.facts.updated',
+      payload: { paths: ['employment.employerName'] } as never,
+    });
+    await handle.db.insert(schema.profileChanges).values({
+      userId: anon.userId,
+      fieldPath: 'nationality',
+      oldValue: null,
+      newValue: 'IN',
+      source: 'user_stated',
+      confidence: '0.90',
+    });
+
+    await promoteToAuthed(handle.db, { anonymousUserId: anon.userId, email });
+
+    // Audit rows survive the merge: their user_id FK still resolves to a (tombstoned) user.
+    const auditLogs = await handle.db
+      .select()
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.userId, anon.userId));
+    expect(auditLogs).toHaveLength(1);
+
+    const changes = await handle.db
+      .select()
+      .from(schema.profileChanges)
+      .where(eq(schema.profileChanges.userId, anon.userId));
+    expect(changes).toHaveLength(1);
+
+    // The anon user is tombstoned, not deleted — so the audit FKs remain valid.
+    const anonRow = await handle.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, anon.userId));
+    expect(anonRow).toHaveLength(1);
+
+    // The case still re-points to the target.
+    const targetCases = await handle.db
+      .select()
+      .from(schema.cases)
+      .where(eq(schema.cases.userId, target.userId));
+    expect(targetCases).toHaveLength(1);
   });
 
   it('idempotent: calling twice with same inputs yields same end state', async () => {

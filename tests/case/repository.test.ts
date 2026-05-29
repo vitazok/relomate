@@ -14,7 +14,7 @@ describe('case repository: createCase + loadCase', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await handle.cleanup();
+    if (handle) await handle.cleanup();
   });
 
   it('createCase inserts cases + empty case_facts row', async () => {
@@ -101,7 +101,7 @@ describe('case repository: applyUpdate', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await handle.cleanup();
+    if (handle) await handle.cleanup();
   });
 
   async function freshCase() {

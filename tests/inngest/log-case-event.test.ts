@@ -29,7 +29,7 @@ describe('logCaseEvent handler', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await testHandle.cleanup();
+    if (testHandle) await testHandle.cleanup();
   });
 
   it('writes one inngest.echo activity_log row', async () => {

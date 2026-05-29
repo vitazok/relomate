@@ -40,6 +40,14 @@ export interface Repository {
   createCase(input: CreateCaseInput): Promise<{ caseId: string; threadId: string }>;
   loadCase(caseId: string): Promise<LoadedCase>;
   applyUpdate(input: UpdateCaseInput): Promise<UpdateCaseResult>;
+  appendActivity(input: AppendActivityInput): Promise<void>;
+}
+
+export interface AppendActivityInput {
+  caseId: string;
+  userId: string;
+  kind: string;
+  payload: Record<string, unknown>;
 }
 
 /**
@@ -241,6 +249,15 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
         updatedPaths: flat.map((f) => f.path),
         contradictions,
       };
+    },
+
+    async appendActivity(input) {
+      await dbInstance.insert(schema.activityLog).values({
+        caseId: input.caseId,
+        userId: input.userId,
+        kind: input.kind,
+        payload: input.payload,
+      });
     },
   };
 }

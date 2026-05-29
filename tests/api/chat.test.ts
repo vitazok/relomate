@@ -65,7 +65,7 @@ describe('POST /api/chat', () => {
     threadId = created.threadId;
   }, 30_000);
 
-  afterAll(async () => { await testHandle.cleanup(); });
+  afterAll(async () => { if (testHandle) await testHandle.cleanup(); });
   beforeEach(() => { cookieStore.clear(); vi.clearAllMocks(); streamTextOnFinish = undefined; streamTextFixture = {}; });
 
   it('returns 401 when no session cookie present', async () => {

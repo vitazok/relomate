@@ -107,7 +107,6 @@ export async function promoteToAuthed(
 
     let casesMerged = 0;
     let profileTransferred = false;
-    let anonOrgId: string | null = null;
 
     if (anonymousUserId) {
       // Re-point cases
@@ -117,13 +116,6 @@ export async function promoteToAuthed(
         .where(eq(schema.cases.userId, anonymousUserId))
         .returning({ id: schema.cases.id });
       casesMerged = repointed.length;
-
-      // Look up anon org id for later deletion (users.organization_id is NOT NULL)
-      const [anonRow] = await tx
-        .select({ orgId: schema.users.organizationId })
-        .from(schema.users)
-        .where(eq(schema.users.id, anonymousUserId));
-      anonOrgId = anonRow?.orgId ?? null;
 
       // Profile transfer: only if target has none
       const [targetProfile] = await tx
@@ -147,10 +139,11 @@ export async function promoteToAuthed(
           .where(eq(schema.profiles.userId, anonymousUserId));
       }
 
-      await tx.delete(schema.users).where(eq(schema.users.id, anonymousUserId));
-      if (anonOrgId) {
-        await tx.delete(schema.organizations).where(eq(schema.organizations.id, anonOrgId));
-      }
+      // Tombstone the anon user instead of deleting it (and its org): its id is still
+      // referenced by append-only audit rows (activity_log, profile_changes) written
+      // during the anonymous session. Deleting would violate those FKs (ON DELETE no
+      // action); re-pointing the rows would violate the append-only rule. Leave the
+      // row as a dead tombstone — `auth.merged_anon` below records where it merged to.
 
       await tx.insert(schema.activityLog).values({
         userId: targetUserId,

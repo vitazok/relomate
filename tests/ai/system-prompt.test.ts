@@ -4,15 +4,15 @@ import { join } from 'node:path';
 import { systemPrompt, PROMPT_VERSION } from '@/lib/ai/chat/system-prompt';
 
 describe('system prompt loader', () => {
-  it('exposes the v0-stub.md content as a constant string', () => {
+  it('exposes the v0.md content as a constant string', () => {
     const onDisk = readFileSync(
-      join(process.cwd(), 'prompts/agent/v0-stub.md'),
+      join(process.cwd(), 'prompts/agent/v0.md'),
       'utf8',
     );
     expect(systemPrompt).toBe(onDisk);
   });
 
   it('exposes a version constant for activity logs', () => {
-    expect(PROMPT_VERSION).toBe('v0-stub');
+    expect(PROMPT_VERSION).toBe('v0');
   });
 });

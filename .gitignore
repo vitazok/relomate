@@ -12,6 +12,8 @@ coverage
 .DS_Store
 *.log
 *.tsbuildinfo
+*.swp
+.*.swp
 next-env.d.ts
 
 drizzle/.snapshots

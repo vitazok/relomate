@@ -11,7 +11,7 @@ describe('test schema lifecycle', () => {
   }, 30_000);
 
   afterAll(async () => {
-    await handle.cleanup();
+    if (handle) await handle.cleanup();
   });
 
   it('creates the schema with all tables', async () => {

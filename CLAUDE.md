@@ -163,13 +163,15 @@ These bit us before. Don't redo.
 - **Email normalization:** lowercase + trim at every entry point (server action AND claim handler). The route's `auth()` returns whatever Auth.js parsed; assume casing/whitespace.
 - **Activity-log audit trail:** `auth.promoted_anon` and `auth.merged_anon` rows log `email` INTENTIONALLY. Do NOT log email in any other `activity_log.payload` (PII rule).
 - **Cross-user `loadCase`** redirects to `/`, not 404. Plan-canonical decision; observable but acceptable for MVP.
+- **Anon→authed merge tombstones, never deletes, the anon user.** Branch (c) of `promoteToAuthed` (anon signs in with an email that already has an account) re-points `cases` + transfers/drops the profile, then leaves the anon `users`/`organizations` rows in place as dead tombstones. It does NOT delete them. Reason: `activity_log` + `profile_changes` rows written under the anon id during the session reference `users.id` with `ON DELETE no action`; deleting throws an FK violation (rolls back the whole merge → sign-in 500s), and re-pointing those audit rows would violate the append-only rule (10). The merge pointer is recoverable from the `auth.merged_anon` log row (`{from, into}`). Do NOT re-add the `delete(users)`/`delete(organizations)` calls. Regression test: `tests/auth/merge.test.ts` "preserves anon-owned audit rows".
 
 ### Tests / vitest
 - **Module-scope env validation breaks vitest imports.** `@/lib/env` validates at top-level. Tests touching env-dependent modules need `tests/_setup/env.ts` registered as `setupFiles` in `vitest.config.ts` — it loads `.env.test.local` BEFORE any module imports. Don't add a `beforeAll` shim; too late.
 - **`require('@/...')` is broken everywhere — not just vitest.** The `@` alias is a Vite/Turbopack/tsc resolver applied to **static `import` statements at compile time**. CJS `require()` calls go straight to Node's resolver, which has no knowledge of the alias and returns `{}`. Bit us in `repository.ts` / `persistence.ts` `getDefaultDb()` — the bare-call path crashed RSC at runtime even though every test passed (because tests pass `db` explicitly, never hitting the lazy path). Fix is always static `import { db as defaultDb } from '@/lib/db/client'`. If the *reason* for the lazy import is to defer env validation, register `tests/_setup/env.ts` in `setupFiles` so eager validation just succeeds — that's the working pattern.
 - **Repository / persistence default-db path:** `makeRepository()` and `appendChatTurn(input)` fall back to a static `defaultDb` import from `@/lib/db/client` when no `db` is passed. Routes / Inngest handlers / RSC pages may call them with no argument. Tests pass `db` explicitly OR mock `@/lib/db/client` with the getter pattern below.
 - **Test mock pattern for `@/lib/db/client`:** `vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; } }))`. The **getter** is essential — `vi.mock` is hoisted above imports, so `testHandle` isn't yet assigned when the factory runs. Do NOT include `schema` in the factory: `vi.mock` is hoisted above the `import * as schema` binding, so `{ schema }` references the TDZ and crashes any test that imports a module which transitively imports `@/lib/db/client` (e.g. `tests/api/chat.test.ts` importing `makeRepository`). Source code never reads `schema` from `@/lib/db/client`; it imports from `@/lib/db/schema` directly.
-- **`/api/chat` body schema** rejects empty `messages` arrays at parse. 401/403 tests must send non-empty `messages` to reach auth/ownership checks.
+- **`/api/chat` body parsing is bounded and 4xx-safe.** The route reads raw text, rejects payloads > `MAX_BODY_BYTES` (256KB) with 413, guards `JSON.parse` (400 on malformed), then `safeParse`s `BodySchema` (400 on bad shape). `BodySchema` requires `messages` non-empty (`.min(1)`) and `.max(MAX_MESSAGES)` (100). 401/403 tests must send non-empty `messages` to reach auth/ownership checks. Don't revert to `BodySchema.parse(await req.json())` — that 500s on malformed input.
+- **`EMAXPOOLSREACHED` on a full-suite run is INFRA, not a code bug.** Each test schema baked a distinct `search_path` into its connection URL, and the Supabase pooler (Supavisor) allocates one pool per distinct search_path. The default per-core file parallelism spins up ~15 schemas at once; repeated full-suite runs in one session compound it past the pooler's pool-count limit, and DB-touching suites fail with `error: (EMAXPOOLSREACHED) max pools count reached` (Postgres `FATAL XX000`) — only the DB tests fail; pure-logic tests stay green. Fix: re-run with `pnpm exec vitest run --no-file-parallelism` (serial, ~32s, reliably green). Don't chase it as a regression.
 
 ### Rules + eligibility
 - **Rules loader caches in module scope.** Restart `pnpm dev` after YAML edits.
@@ -257,14 +259,24 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 1A foundation | complete, pushed | plan: `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
 | 1B-1 persistence + `update_case` | complete, pushed 2026-05-28 | plan: `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Last commit `f7ab0be` |
 | 1B-2 auth + anon→authed merge | complete, pushed 2026-05-28 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`. 88/88 tests |
-| 1B-3 chat + workspace + Inngest | complete, ready to push 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
-| 2 | next | real `prompts/agent/v0.md`, real `buildAgentContext` (PRD §8.3), full tool catalog, eligibility wiring, persona-driven E2E |
+| 1B-3 chat + workspace + Inngest | complete, pushed 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
+| 2A.1 agent brain | code-complete 2026-05-29 (not yet pushed); manual live smoke pending | plan: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`. 128/128 tests, build/lint/tsc clean. Branch `phase-2a-1-agent-brain`. |
+| 2 (remaining 2A.2/2B/2C) | designed | spec: `docs/superpowers/specs/2026-05-29-phase-2a-1-agent-brain-design.md` |
+
+**Post-1B-3 review pass (2026-05-29, commits `8241e7a` + `f33895c`, 111/111 tests):** external red-flag review. Fixed: merge FK bug (tombstone, see Auth.js gotcha), `/api/chat` input bounds + 4xx safety, generic auth error, test `afterAll` cleanup guards, gitignore `*.swp`. **Deliberately deferred — these are scheduled work, NOT regressions:** (1) `buildAgentContext` result is discarded and the prompt is `v0-stub` — 2A.1 fixes both by design; (2) `/api/chat` accepts full client transcript with no server-side history rebuild — revisit in the real 2A.1 agent loop if desired; (3) dual `ai@5`+`ai@6` install with two `as unknown` casts — Phase 2 cleanup (align to `^6`). Don't re-report these as new bugs.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Next: Phase 2
+### Next: Phase 2 — sliced into four sessions
 
-Spec/plan TBD. Targets in PRD §8.3: real `prompts/agent/v0.md` (replacing `v0-stub.md`), real `buildAgentContext` (currently a stub returning only `{caseFactsJson}`), full tool catalog beyond `update_case`, eligibility engine wiring into the agent loop, persona-driven E2E. The Pinned decisions below carry forward.
+Phase 2 is too large for one Claude Code session (~1.5–2M tokens). Split to keep each session well below 1M (session-token budget, not API cost, drove the cut — calibrated against the 1B sub-slices):
+
+- **2A.1 — agent brain** *(plan ready: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`; spec: `…/specs/2026-05-29-phase-2a-1-agent-brain-design.md`)*: real `buildAgentContext`, real `prompts/agent/v0.md`, tools `read_case` / `add_case_note` / `out_of_scope`, the `buildAgentTurn` injectable-model seam, and a minimal renderer registry. ~580k/~770k est.
+- **2A.2 — eligibility + knowledge**: tools `check_eligibility`, `simulate_what_if`, `lookup_anabin`; eligibility engine wired into the agent loop.
+- **2B — workspace comes alive**: Overview / Profile / Activity sections rendering real case data.
+- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop; live LLM nightly/on-demand.
+
+The Pinned decisions below carry forward.
 
 `scripts/dev-only/db-state.ts` is the one-shot DB state inspector; runs via `node --env-file=.env.local --import tsx scripts/dev-only/db-state.ts`.
 
@@ -272,16 +284,30 @@ Spec/plan TBD. Targets in PRD §8.3: real `prompts/agent/v0.md` (replacing `v0-s
 
 - Server mints `userMessageId`; never trust client-supplied ids.
 - Two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file still correct. Accepted; eval workflow in Phase 7 catches trends.
-- Inngest emit lives in `/api/chat`'s `onFinish` (best-effort), not in the tool. Repository stays Inngest-free.
-- Inngest payload: `{ paths, sourceTurnId }` only — `caseId` lives on `activity_log.case_id`. `kind: 'inngest.echo'` for the trivial logger.
-- `/api/chat` `onFinish` mapping: filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables in route are `updateResults` / `result`.
+- Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free. (Pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved the loop into the factory.)
+- Inngest **event** payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** then writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
+- `onFinish` mapping (now in `buildAgentTurn`): filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables are `updateResults` / `result`.
+- **`buildAgentTurn({ model, repo, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop: composes `systemPrompt + "\n\n" + context.systemContext`, registers the tool set, sets `stopWhen: stepCountIs(5)` + ephemeral cache, and runs `onFinish` (persist + Inngest emit). The route injects the real Anthropic model; tests inject a mock via `vi.mock('ai')` capturing `streamText` args (the 2C fixture-replay seam — `MockLanguageModelV2` stays uninstalled, needs forbidden `msw`). Route keeps only HTTP concerns.
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown. Dispatches on `type` ONLY; `version` deliberately ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships — comment in file). `ChatPanel` reads the static-tool part's result off `part.output` (AI SDK v5 shape; `if (!out?.type) return null` skips in-flight/errored parts). Minimal renderers now; rich UI is 2B. NOTE for 2B: `OutOfScopeResult` is a block-level amber card rendered inside the chat bubble — revisit whether block renderers should sit outside the bubble.
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: `claude-sonnet-4-7` pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`).
-- Prompt: `prompts/agent/v0-stub.md`, `PROMPT_VERSION = 'v0-stub'`. Phase 2 replaces.
+- Prompt: `prompts/agent/v0-stub.md`, `PROMPT_VERSION = 'v0-stub'`. **2A.1 replaces with `v0.md` / `'v0'`.**
 - `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
 - `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
-- `buildAgentContext` is a stub returning `{ caseFactsJson }`; async signature intentional for Phase 2 awaits.
+- `buildAgentContext` is a stub returning `{ caseFactsJson }`; async signature intentional for Phase 2 awaits. **2A.1 makes it real, returning `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); route composes `system = v0.md + "\n\n" + systemContext`.**
+
+### Phase 2 pinned decisions (set during 2A.1 brainstorming — do NOT redebate)
+
+- **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
+- **`buildAgentTurn({ model, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop (system+context, tools, `stopWhen`, caching, `onFinish`). Route injects the real provider; tests inject a mock. The model-injection seam for 2C. Route keeps only HTTP concerns.
+- **`MockLanguageModelV2` is NOT installed** — `ai/test` needs `msw` (forbidden new dep). Seam tests use the dependency-free pattern from `tests/api/chat.test.ts` (`vi.mock('ai')` capturing `streamText` args + `onFinish`). The fixture-*replay* dep question is resolved in 2C, not 2A.1.
+- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
+- **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
+- **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Built minimal in 2A.1 (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI in 2B.
+- **`v0.md` written for the full Phase 2 tool catalog now** (references `check_eligibility`/`lookup_anabin` as "available from a later build step"); 2A.1 registers only the 4 existing tools, so a live smoke can't call a missing tool.
 - `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`).
 - CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts.
 

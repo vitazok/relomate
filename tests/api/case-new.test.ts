@@ -23,7 +23,7 @@ vi.mock('@/lib/db/client', () => ({
 
 describe('POST /api/case/new', () => {
   beforeAll(async () => { testHandle = await createTestSchema(); });
-  afterAll(async () => { await testHandle.cleanup(); });
+  afterAll(async () => { if (testHandle) await testHandle.cleanup(); });
   beforeEach(async () => {
     cookieStore.clear();
     vi.clearAllMocks();
