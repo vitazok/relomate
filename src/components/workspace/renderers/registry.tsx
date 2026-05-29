@@ -47,6 +47,9 @@ const registry: Record<string, Renderer> = {
   out_of_scope_result: OutOfScopeResult,
 };
 
+// Dispatch keys on `type` only; `output.version` is intentionally ignored while
+// every output is v1. When a v2 payload ships, key on `${type}@${version}` (or
+// branch inside the renderer) so a v1 renderer never silently renders v2 data.
 export function resolveRenderer(type: string): Renderer {
   return registry[type] ?? FallbackResult;
 }
