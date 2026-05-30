@@ -62,9 +62,11 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(5),
-    providerOptions: {
-      anthropic: { cacheControl: { type: 'ephemeral' } },
-    },
+    // Anthropic allows max 4 cache_control breakpoints; the 4 tools each carry one (see each
+    // makeXTool). A top-level breakpoint here would be the 5th (over the limit) and would only
+    // cache the system string, which embeds per-turn case-facts context — a near-certain miss.
+    // NOTE for 2A.2: adding a 5th tool re-breaches the limit; consolidate to a single tool-block
+    // breakpoint before then.
     async onFinish(event) {
       try {
         await appendChatTurn({
