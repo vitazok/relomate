@@ -97,7 +97,7 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 
 See PRD §3.3 for the full layout. Key locations:
 
-- `prompts/agent/v0.md` — main agent system prompt (currently `v0-stub.md`; Phase 2 replaces with `v0.md`)
+- `prompts/agent/v0.md` — main agent system prompt (`PROMPT_VERSION = 'v0'`)
 - `prompts/eval/v0.md` — LLM-as-judge prompt
 - `config/rules/*.yaml` — verified facts (rules, thresholds, ISCO, family, apostille, consulates, documents)
 - `content/knowledge/*.md` — markdown chunks for retrieval
@@ -261,21 +261,23 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 1B-1 persistence + `update_case` | complete, pushed 2026-05-28 | plan: `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Last commit `f7ab0be` |
 | 1B-2 auth + anon→authed merge | complete, pushed 2026-05-28 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`. 88/88 tests |
 | 1B-3 chat + workspace + Inngest | complete, pushed 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
-| 2A.1 agent brain | **merged to main (PR #1)**; **live-smoke PASSED 2026-05-30** | plan: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`. 128/128 tests, build/lint/tsc clean. Feature merged via PR #1 (`4a457c9`). Post-merge live-smoke caught 3 runtime bugs (fixed in commits `c896824`/`791cd1e`/`41c35ba`, on PR #2 from branch `phase-2a-1-agent-brain`): `ai@5`→`^6` (v3-model 500), 5th cache_control breakpoint (400), bogus `MODEL_ID` `-4-7` (404). Verified live: `update_case` self-corrects on tool errors, contradiction path, `out_of_scope` activity log + renderer output shape. |
-| 2 (remaining 2A.2/2B/2C) | designed | spec: `docs/superpowers/specs/2026-05-29-phase-2a-1-agent-brain-design.md` |
+| 2A.1 agent brain | **complete; merged to main** (PR #1 `4a457c9` + smoke-fix PR #2 `f405d59`); live-smoke PASSED 2026-05-30 | plan: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`. 128/128 tests, build/lint/tsc clean. Live-smoke caught + fixed 3 runtime bugs the mocked unit tests missed: `ai@5`→`^6` (v3-model 500, casts removed), 5th cache_control breakpoint (400), bogus `MODEL_ID` `-4-7`→`-4-6` (404). Verified live: `update_case` self-corrects on tool errors, contradiction path, `out_of_scope` activity log + renderer output shape. |
+| **2A.2 — eligibility + knowledge (NEXT)** | designed, not started | spec: `docs/superpowers/specs/2026-05-29-phase-2a-1-agent-brain-design.md`. See "Next" section below. |
+| 2B / 2C | designed | same spec |
 
-**Post-1B-3 review pass (2026-05-29, commits `8241e7a` + `f33895c`, 111/111 tests):** external red-flag review. Fixed: merge FK bug (tombstone, see Auth.js gotcha), `/api/chat` input bounds + 4xx safety, generic auth error, test `afterAll` cleanup guards, gitignore `*.swp`. **Deliberately deferred — these are scheduled work, NOT regressions:** (1) `buildAgentContext` result is discarded and the prompt is `v0-stub` — 2A.1 fixes both by design; (2) `/api/chat` accepts full client transcript with no server-side history rebuild — revisit in the real 2A.1 agent loop if desired; (3) dual `ai@5`+`ai@6` install with two `as unknown` casts — Phase 2 cleanup (align to `^6`). Don't re-report these as new bugs.
+**Post-1B-3 review pass (2026-05-29, commits `8241e7a` + `f33895c`):** external red-flag review fixed the merge FK bug (tombstone, see Auth.js gotcha), `/api/chat` input bounds + 4xx safety, generic auth error, test `afterAll` cleanup guards, gitignore `*.swp`. Two of its deferred items are now done in 2A.1 (`buildAgentContext`/`v0` prompt; `ai@6` alignment + cast removal). **Still open, NOT a regression:** `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Next: Phase 2 — sliced into four sessions
+### Next: Phase 2A.2 — eligibility + knowledge tools
 
-Phase 2 is too large for one Claude Code session (~1.5–2M tokens). Split to keep each session well below 1M (session-token budget, not API cost, drove the cut — calibrated against the 1B sub-slices):
+Phase 2 is sliced into four sessions (kept well below 1M tokens each — session-token budget, not API cost, drove the cut). **2A.1 is done and merged.** Remaining slices:
 
-- **2A.1 — agent brain** *(plan ready: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`; spec: `…/specs/2026-05-29-phase-2a-1-agent-brain-design.md`)*: real `buildAgentContext`, real `prompts/agent/v0.md`, tools `read_case` / `add_case_note` / `out_of_scope`, the `buildAgentTurn` injectable-model seam, and a minimal renderer registry. ~580k/~770k est.
-- **2A.2 — eligibility + knowledge**: tools `check_eligibility`, `simulate_what_if`, `lookup_anabin`; eligibility engine wired into the agent loop.
-- **2B — workspace comes alive**: Overview / Profile / Activity sections rendering real case data.
-- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop; live LLM nightly/on-demand.
+- **2A.2 — eligibility + knowledge (NEXT, not started):** tools `check_eligibility`, `simulate_what_if` (the YAGNI tool — not on the happy path), `lookup_anabin`; wire the slimmed `evaluateEligibility` engine into the agent loop. No plan written yet — start with brainstorming → writing-plans against the spec.
+  - ⚠️ **Cache budget:** the 4 existing tools each carry a `cache_control` breakpoint, hitting Anthropic's max of 4. Adding a 5th tool re-breaches it (400 error). Consolidate to a single tool-block breakpoint before registering new tools — see NOTE in `agent-turn.ts`.
+  - `v0.md` already references `check_eligibility`/`lookup_anabin` as "available from a later build step" — registering them is the natural completion.
+- **2B — workspace comes alive:** Overview / Profile / Activity sections rendering real case data; rich renderers (the 2A.1 registry is minimal).
+- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand.
 
 The Pinned decisions below carry forward.
 
@@ -293,10 +295,10 @@ The Pinned decisions below carry forward.
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: `claude-sonnet-4-6` pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). **(Corrected 2026-05-30: the prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API returns `not_found_error`. Verified `claude-sonnet-4-6` against `/v1/models`. Don't restore `-4-7`.)**
-- Prompt: `prompts/agent/v0-stub.md`, `PROMPT_VERSION = 'v0-stub'`. **2A.1 replaces with `v0.md` / `'v0'`.**
+- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'` (2A.1; the `v0-stub` was removed).
 - `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
 - `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
-- `buildAgentContext` is a stub returning `{ caseFactsJson }`; async signature intentional for Phase 2 awaits. **2A.1 makes it real, returning `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); route composes `system = v0.md + "\n\n" + systemContext`.**
+- `buildAgentContext` returns `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); `buildAgentTurn` composes `system = v0.md + "\n\n" + systemContext`. (Async signature kept for future Phase 2 awaits, e.g. activity tail.)
 
 ### Phase 2 pinned decisions (set during 2A.1 brainstorming — do NOT redebate)
 
@@ -307,8 +309,8 @@ The Pinned decisions below carry forward.
 - **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
 - **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
 - **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
-- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Built minimal in 2A.1 (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI in 2B.
-- **`v0.md` written for the full Phase 2 tool catalog now** (references `check_eligibility`/`lookup_anabin` as "available from a later build step"); 2A.1 registers only the 4 existing tools, so a live smoke can't call a missing tool.
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Minimal renderers (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI is 2B's job.
+- **`v0.md` covers the full Phase 2 tool catalog** (references `check_eligibility`/`lookup_anabin` as "available from a later build step"). Only the 4 built tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`) are registered today; 2A.2 registers the eligibility/knowledge tools.
 - `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`).
 - CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts.
 
