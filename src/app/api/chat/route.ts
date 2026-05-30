@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { convertToModelMessages, type LanguageModel } from 'ai';
+import { convertToModelMessages } from 'ai';
 import { anthropic, MODEL_ID } from '@/lib/ai/provider';
 import { buildAgentTurn } from '@/lib/ai/chat/agent-turn';
 import { makeRepository } from '@/lib/case/repository';
@@ -47,8 +47,7 @@ export async function POST(req: Request) {
   const modelMessages = await convertToModelMessages(body.messages as never);
 
   const result = await buildAgentTurn({
-    // reason: @ai-sdk/anthropic@3 returns LanguageModelV3 while ai@5 expects LanguageModelV2; same runtime shape.
-    model: anthropic(MODEL_ID) as unknown as LanguageModel,
+    model: anthropic(MODEL_ID),
     repo,
     caseId: body.caseId,
     threadId: loaded.threadId,

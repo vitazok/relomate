@@ -28,11 +28,7 @@ export function ChatPanel({ caseId, initialMessages }: { caseId: string; initial
   );
 
   const { messages, sendMessage, status } = useChat({
-    // reason: dual-package install — project pins `ai@^5` while `@ai-sdk/react@3.x` transitively bundles `ai@6`.
-    // Both `DefaultChatTransport` classes are structurally identical at runtime, but TypeScript treats them as
-    // nominally distinct (their `UIMessageChunk.finishReason` enums diverge by one variant). Cast through unknown
-    // is contained to this one boundary. TODO: align `ai` to `^6` (or downgrade @ai-sdk/react) — see Task 13 report.
-    transport: transport as unknown as Parameters<typeof useChat>[0] extends { transport?: infer T } ? T : never,
+    transport,
     messages: initialMessages,
     onFinish: ({ message }) => {
       if (messageContainsUpdateCase(message as UIMessage)) {
