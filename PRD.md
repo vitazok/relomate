@@ -525,6 +525,9 @@ Any user can load any seeded persona via `/case/new?persona=priya-strong` (or si
 
 ## 7. Dashboard / Workspace
 
+> **Evolution note (2026-05-31): the center column becomes a journey tracker.**
+> Brainstormed with the user and specced in `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`. The original §7 modeled the center column as whichever nav section is active (Overview by default). It now hosts a **journey tracker**: a read-only projection of case state into ordered phases with per-phase progress (Eligibility 6/8, Documents 1/9, …), dual provenance (requirement citations + answer provenance), and expandable per-phase detail. The §7.2 sections below are **not deleted** — they survive as **left-sidebar drill-down views** (the detailed per-section screens the tracker links into). Two notable shifts: **Profile (§7.2.2) is folded into Documents** (identity is extracted from the passport upload, not entered standalone), and the layout follows "Option A" (sidebar = portal chrome + section links; center = tracker; chat pinned right). The journey covers the **application-package** arc only (ends at "ready to submit"), unchanged from the North Star. Treat the tracker spec as authoritative where it refines the text below.
+
 ### 7.1 Layout
 
 Three columns on desktop, stacked + chat-bottom-sheet on mobile.
@@ -551,13 +554,13 @@ Chat is **never hidden behind a button**. It's a permanent panel, like Claude Pr
 
 ### 7.2 Workspace sections
 
-**§7.2.1 Overview** — hero card showing:
+**§7.2.1 Overview** — *(superseded by the journey tracker — see the §7 evolution note; the tracker is the new center-column "overview")*. Hero content showing:
 - Case status (e.g., "Documents in progress, 3 of 8 confirmed")
 - Eligibility verdict (route, blockers, warnings)
 - What the system is working on right now
 - Top 3 action items with deep links
 
-**§7.2.2 Profile** — identity facts (name, DOB, nationality, family). Editable. Each field shows provenance on hover ("from passport scan, May 22").
+**§7.2.2 Profile** — *(folded into Documents per the §7 evolution note: identity facts are extracted from the passport upload and confirmed in place, not entered as a standalone phase. The `Profile` DB table is unchanged — it stays user-level and is reused across cases. This remains available as a sidebar drill-down view.)* Identity facts (name, DOB, nationality, family). Editable. Each field shows provenance on hover ("from passport scan, May 22").
 
 **§7.2.3 Documents** — three groups:
 - *Needed* — checklist of required documents not yet uploaded. Shows why each is needed.

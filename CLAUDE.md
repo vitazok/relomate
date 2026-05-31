@@ -264,6 +264,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 2A.1 agent brain | **complete; merged to main** (PR #1 `4a457c9` + smoke-fix PR #2 `f405d59`); live-smoke PASSED 2026-05-30 | plan: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`. 128/128 tests, build/lint/tsc clean. Live-smoke caught + fixed 3 runtime bugs the mocked unit tests missed: `ai@5`→`^6` (v3-model 500, casts removed), 5th cache_control breakpoint (400), bogus `MODEL_ID` `-4-7`→`-4-6` (404). Verified live: `update_case` self-corrects on tool errors, contradiction path, `out_of_scope` activity log + renderer output shape. |
 | **2A.2 — eligibility + knowledge (NEXT)** | designed, not started | spec: `docs/superpowers/specs/2026-05-29-phase-2a-1-agent-brain-design.md`. See "Next" section below. |
 | 2B / 2C | designed | same spec |
+| 2B journey-tracker dashboard | **designed 2026-05-31, not started** (build as 2B centerpiece, AFTER 2A.2) | spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (commit `4db6846`). Reconceives PRD §7: center column becomes a journey tracker (read-only projection over case state), sidebar sections demoted to drill-downs. See "Journey-tracker dashboard" under Next. |
 
 **Post-1B-3 review pass (2026-05-29, commits `8241e7a` + `f33895c`):** external red-flag review fixed the merge FK bug (tombstone, see Auth.js gotcha), `/api/chat` input bounds + 4xx safety, generic auth error, test `afterAll` cleanup guards, gitignore `*.swp`. Two of its deferred items are now done in 2A.1 (`buildAgentContext`/`v0` prompt; `ai@6` alignment + cast removal). **Still open, NOT a regression:** `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
 
@@ -276,10 +277,24 @@ Phase 2 is sliced into four sessions (kept well below 1M tokens each — session
 - **2A.2 — eligibility + knowledge (NEXT, not started):** tools `check_eligibility`, `simulate_what_if` (the YAGNI tool — not on the happy path), `lookup_anabin`; wire the slimmed `evaluateEligibility` engine into the agent loop. No plan written yet — start with brainstorming → writing-plans against the spec.
   - ⚠️ **Cache budget:** the 4 existing tools each carry a `cache_control` breakpoint, hitting Anthropic's max of 4. Adding a 5th tool re-breaches it (400 error). Consolidate to a single tool-block breakpoint before registering new tools — see NOTE in `agent-turn.ts`.
   - `v0.md` already references `check_eligibility`/`lookup_anabin` as "available from a later build step" — registering them is the natural completion.
-- **2B — workspace comes alive:** Overview / Profile / Activity sections rendering real case data; rich renderers (the 2A.1 registry is minimal).
-- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand.
+- **2B — workspace comes alive:** the **journey-tracker dashboard** is the centerpiece — see the dedicated subsection below. Plus rich renderers (the 2A.1 registry is minimal) and the left-sidebar section drill-downs.
+- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand. **2C gains** per-persona `computeJourneyProgress` assertions (pure, ~0 tokens) once the tracker lands.
 
 The Pinned decisions below carry forward.
+
+### Journey-tracker dashboard (2B centerpiece — designed 2026-05-31, not started)
+
+Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (commit `4db6846`). Build **as part of 2B, after 2A.2** — it shows the eligibility verdict, which 2A.2's `check_eligibility` completes through the agent loop. Not blocked by 2A.2 (the engine computes the verdict directly), but sequencing it after avoids two passes over `CaseFacts`/`documents.yaml`/rules-loader.
+
+Decisions locked in the spec (do NOT redebate — brainstormed with the user 2026-05-31):
+- **Center column = journey tracker**, a *read-only projection* over existing case state. No new write path (rule 5 holds). Layout "Option A": tracker is the center; chat stays pinned right; **left sidebar stays** as portal chrome + section drill-down links. Tracker and sidebar are two projections of one case state.
+- **Approach: config-driven.** New `config/rules/journey.yaml` (phase manifest) + pure `computeJourneyProgress(caseFacts, profile, documents, verdict, today)` in `src/lib/journey/`. Mirrors `evaluateEligibility` + rules-loader. Honors rule 7.
+- **4 phases:** eligibility (8 curated steps) · documents (dynamic count from `documents.yaml`) · drafts (locked) · VIDEX+package (locked). Locked phases render greyed "coming soon" from day one.
+- **Identity (Profile) folds into Documents** — extracted from passport upload, confirmed in place, consumed by VIDEX. `Profile` DB table untouched (user-level, load-bearing for anon→authed merge). No standalone Profile phase.
+- **Family = one account, family as case data.** Extends `CaseFacts.family` with `spouse` + `children[]` mini-profiles (identity fields for per-member VIDEX/passport docs; address defaults to primary's, overridable). Reuses `FieldSchema`/`ArrayFieldSchema`/`CurrentAddressValue`. **Eligibility engine untouched** (family doesn't gate the primary's verdict). No auth change.
+- **`documents.yaml` gains optional `condition`** (`{path, in|equals}`) so the doc count is honest (ZAB only when Anabin unknown/H-; distance-learning clarification only for distance/online; marriage/birth certs only when spouse/children present). Rules loader parses it.
+- **Dual provenance (trust layer):** every step shows *requirement provenance* (`resolveCitation(cite)` resolving `legalBasis`/`sources`/`lastVerified` from the authoritative YAML — never duplicated into the manifest) AND *answer provenance* (rule-9 `source`/`updatedAt` → human copy: "You told us in chat", "Read from your passport upload", etc.). Compact line + expandable detail.
+- **Renderer/ChatPanel note from 2A.1 pinned decisions still applies** — the tracker supersedes `Overview.tsx` (preserve its empty-state copy).
 
 `scripts/dev-only/db-state.ts` is the one-shot DB state inspector; runs via `node --env-file=.env.local --import tsx scripts/dev-only/db-state.ts`.
 
@@ -311,8 +326,10 @@ The Pinned decisions below carry forward.
 - **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
 - **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Minimal renderers (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI is 2B's job.
 - **`v0.md` covers the full Phase 2 tool catalog** (references `check_eligibility`/`lookup_anabin` as "available from a later build step"). Only the 4 built tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`) are registered today; 2A.2 registers the eligibility/knowledge tools.
-- `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`).
-- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts.
+- `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`). **(Superseded by 2B journey-tracker: `Overview.tsx` → `Tracker.tsx`, which renders phases not raw sections. Preserve the empty-state copy. See tracker spec.)**
+- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts. **(2B journey-tracker keeps Option-A 3-column shape — sidebar / tracker / chat — so the grid likely stands; confirm against tracker spec.)**
+- **Renderer registry "rich UI is 2B's job" note** (above): 2B's rich UI is now anchored by the journey-tracker dashboard. The minimal renderers stay for in-chat tool outputs; the tracker is a separate center-column projection, not a renderer.
+- **2B journey-tracker dashboard** (designed 2026-05-31, spec `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`): see the "Journey-tracker dashboard" subsection under Next for the full locked decision list. Touches `CaseFacts.family` (spouse/children mini-profiles), `documents.yaml` (`condition` field), rules loader, and adds `src/lib/journey/` + `Tracker.tsx`. Build after 2A.2.
 
 ---
 

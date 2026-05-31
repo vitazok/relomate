@@ -98,8 +98,8 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
   - Includes recent messages, top tasks, recent activity
   - Token-budgeted
 - [ ] Workspace sections live (read-only display):
-  - Overview (eligibility verdict, status, top action items)
-  - Profile (identity facts with provenance hover)
+  - Overview (eligibility verdict, status, top action items) — **superseded by the 2B journey-tracker dashboard** (`docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`): the center column becomes a phased journey tracker (read-only projection over case state). Profile folds into the tracker's Documents phase; identity comes from the passport upload, not a standalone section. Activity log + section drill-downs survive in the left sidebar. Build the tracker as the 2B centerpiece, after 2A.2.
+  - Profile (identity facts with provenance hover) — *(folds into Documents; see above)*
   - Activity log
 - [ ] Persona library v1 in `data/personas/`:
   - 10 personas seeded
