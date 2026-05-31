@@ -15,4 +15,12 @@ describe('system prompt loader', () => {
   it('exposes a version constant for activity logs', () => {
     expect(PROMPT_VERSION).toBe('v0');
   });
+
+  it('no longer caveats eligibility/anabin tools as future build steps', () => {
+    expect(systemPrompt).not.toMatch(/later build step/i);
+  });
+
+  it('keeps PROMPT_VERSION at v0', () => {
+    expect(PROMPT_VERSION).toBe('v0');
+  });
 });
