@@ -11,7 +11,7 @@ describe('summarizeFigures', () => {
   it('returns active 2026 thresholds with legal basis', () => {
     const fig = summarizeFigures({} as CaseFacts, TODAY);
     expect(fig.standard.annualGrossEur).toBe(50700);
-    expect(fig.reduced.annualGrossEur).toBeCloseTo(45934.2, 1);
+    expect(fig.reduced.annualGrossEur).toBeCloseTo(45934.2, 2);
     expect(fig.standard.legalBasis).toMatch(/18g/);
     expect(fig.reduced.legalBasis).toMatch(/18g/);
   });
@@ -29,5 +29,13 @@ describe('summarizeFigures', () => {
     expect(fig.salaryOnFile).toBe(48500);
     expect(fig.standard.meets).toBe(false); // 48500 < 50700
     expect(fig.reduced.meets).toBe(true); // 48500 >= 45934.20
+  });
+
+  it('meets true for both thresholds when salary clears the standard threshold', () => {
+    const facts: CaseFacts = { employment: { annualGrossSalaryEur: f(60000) } };
+    const fig = summarizeFigures(facts, TODAY);
+    expect(fig.salaryOnFile).toBe(60000);
+    expect(fig.standard.meets).toBe(true); // 60000 >= 50700
+    expect(fig.reduced.meets).toBe(true); // 60000 >= 45934.20
   });
 });
