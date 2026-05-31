@@ -6,6 +6,8 @@ import { makeUpdateCaseTool } from '@/lib/ai/tools/update_case';
 import { makeReadCaseTool } from '@/lib/ai/tools/read_case';
 import { makeAddCaseNoteTool } from '@/lib/ai/tools/add_case_note';
 import { makeOutOfScopeTool } from '@/lib/ai/tools/out_of_scope';
+import { makeCheckEligibilityTool } from '@/lib/ai/tools/check_eligibility';
+import { makeLookupAnabinTool } from '@/lib/ai/tools/lookup_anabin';
 import { inngest } from '@/lib/inngest/client';
 import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
@@ -54,6 +56,13 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       defaultSourceTurnId: userMessageId,
     }),
     out_of_scope: makeOutOfScopeTool(repo, { defaultCaseId: caseId, defaultUserId: userId }),
+    check_eligibility: makeCheckEligibilityTool(repo, {
+      defaultCaseId: caseId,
+      defaultUserId: userId,
+    }),
+    // lookup_anabin MUST stay last: it carries the single cache_control breakpoint
+    // (in its factory), which caches the whole static tools block. See lookup_anabin.ts.
+    lookup_anabin: makeLookupAnabinTool(),
   };
 
   return streamText({
@@ -62,11 +71,10 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(5),
-    // Anthropic allows max 4 cache_control breakpoints; the 4 tools each carry one (see each
-    // makeXTool). A top-level breakpoint here would be the 5th (over the limit) and would only
-    // cache the system string, which embeds per-turn case-facts context — a near-certain miss.
-    // NOTE for 2A.2: adding a 5th tool re-breaches the limit; consolidate to a single tool-block
-    // breakpoint before then.
+    // Cache: the single tool-block cache_control breakpoint lives on lookup_anabin (the
+    // last registered tool), caching the whole static tools prefix. Do NOT add a top-level
+    // providerOptions.anthropic.cacheControl here, and do NOT re-add per-tool breakpoints —
+    // Anthropic allows max 4, and the system string embeds per-turn case context (would miss).
     async onFinish(event) {
       try {
         await appendChatTurn({

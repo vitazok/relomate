@@ -27,9 +27,6 @@ export function makeAddCaseNoteTool(
   return tool({
     description,
     inputSchema: AddCaseNoteInputSchema,
-    providerOptions: {
-      anthropic: { cacheControl: { type: 'ephemeral' } },
-    },
     async execute(input: AddCaseNoteInput) {
       await repo.appendActivity({
         caseId: defaults.defaultCaseId,

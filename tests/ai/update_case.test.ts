@@ -62,9 +62,4 @@ describe('update_case tool adapter', () => {
     expect(result.success).toBe(true);
     expect((result.data as Record<string, unknown>).caseId).toBeUndefined();
   });
-
-  it('exposes anthropic ephemeral cacheControl on providerOptions', () => {
-    const tool = makeUpdateCaseTool({ applyUpdate: vi.fn() }, defaults);
-    expect(tool.providerOptions?.anthropic).toEqual({ cacheControl: { type: 'ephemeral' } });
-  });
 });

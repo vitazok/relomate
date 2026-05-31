@@ -7,11 +7,10 @@ const defaults = {
 };
 
 describe('out_of_scope tool', () => {
-  it('exposes a tool with description, zod input, and ephemeral cache', () => {
+  it('exposes a tool with description and zod input', () => {
     const tool = makeOutOfScopeTool({ appendActivity: vi.fn() }, defaults);
     expect((tool.description ?? '').length).toBeGreaterThan(40);
     expect(tool.inputSchema).toBeDefined();
-    expect(tool.providerOptions?.anthropic).toEqual({ cacheControl: { type: 'ephemeral' } });
   });
 
   it('logs case.out_of_scope and returns the structured refusal', async () => {

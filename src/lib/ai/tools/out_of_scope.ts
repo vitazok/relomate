@@ -29,9 +29,6 @@ export function makeOutOfScopeTool(
   return tool({
     description,
     inputSchema: OutOfScopeInputSchema,
-    providerOptions: {
-      anthropic: { cacheControl: { type: 'ephemeral' } },
-    },
     async execute(input: OutOfScopeInput) {
       const category = input.category ?? null;
       await repo.appendActivity({

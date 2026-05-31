@@ -31,9 +31,6 @@ export function makeReadCaseTool(
   return tool({
     description,
     inputSchema: ReadCaseInputSchema,
-    providerOptions: {
-      anthropic: { cacheControl: { type: 'ephemeral' } },
-    },
     async execute(input: ReadCaseInput) {
       const loaded = await repo.loadCase(defaults.defaultCaseId);
       const facts = loaded.caseFacts;

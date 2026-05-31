@@ -18,11 +18,10 @@ function repoReturning(caseFacts: CaseFacts) {
 }
 
 describe('read_case tool', () => {
-  it('exposes a tool with description, zod input, and ephemeral cache', () => {
+  it('exposes a tool with description and zod input', () => {
     const tool = makeReadCaseTool(repoReturning(facts), defaults);
     expect((tool.description ?? '').length).toBeGreaterThan(40);
     expect(tool.inputSchema).toBeDefined();
-    expect(tool.providerOptions?.anthropic).toEqual({ cacheControl: { type: 'ephemeral' } });
   });
 
   it('returns the full facts when no selector is given', async () => {

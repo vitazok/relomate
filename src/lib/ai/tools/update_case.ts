@@ -28,9 +28,6 @@ export function makeUpdateCaseTool(
   return tool({
     description,
     inputSchema: UpdateCaseInputSchemaForLLM,
-    providerOptions: {
-      anthropic: { cacheControl: { type: 'ephemeral' } },
-    },
     async execute(input: UpdateCaseInputForLLM) {
       const result: UpdateCaseResult = await repo.applyUpdate({
         ...input,

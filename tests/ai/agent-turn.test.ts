@@ -51,11 +51,20 @@ describe('buildAgentTurn', () => {
     expect(captured.model).toBe(SENTINEL_MODEL);
   });
 
-  it('registers all four tools', async () => {
+  it('registers all six tools', async () => {
     await buildAgentTurn(baseParams());
     expect(Object.keys(captured.tools ?? {}).sort()).toEqual(
-      ['add_case_note', 'out_of_scope', 'read_case', 'update_case'].sort(),
+      ['add_case_note', 'check_eligibility', 'lookup_anabin', 'out_of_scope', 'read_case', 'update_case'].sort(),
     );
+  });
+
+  it('attaches exactly one cache_control breakpoint across the tool set', async () => {
+    await buildAgentTurn(baseParams());
+    const tools = (captured.tools ?? {}) as Record<string, { providerOptions?: { anthropic?: { cacheControl?: unknown } } }>;
+    const withBreakpoint = Object.values(tools).filter(
+      (t) => t.providerOptions?.anthropic?.cacheControl !== undefined,
+    );
+    expect(withBreakpoint).toHaveLength(1);
   });
 
   it('injects the case context into the system string', async () => {

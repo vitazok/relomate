@@ -8,11 +8,10 @@ const defaults = {
 };
 
 describe('add_case_note tool', () => {
-  it('exposes a tool with description, zod input, and ephemeral cache', () => {
+  it('exposes a tool with description and zod input', () => {
     const tool = makeAddCaseNoteTool({ appendActivity: vi.fn() }, defaults);
     expect((tool.description ?? '').length).toBeGreaterThan(40);
     expect(tool.inputSchema).toBeDefined();
-    expect(tool.providerOptions?.anthropic).toEqual({ cacheControl: { type: 'ephemeral' } });
   });
 
   it('appends a case.note.added activity row and returns noted:true', async () => {
