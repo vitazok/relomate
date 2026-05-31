@@ -59,6 +59,8 @@ describe('buildAgentTurn', () => {
   });
 
   it('attaches exactly one cache_control breakpoint across the tool set', async () => {
+    // Verifies breakpoint COUNT only. The position invariant (breakpoint must sit on the
+    // last-registered tool, lookup_anabin) relies on the comments in agent-turn.ts + lookup_anabin.ts.
     await buildAgentTurn(baseParams());
     const tools = (captured.tools ?? {}) as Record<string, { providerOptions?: { anthropic?: { cacheControl?: unknown } } }>;
     const withBreakpoint = Object.values(tools).filter(
