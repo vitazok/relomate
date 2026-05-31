@@ -73,7 +73,7 @@ user reads tool-sourced figures (reconciling CLAUDE.md rule 7 with rule 8).
 |---|---|---|
 | D1 | **Hybrid number boundary:** figures live in the tool's `data`; the renderer card displays them; the agent's prose stays numberless and refers to the card. | Transparency goal: the user sees salary-vs-threshold logic. Rule 7 satisfied because the figure the user sees is provably tool-sourced (rendered from `data`), never the model's prose. |
 | D2 | **Verdict is ephemeral** (compute-on-demand). `check_eligibility` logs `activity_log` `kind:'case.eligibility.checked'` with the verdict in payload; no case-state column. | Rule 5 (only `update_case` writes case state) + append-only audit (rule 10). Recompute is cheap and always reflects latest facts; avoids a stale stored verdict. Gives 2B's Activity section + Phase 7 eval a trail. |
-| D3 | **Figures via a shared pure helper** (`summarizeFigures`), co-located with the engine and reading the **same** route→threshold constant the engine branches on. | The engine already computes these figures internally and discards them; re-deriving in the tool risks drift — notably `it_no_degree` gates on the **standard** threshold while `blue-card.yaml`'s `reduced.appliesTo` lists `it_specialist_no_degree`, so a naive YAML read would show the wrong required amount and contradict the verdict. One shared constant eliminates that. Engine return stays slim. |
+| D3 | **Figures via a pure helper** (`summarizeFigures`), co-located with the engine and **threshold-centric** (salary vs. the standard + reduced thresholds), NOT per-route. The helper imports the engine's `activeThreshold` (exported, no behavior change). | The engine already computes these figures internally and discards them. A per-route "required amount" was the original idea but risks drift — `it_no_degree` gates on the **standard** threshold while `blue-card.yaml`'s `reduced.appliesTo` lists `it_specialist_no_degree` — and over-claims: Priya's salary clears the reduced threshold (so a `recent_graduate` per-route line would show ✓) even though the engine denies that route on the 3-year completion gate. Showing the two thresholds + salary, and listing **granted** routes separately from `verdict.routes`, is honest and sidesteps both problems. Engine return stays slim. |
 | D4 | **Readiness as a separate pure fn** (`assessReadiness`), not inline in the tool, not folded into the engine. | Testable in isolation; reused by 2B's journey-tracker eligibility phase at ~0 tokens; keeps the engine's "codes the personas expect" contract untouched (folding `incomplete` into the engine would flip partial-case outputs and risk existing tests). |
 | D5 | **`lookup_anabin` distinguishes not-found from unknown.** Not-seeded → `found:false`; seeded-but-unrated → `found:true, status:'unknown'`. | Honest about what we have on file. Both steer the agent to "ZAB statement + consulate clarification," but with distinct, accurate card copy. |
 | D6 | **`check_eligibility` reports a distinct `incomplete` status** when readiness fails, listing missing facts — never a misleading `qualifies:false`. | A half-filled case must not read as "you don't qualify." Serves transparency. |
@@ -108,26 +108,23 @@ path covers mid-conversation partial cases.
 summarizeFigures(facts: CaseFacts, today: Date) → Figures
 ```
 
-Pure. Returns:
+Pure. Threshold-centric (not per-route). Returns:
 
 ```
 Figures = {
   salaryOnFile: number | null,
-  standardThreshold: number,        // active threshold, from rules
-  reducedThreshold: number,
-  perRoute: Array<{
-    route: 'standard' | 'shortage_occupation' | 'recent_graduate' | 'it_no_degree',
-    requiredEur: number,            // standard for standard/it_no_degree; reduced for shortage/recent_graduate
-    meets: boolean,                 // salaryOnFile >= requiredEur
-    legalBasis: string,             // from blue-card.yaml
-  }>,
+  standard: { annualGrossEur: number; legalBasis: string; meets: boolean | null },
+  reduced:   { annualGrossEur: number; legalBasis: string; meets: boolean | null },
 }
 ```
 
-The route→threshold mapping is extracted from `eligibility.ts`'s inline branches
-into one exported constant (e.g. `ROUTE_THRESHOLD_KIND: Record<RouteId,
-'standard'|'reduced'>`) that **both** the engine and `summarizeFigures` import.
-This is the anti-drift guarantee in D3.
+`meets = salaryOnFile != null ? salaryOnFile >= annualGrossEur : null`. Both
+figures come from the engine's `activeThreshold(rules, today)` — exported from
+`eligibility.ts` with **no behavior change** so the helper reads exactly the
+threshold the engine branches on. The card pairs this with the verdict's
+**granted** `routes` (the engine's authoritative list); it does NOT compute
+per-route eligibility itself, which is the anti-drift / anti-over-claim guarantee
+in D3.
 
 ### 4.3 `check_eligibility` (`src/lib/ai/tools/check_eligibility.ts`)
 
@@ -203,8 +200,11 @@ seed rating is never presented as authoritative.
 ### 4.6 Renderers (`src/components/workspace/renderers/registry.tsx`)
 
 - **`eligibility_result`** — the transparency card. Branches on `status`:
-  - `assessed`: per-route lines "Standard — €50,700 required, €62,000 on file ✓",
-    qualifying routes highlighted, blockers/warnings as friendly labels.
+  - `assessed`: salary-vs-threshold lines ("Standard threshold €50,700 — €62,000
+    on file ✓"; "Reduced threshold €45,934 — ✓"), then the **granted** routes
+    (from `verdict.routes`) as friendly labels, then blockers/warnings. The
+    threshold ✓/✗ marks reflect salary only; the granted-routes list is the
+    authoritative "what you qualify for".
   - `incomplete`: "Need a couple more details before I can check: …" (maps
     `missing` paths to friendly labels).
   - `out_of_scope`: short note.
@@ -235,9 +235,9 @@ testHandle.db; } }))` (getter, no `schema` in factory). Engine tests pin `today`
 
 - **`assessReadiness`** (pure) — ready / not-ready across all branches incl.
   IT-no-degree shape; `missing` content.
-- **`summarizeFigures`** (pure) — correct `requiredEur` per route; the
-  `it_no_degree`-uses-standard case explicitly asserted (the D3 trap);
-  `salaryOnFile` null when absent; `meets` boolean.
+- **`summarizeFigures`** (pure) — standard + reduced figures match the active
+  threshold; `meets` true/false vs. salary; `meets` null + `salaryOnFile` null
+  when salary absent; `legalBasis` carried from rules.
 - **`check_eligibility.execute`** — `incomplete` / `assessed` / `out_of_scope`
   paths; figures present on `assessed`; activity row written with expected
   `kind` + payload (codes only, no salary); `now` injection pins the date.
@@ -279,12 +279,14 @@ testHandle.db; } }))` (getter, no `schema` in factory). Engine tests pin `today`
 - tests for each of the above + renderer tests for the two new card types.
 
 **Modified:**
-- `src/lib/rules/eligibility.ts` — extract the route→threshold mapping into an
-  exported constant (no behavior change; consumed by `summarizeFigures`).
+- `src/lib/rules/eligibility.ts` — export `activeThreshold` (currently a private
+  helper; no behavior change) so `summarizeFigures` reads the same threshold.
 - `src/lib/ai/chat/agent-turn.ts` — register the two tools; consolidate to one
-  cache breakpoint; replace the NOTE.
+  cache breakpoint (on the last registered tool); replace the NOTE.
 - `src/lib/ai/tools/{update_case,read_case,add_case_note,out_of_scope}.ts` —
-  remove per-tool `cache_control` (moved to the single tool-block breakpoint).
+  remove per-tool `providerOptions` (moved to the single tool-block breakpoint).
+- `tests/ai/{update_case,read_case,add_case_note,out_of_scope}.test.ts` — drop
+  the per-tool `providerOptions.anthropic` assertions (now an `agent-turn` test).
 - `src/components/workspace/renderers/registry.tsx` — add two renderers.
 - `prompts/agent/v0.md` — un-caveat the two tools; add "when to call".
 
@@ -292,8 +294,14 @@ testHandle.db; } }))` (getter, no `schema` in factory). Engine tests pin `today`
 
 ## 8. Risks
 
-- **Figures/verdict drift** (D3). Mitigation: single shared route→threshold
-  constant; explicit `it_no_degree`-uses-standard test.
+- **Figures/verdict drift or over-claim** (D3). Mitigation: figures are
+  threshold-centric (salary vs. the two thresholds) and read the engine's
+  exported `activeThreshold`; the card's "what you qualify for" is the engine's
+  `verdict.routes`, never re-derived from salary.
+- **Cache consolidation breaks existing tool tests.** Four tool tests assert
+  per-tool `providerOptions.anthropic`. Mitigation: those assertions are removed
+  and replaced by a single `agent-turn` test asserting exactly one breakpoint
+  across the tool set (Task 6).
 - **Readiness predicate too strict/loose.** Mitigation: it's pure and unit-tested;
   all four personas asserted to `assess`; refine in planning if a persona slips
   to `incomplete`.
