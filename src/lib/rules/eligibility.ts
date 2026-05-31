@@ -10,7 +10,7 @@ function iscoMatchesAny(code: string | undefined, groups: string[]): boolean {
   return groups.some((g) => code.startsWith(g));
 }
 
-function activeThreshold(blueCard: BlueCardRules, today: Date) {
+export function activeThreshold(blueCard: BlueCardRules, today: Date) {
   const iso = today.toISOString().slice(0, 10);
   const match = blueCard.thresholds.find(
     (t) => t.effectiveFrom <= iso && iso <= t.effectiveUntil,
