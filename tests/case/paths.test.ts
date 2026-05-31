@@ -1,6 +1,44 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { validateLeafPath, validateLeafValue, setAtPath, getAtPath } from '@/lib/case/paths';
+import { validateLeafPath, validateLeafValue, setAtPath, getAtPath, listLeafPaths } from '@/lib/case/paths';
+
+describe('listLeafPaths', () => {
+  it('enumerates the canonical case-fact leaf paths', () => {
+    const paths = listLeafPaths().map((p) => p.path);
+    expect(paths).toContain('employment.annualGrossSalaryEur');
+    expect(paths).toContain('education.highestDegree');
+    expect(paths).toContain('education.fieldOfStudy');
+    expect(paths).toContain('education.institution');
+    expect(paths).toContain('employment.employerCity');
+    expect(paths).toContain('target.intendedVisa');
+  });
+
+  it('includes profile leaf paths', () => {
+    const paths = listLeafPaths().map((p) => p.path);
+    expect(paths).toContain('nationality');
+    expect(paths).toContain('passportNumber');
+  });
+
+  it('does NOT include invented/guessed paths', () => {
+    const paths = listLeafPaths().map((p) => p.path);
+    expect(paths).not.toContain('education.level');
+    expect(paths).not.toContain('education.subject');
+    expect(paths).not.toContain('employment.jobCity');
+    expect(paths).not.toContain('education.institutionName');
+  });
+
+  it('surfaces enum options for enum leaves', () => {
+    const degree = listLeafPaths().find((p) => p.path === 'education.highestDegree');
+    expect(degree?.enumValues).toContain('master_eqf7');
+    expect(degree?.enumValues).toContain('bachelor_eqf6');
+  });
+
+  it('every enumerated path resolves via validateLeafPath (no drift)', () => {
+    for (const { path } of listLeafPaths()) {
+      expect(() => validateLeafPath(path)).not.toThrow();
+    }
+  });
+});
 
 describe('validateLeafPath', () => {
   it('resolves a valid case-facts path to a Zod inner schema', () => {

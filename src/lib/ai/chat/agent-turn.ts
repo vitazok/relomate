@@ -13,6 +13,13 @@ import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
 import type { CaseFacts } from '@/lib/case/schema';
 
+// Max agent steps per turn. A turn may fan out: update_case + lookup_anabin, then
+// read_case to recover, then check_eligibility, then a closing reply. 5 was too few
+// once 2A.2 added eligibility/anabin tools — a turn that hit a tool error could
+// exhaust the budget mid-recovery and end with no answer. 8 leaves room to recover
+// AND still produce a natural-language reply after the last tool call.
+export const MAX_AGENT_STEPS = 8;
+
 export interface BuildAgentTurnParams {
   model: LanguageModel;
   repo: Repository;
@@ -70,7 +77,7 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
     system,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(MAX_AGENT_STEPS),
     // Cache: the single tool-block cache_control breakpoint lives on lookup_anabin (the
     // last registered tool), caching the whole static tools prefix. Do NOT add a top-level
     // providerOptions.anthropic.cacheControl here, and do NOT re-add per-tool breakpoints —

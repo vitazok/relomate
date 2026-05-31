@@ -1,4 +1,5 @@
 import type { CaseFacts } from '@/lib/case/schema';
+import { formatLeafPathCatalog } from '@/lib/case/paths';
 
 export interface AgentContext {
   systemContext: string;
@@ -29,6 +30,14 @@ export async function buildAgentContext(input: {
     '```json',
     factsJson,
     '```',
+    '',
+    '## Valid update_case paths',
+    '',
+    'When you call update_case, use EXACTLY these dotted paths. Do NOT invent or',
+    'rephrase a path — an unknown path makes the whole call fail. For enum leaves,',
+    'pass one of the listed values verbatim.',
+    '',
+    formatLeafPathCatalog(),
   ].join('\n');
   return { systemContext };
 }

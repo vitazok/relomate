@@ -26,7 +26,7 @@ vi.mock('@/lib/inngest/client', () => ({
   inngest: { send: (...args: unknown[]) => inngestSendSpy(...args) },
 }));
 
-import { buildAgentTurn } from '@/lib/ai/chat/agent-turn';
+import { buildAgentTurn, MAX_AGENT_STEPS } from '@/lib/ai/chat/agent-turn';
 
 const SENTINEL_MODEL = { __sentinel: true } as never;
 
@@ -45,6 +45,12 @@ function baseParams() {
 
 describe('buildAgentTurn', () => {
   beforeEach(() => { captured = {}; vi.clearAllMocks(); });
+
+  it('allows enough steps for a multi-tool recovery turn (>= 8)', () => {
+    // A turn can fan out update_case + lookup_anabin, recover via read_case, run
+    // check_eligibility, then reply. The old budget of 5 dead-ended such turns.
+    expect(MAX_AGENT_STEPS).toBeGreaterThanOrEqual(8);
+  });
 
   it('passes the injected model straight through to streamText', async () => {
     await buildAgentTurn(baseParams());

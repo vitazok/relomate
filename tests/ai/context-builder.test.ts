@@ -30,4 +30,13 @@ describe('buildAgentContext', () => {
     const ctx = await buildAgentContext({ caseId: 'case-1', caseFacts: {} });
     expect(ctx.systemContext).toMatch(/education: not yet/i);
   });
+
+  it('injects the valid update_case path catalog with enum options', async () => {
+    const ctx = await buildAgentContext({ caseId: 'case-1', caseFacts: {} });
+    expect(ctx.systemContext).toContain('education.highestDegree');
+    expect(ctx.systemContext).toContain('master_eqf7');
+    expect(ctx.systemContext).toContain('employment.employerCity');
+    // and steers the model away from inventing paths
+    expect(ctx.systemContext.toLowerCase()).toMatch(/exactly these|do not invent|only the paths/);
+  });
 });

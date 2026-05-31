@@ -37,6 +37,51 @@ export function validateLeafPath(path: string): ResolvedPath {
   throw new Error(`unknown path: ${path}`);
 }
 
+export interface LeafPathInfo {
+  path: string;
+  kind: PathKind;
+  enumValues?: string[];
+}
+
+/**
+ * Enumerate every Field-wrapped leaf path on the profile + case schemas, with
+ * enum options where the leaf is a `z.enum`. Single source of truth for the
+ * agent's "valid update_case paths" catalog — derived from the Zod schemas so
+ * it can never drift from `validateLeafPath`.
+ */
+export function listLeafPaths(): LeafPathInfo[] {
+  return [
+    ...collectLeaves(unwrap(ProfileSchema), [], 'profile'),
+    ...collectLeaves(unwrap(CaseFactsSchema), [], 'case'),
+  ];
+}
+
+function collectLeaves(node: z.ZodTypeAny, prefix: string[], kind: PathKind): LeafPathInfo[] {
+  const obj = unwrap(node);
+  if (!(obj instanceof z.ZodObject)) return [];
+  const shape = obj.shape as Record<string, z.ZodTypeAny>;
+  const out: LeafPathInfo[] = [];
+  for (const [key, child] of Object.entries(shape)) {
+    if (key === 'schemaVersion') continue;
+    const u = unwrap(child);
+    if (u instanceof z.ZodObject && (u.shape as Record<string, z.ZodTypeAny>)['value']) {
+      const inner = unwrap((u.shape as Record<string, z.ZodTypeAny>)['value'] as z.ZodTypeAny);
+      const enumValues = inner instanceof z.ZodEnum ? (inner.options as string[]) : undefined;
+      out.push({ path: [...prefix, key].join('.'), kind, ...(enumValues ? { enumValues } : {}) });
+    } else if (u instanceof z.ZodObject) {
+      out.push(...collectLeaves(u, [...prefix, key], kind));
+    }
+  }
+  return out;
+}
+
+/** Render the leaf-path catalog as a compact bulleted list for prompts/context. */
+export function formatLeafPathCatalog(): string {
+  return listLeafPaths()
+    .map((p) => `- ${p.path}${p.enumValues ? ` (one of: ${p.enumValues.join(' | ')})` : ''}`)
+    .join('\n');
+}
+
 type WalkResult =
   | { kind: 'leaf'; inner: z.ZodTypeAny }
   | { kind: 'intermediate' }
