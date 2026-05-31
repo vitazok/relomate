@@ -38,4 +38,18 @@ describe('assessReadiness', () => {
     expect(r.ready).toBe(false);
     expect(r.missing).toContain('education.anabinStatus');
   });
+
+  it('not ready with IT fields but also a degree — degree blocks the IT path', () => {
+    const facts: CaseFacts = {
+      employment: {
+        annualGrossSalaryEur: f(52000),
+        iscoCode: f('2522'),
+        priorExperienceYears: f(5),
+      },
+      education: { highestDegree: f('bachelor_eqf6') },
+    };
+    const r = assessReadiness(facts);
+    expect(r.ready).toBe(false);
+    expect(r.missing).toContain('education.anabinStatus');
+  });
 });
