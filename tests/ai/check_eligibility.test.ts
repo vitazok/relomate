@@ -50,6 +50,11 @@ describe('check_eligibility tool', () => {
     expect(out.data.routes).toContain('standard');
     expect(out.data.figures.standard.meets).toBe(true);
     expect(repo.appendActivity.mock.calls[0]![0].payload).not.toHaveProperty('salaryOnFile');
+    expect(repo.appendActivity.mock.calls[0]![0].payload).toMatchObject({
+      status: 'assessed',
+      routes: expect.any(Array),
+      blockers: expect.any(Array),
+    });
   });
 
   it('returns out_of_scope and does NOT log activity for non-blue-card visa', async () => {
@@ -62,5 +67,22 @@ describe('check_eligibility tool', () => {
     const out = (await tool.execute!({}, {} as never)) as { data: { status: string } };
     expect(out.data.status).toBe('out_of_scope');
     expect(repo.appendActivity).not.toHaveBeenCalled();
+  });
+
+  it('returns assessed with qualifies=false and logs activity for an anabin-unknown case', async () => {
+    const repo = makeRepo({
+      employment: { annualGrossSalaryEur: f(50000), iscoCode: f('2512') },
+      education: { anabinStatus: f('unknown'), highestDegree: f('bachelor_eqf6') },
+      target: { intendedVisa: f('blue_card') },
+    });
+    const tool = makeCheckEligibilityTool(repo, defaults(repo));
+    const out = (await tool.execute!({}, {} as never)) as {
+      data: { status: string; qualifies: boolean; blockers: string[] };
+    };
+    expect(out.data.status).toBe('assessed');
+    expect(out.data.qualifies).toBe(false);
+    expect(out.data.blockers).toContain('anabin_status_unknown');
+    expect(repo.appendActivity).toHaveBeenCalledOnce();
+    expect(repo.appendActivity.mock.calls[0]![0].payload.status).toBe('assessed');
   });
 });
