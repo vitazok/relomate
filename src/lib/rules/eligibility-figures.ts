@@ -17,6 +17,11 @@ export interface Figures {
 export function summarizeFigures(facts: CaseFacts, today: Date): Figures {
   const rules = getBlueCardRules();
   const threshold = activeThreshold(rules, today);
+  if (!threshold) {
+    // reason: BlueCardRules.thresholds is .min(1), so activeThreshold's `?? thresholds[0]`
+    // is always defined at runtime; this guard satisfies noUncheckedIndexedAccess.
+    throw new Error('no active Blue Card threshold configured');
+  }
   const salary = facts.employment?.annualGrossSalaryEur?.value ?? null;
 
   const meets = (amount: number): boolean | null =>
