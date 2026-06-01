@@ -225,11 +225,15 @@ export const DocumentSectionId = z.enum([
   'other',
 ]);
 
-export const DocumentCondition = z.object({
-  path: z.string(),
-  in: z.array(z.string()).min(1).optional(),
-  equals: z.union([z.string(), z.number(), z.boolean()]).optional(),
-});
+export const DocumentCondition = z
+  .object({
+    path: z.string(),
+    in: z.array(z.string()).min(1).optional(),
+    equals: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  })
+  .refine((c) => c.in !== undefined || c.equals !== undefined, {
+    message: 'condition must specify either "in" or "equals"',
+  });
 
 export const DocumentItem = z.object({
   id: z.string(),
