@@ -225,6 +225,12 @@ export const DocumentSectionId = z.enum([
   'other',
 ]);
 
+export const DocumentCondition = z.object({
+  path: z.string(),
+  in: z.array(z.string()).min(1).optional(),
+  equals: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+
 export const DocumentItem = z.object({
   id: z.string(),
   section: DocumentSectionId,
@@ -236,6 +242,7 @@ export const DocumentItem = z.object({
   apostilleRequired: z.boolean(),
   sourceUrl: url,
   routes: z.array(RouteId).nullable().default(null),
+  condition: DocumentCondition.optional(),
 });
 
 export const DocumentSection = z.object({
@@ -266,5 +273,6 @@ export type AnabinInstitution = z.infer<typeof AnabinInstitution>;
 export type RouteId = z.infer<typeof RouteId>;
 export type DocumentApplicableTo = z.infer<typeof DocumentApplicableTo>;
 export type DocumentSectionId = z.infer<typeof DocumentSectionId>;
+export type DocumentCondition = z.infer<typeof DocumentCondition>;
 export type DocumentItem = z.infer<typeof DocumentItem>;
 export type DocumentRules = z.infer<typeof DocumentRules>;
