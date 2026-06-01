@@ -70,9 +70,26 @@ describe('persona agent-turn onFinish replay', () => {
       });
 
       if (!capturedOnFinish) throw new Error('streamText onFinish was not captured');
-      await capturedOnFinish(synthesizeTurnEvent(persona));
+      const event = synthesizeTurnEvent(persona);
+      await capturedOnFinish(event);
 
+      // appendChatTurn must receive the turn identity + the synthesized tool calls/results,
+      // not just be called — this guards onFinish's mapping into the persistence input.
       expect(appendChatTurnSpy).toHaveBeenCalledOnce();
+      const persisted = appendChatTurnSpy.mock.calls[0]![0] as {
+        threadId: string;
+        userMessageId: string;
+        toolCalls: Array<{ toolName: string }>;
+        toolResults: Array<{ toolName: string }>;
+      };
+      expect(persisted.threadId).toBe(THREAD_ID);
+      expect(persisted.userMessageId).toBe(TURN_ID);
+      expect(persisted.toolCalls.map((c) => c.toolName)).toEqual(
+        event.toolCalls.map((c) => c.toolName),
+      );
+      expect(persisted.toolResults.map((r) => r.toolName)).toEqual(
+        event.toolResults.map((r) => r.toolName),
+      );
 
       if (persona.expected.outOfScope) {
         expect(inngestSendSpy).not.toHaveBeenCalled();

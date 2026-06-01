@@ -39,6 +39,8 @@ describe('deriveUpdateCalls', () => {
   it('isolates an invalid-enum leaf into its own single-path call (out-of-scope persona)', () => {
     const calls = deriveUpdateCalls(loadPersona('out-of-scope-asylum'));
     // First call = the valid bundle; subsequent calls = one isolated invalid leaf each.
+    // The count (1) is specific to this persona's leaf set: only intendedVisa='asylum' is
+    // invalid here (its salary 0 is filtered out as falsy by toCaseFacts before derivation).
     const isolated = calls.slice(1);
     expect(isolated).toHaveLength(1);
     const asylumCall = isolated.find((c) => 'target.intendedVisa' in c.updates);
