@@ -48,4 +48,15 @@ describe('rules loader', () => {
     const mappings = getShortageMappings();
     expect(mappings.length).toBeGreaterThanOrEqual(8);
   });
+
+  it('parses optional condition on document items', () => {
+    const { items } = loadRules().documents;
+    const zab = items.find((i) => i.id === 'zab_statement');
+    expect(zab?.condition).toEqual({
+      path: 'education.anabinStatus',
+      in: ['unknown', 'H-'],
+    });
+    const noCondition = items.find((i) => i.id === 'passport');
+    expect(noCondition?.condition).toBeUndefined();
+  });
 });

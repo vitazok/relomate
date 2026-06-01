@@ -185,6 +185,7 @@ items:
     apostilleRequired: false
     sourceUrl: https://www.kmk.org/zab/zentralstelle-fuer-auslaendisches-bildungswesen.html
     routes: null
+    condition: { path: 'education.anabinStatus', in: ['unknown', 'H-'] }
 
   - id: distance_learning_clarification
     section: qualifications
@@ -196,6 +197,7 @@ items:
     apostilleRequired: false
     sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
     routes: null
+    condition: { path: 'education.modeOfStudy', in: ['distance', 'online'] }
 
   - id: it_specialist_experience_pack
     section: qualifications
