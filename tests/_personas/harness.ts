@@ -237,6 +237,8 @@ export function synthesizeTurnEvent(persona: Persona): SynthTurnEvent {
         output: {
           type: 'update_case_result',
           version: 1,
+          // caseId here is a placeholder; onFinish's inngest mapping reads caseId from the
+          // buildAgentTurn param, not from this result payload.
           data: { caseId: 'case-synthetic', updatedPaths, contradictions: [] },
         },
       },
