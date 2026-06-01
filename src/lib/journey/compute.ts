@@ -1,6 +1,6 @@
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
-import type { DocumentCondition, DocumentRules } from '@/lib/rules/types';
+import type { DocumentCondition, DocumentItem, DocumentRules } from '@/lib/rules/types';
 import { getAtPath } from '@/lib/case/paths';
 import { getJourneyManifest } from './loader';
 import { resolveCitation } from './citations';
@@ -86,13 +86,60 @@ function phaseStatus(completed: number, total: number, locked: boolean): PhasePr
   return 'todo';
 }
 
-// Documents expansion — filled in Task 9. Stubbed to an empty list here.
+function docItemToStep(item: DocumentItem, group: string | null, idSuffix: string): StepProgress {
+  return {
+    id: idSuffix ? `${item.id}${idSuffix}` : item.id,
+    label: item.label,
+    state: 'incomplete', // upload backend deferred; nothing is uploaded/confirmed yet
+    value: null,
+    group,
+    requirementCitation: {
+      explainer: item.details,
+      legalBasis: null,
+      sourceUrl: item.sourceUrl,
+      lastVerified: '',
+    },
+    answerProvenance: null,
+    action: { kind: 'upload', enabled: false },
+  };
+}
+
+function routeApplies(item: DocumentItem, verdict: EligibilityVerdict): boolean {
+  if (item.routes == null) return true; // null = all routes
+  return item.routes.some((r) => verdict.routes.includes(r));
+}
+
 function expandDocuments(
-  _facts: CaseFacts,
-  _verdict: EligibilityVerdict,
-  _docs: DocumentRules,
+  facts: CaseFacts,
+  verdict: EligibilityVerdict,
+  docs: DocumentRules,
 ): StepProgress[] {
-  return [];
+  const steps: StepProgress[] = [];
+
+  // (a) applicant items: filter by route + condition
+  for (const item of docs.items) {
+    if (!routeApplies(item, verdict)) continue;
+    if (item.condition && !evaluateCondition(item.condition, facts)) continue;
+    steps.push(docItemToStep(item, 'You (applicant)', ''));
+  }
+
+  // (c) family items by composition
+  const spousePresent = readLeaf(facts as Record<string, unknown>, 'family.spousePresent')?.value === true;
+  if (spousePresent) {
+    for (const item of docs.familyItems.spouse) {
+      steps.push(docItemToStep(item, 'Spouse', ''));
+    }
+  }
+
+  const childrenCountLeaf = readLeaf(facts as Record<string, unknown>, 'family.childrenCount');
+  const childrenCount = typeof childrenCountLeaf?.value === 'number' ? childrenCountLeaf.value : 0;
+  for (let i = 1; i <= childrenCount; i++) {
+    for (const item of docs.familyItems.child) {
+      steps.push(docItemToStep(item, `Child ${i}`, `__${i}`));
+    }
+  }
+
+  return steps;
 }
 
 export function computeJourneyProgress(

@@ -90,3 +90,63 @@ describe('computeJourneyProgress — eligibility phase', () => {
     expect(progress.overallPct).toBeLessThanOrEqual(100);
   });
 });
+
+describe('computeJourneyProgress — documents phase', () => {
+  it('includes ZAB only when anabin condition matches', () => {
+    const withUnknown: CaseFacts = { education: { anabinStatus: wrap('unknown') } };
+    const withHPlus: CaseFacts = { education: { anabinStatus: wrap('H+') } };
+
+    const docsUnknown = computeJourneyProgress(withUnknown, EMPTY_PROFILE, getDocumentRules(), verdictFor(withUnknown), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+    const docsHPlus = computeJourneyProgress(withHPlus, EMPTY_PROFILE, getDocumentRules(), verdictFor(withHPlus), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+
+    expect(docsUnknown.steps.some((s) => s.id === 'zab_statement')).toBe(true);
+    expect(docsHPlus.steps.some((s) => s.id === 'zab_statement')).toBe(false);
+  });
+
+  it('excludes route-specific docs when the route does not apply', () => {
+    // it_specialist_experience_pack is routes: [it_no_degree]
+    const standard: CaseFacts = {
+      education: { highestDegree: wrap('master_eqf7'), anabinStatus: wrap('H+') },
+      employment: { annualGrossSalaryEur: wrap(60000), iscoCode: wrap('2512') },
+    };
+    const docs = computeJourneyProgress(standard, EMPTY_PROFILE, getDocumentRules(), verdictFor(standard), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+    expect(docs.steps.some((s) => s.id === 'it_specialist_experience_pack')).toBe(false);
+  });
+
+  it('expands per-member family document sets from composition', () => {
+    const withFamily: CaseFacts = {
+      education: { anabinStatus: wrap('H+') },
+      family: { spousePresent: wrap(true), childrenCount: wrap(2) },
+    };
+    const docs = computeJourneyProgress(withFamily, EMPTY_PROFILE, getDocumentRules(), verdictFor(withFamily), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+
+    expect(docs.steps.some((s) => s.id === 'spouse_passport')).toBe(true);
+    expect(docs.steps.some((s) => s.group === 'Spouse')).toBe(true);
+    expect(docs.steps.filter((s) => s.id.startsWith('child_passport')).length).toBe(2);
+    expect(docs.steps.some((s) => s.group === 'Child 1')).toBe(true);
+    expect(docs.steps.some((s) => s.group === 'Child 2')).toBe(true);
+  });
+
+  it('omits family sets when no spouse/children present', () => {
+    const single: CaseFacts = { education: { anabinStatus: wrap('H+') }, family: { spousePresent: wrap(false), childrenCount: wrap(0) } };
+    const docs = computeJourneyProgress(single, EMPTY_PROFILE, getDocumentRules(), verdictFor(single), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+    expect(docs.steps.some((s) => s.group === 'Spouse')).toBe(false);
+    expect(docs.steps.some((s) => s.group?.startsWith('Child'))).toBe(false);
+  });
+
+  it('marks every document step incomplete with a disabled upload action', () => {
+    const cf: CaseFacts = { education: { anabinStatus: wrap('H+') } };
+    const docs = computeJourneyProgress(cf, EMPTY_PROFILE, getDocumentRules(), verdictFor(cf), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+    expect(docs.steps.length).toBeGreaterThan(0);
+    for (const s of docs.steps) {
+      expect(s.state).toBe('incomplete');
+      expect(s.action).toEqual({ kind: 'upload', enabled: false });
+    }
+  });
+});
