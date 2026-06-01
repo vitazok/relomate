@@ -2,6 +2,9 @@ schemaVersion: 1
 phases:
   - id: eligibility
     label: Eligibility & route
+    # headline: reserved for future rich verdict rendering inside the phase card.
+    # Not yet consumed by computeJourneyProgress — the verdict currently flows to the
+    # Tracker via a separate eligibilityHeadline prop (out-of-scope banner only).
     headline: verdict
     source: steps
     steps:
