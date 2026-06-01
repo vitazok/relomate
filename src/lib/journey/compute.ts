@@ -86,7 +86,12 @@ function phaseStatus(completed: number, total: number, locked: boolean): PhasePr
   return 'todo';
 }
 
-function docItemToStep(item: DocumentItem, group: string | null, idSuffix: string): StepProgress {
+function docItemToStep(
+  item: DocumentItem,
+  group: string | null,
+  idSuffix: string,
+  docsLastVerified: string,
+): StepProgress {
   return {
     id: idSuffix ? `${item.id}${idSuffix}` : item.id,
     label: item.label,
@@ -97,7 +102,7 @@ function docItemToStep(item: DocumentItem, group: string | null, idSuffix: strin
       explainer: item.details,
       legalBasis: null,
       sourceUrl: item.sourceUrl,
-      lastVerified: '',
+      lastVerified: docsLastVerified,
     },
     answerProvenance: null,
     action: { kind: 'upload', enabled: false },
@@ -120,14 +125,14 @@ function expandDocuments(
   for (const item of docs.items) {
     if (!routeApplies(item, verdict)) continue;
     if (item.condition && !evaluateCondition(item.condition, facts)) continue;
-    steps.push(docItemToStep(item, 'You (applicant)', ''));
+    steps.push(docItemToStep(item, 'You (applicant)', '', docs.lastVerified));
   }
 
   // (c) family items by composition
   const spousePresent = readLeaf(facts as Record<string, unknown>, 'family.spousePresent')?.value === true;
   if (spousePresent) {
     for (const item of docs.familyItems.spouse) {
-      steps.push(docItemToStep(item, 'Spouse', ''));
+      steps.push(docItemToStep(item, 'Spouse', '', docs.lastVerified));
     }
   }
 
@@ -135,7 +140,7 @@ function expandDocuments(
   const childrenCount = typeof childrenCountLeaf?.value === 'number' ? childrenCountLeaf.value : 0;
   for (let i = 1; i <= childrenCount; i++) {
     for (const item of docs.familyItems.child) {
-      steps.push(docItemToStep(item, `Child ${i}`, `__${i}`));
+      steps.push(docItemToStep(item, `Child ${i}`, `__${i}`, docs.lastVerified));
     }
   }
 

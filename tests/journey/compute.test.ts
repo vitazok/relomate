@@ -149,4 +149,14 @@ describe('computeJourneyProgress — documents phase', () => {
       expect(s.action).toEqual({ kind: 'upload', enabled: false });
     }
   });
+
+  it('threads the documents-file lastVerified date into document citations', () => {
+    const cf: CaseFacts = { education: { anabinStatus: wrap('H+') } };
+    const docsRules = getDocumentRules();
+    const docs = computeJourneyProgress(cf, EMPTY_PROFILE, docsRules, verdictFor(cf), TODAY)
+      .phases.find((p) => p.id === 'documents')!;
+    const firstStep = docs.steps[0]!;
+    expect(firstStep.requirementCitation?.lastVerified).toBe(docsRules.lastVerified);
+    expect(firstStep.requirementCitation?.lastVerified).not.toBe('');
+  });
 });
