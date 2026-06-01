@@ -6,6 +6,10 @@ import { getCurrentUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import type { UIMessage } from 'ai';
+import { evaluateEligibility } from '@/lib/rules/eligibility';
+import { computeJourneyProgress } from '@/lib/journey/compute';
+import { getDocumentRules } from '@/lib/rules/loader';
+import type { Profile } from '@/lib/profile/schema';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +42,23 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     parts: (m.parts as UIMessage['parts']) ?? [{ type: 'text', text: m.content }],
   }));
 
+  const profile: Profile = { schemaVersion: 1 };
+  const today = new Date();
+  const verdict = evaluateEligibility(loaded.caseFacts, profile, today);
+  const progress = computeJourneyProgress(
+    loaded.caseFacts,
+    profile,
+    getDocumentRules(),
+    verdict,
+    today,
+  );
+
   return (
-    <Layout caseId={loaded.case.id} caseFacts={loaded.caseFacts} initialMessages={initialMessages} />
+    <Layout
+      caseId={loaded.case.id}
+      progress={progress}
+      eligibilityVerdict={verdict}
+      initialMessages={initialMessages}
+    />
   );
 }
