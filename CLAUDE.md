@@ -255,7 +255,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ---
 
-## Current state (as of 2026-05-31)
+## Current state (as of 2026-06-01)
 
 | Phase | Status | Spec / plan |
 |---|---|---|
@@ -266,8 +266,9 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 1B-3 chat + workspace + Inngest | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
 | 2A.1 agent brain | complete, merged to main | `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md` |
 | 2A.2 eligibility + knowledge | complete, merged to main | `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
-| **2B journey-tracker dashboard** | **NEXT — designed, not started** | `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (`4db6846`) |
-| 2C persona-driven E2E | designed | layered strategy; see Pinned. After 2B. |
+| 2B journey-tracker dashboard | complete, **merged to main** (PR #3) | `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md` |
+| **2C persona-driven E2E (layers 1+2a)** | **in PR #4 — code-complete, awaiting merge** | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` + `docs/superpowers/plans/2026-06-01-phase-2c-persona-e2e.md` |
+| 2C layers 2b+3 (real-stream replay + live LLM + CI) | designed, not started | deferred follow-up; see Pinned |
 
 (Per-phase commit hashes, test counts, and resolved-bug write-ups live in git history + the Stack gotchas section.)
 
@@ -275,20 +276,27 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Next: Phase 2B — workspace comes alive (journey-tracker dashboard)
+### Next: finish 2C (merge PR #4), then 2C layers 2b+3 OR remaining 2B secondary scope
 
-Phase 2 is sliced into four sessions (kept well below 1M tokens each — session-token budget, not API cost, drove the cut). **2A.1 and 2A.2 are done.** Remaining slices:
+Phase 2 is sliced into four sessions (kept well below 1M tokens each — session-token budget, not API cost, drove the cut). **2A.1, 2A.2, and 2B (journey-tracker) are done and merged.** 2C layers 1+2a are code-complete in PR #4. Remaining work:
 
-- **2B — workspace comes alive (NEXT):** the **journey-tracker dashboard** is the centerpiece — see the dedicated subsection below. Plus rich renderers (the 2A.2 registry has minimal in-chat cards) and the left-sidebar section drill-downs. 2A.2 shipped the pure `evaluateEligibility` + `summarizeFigures` + `assessReadiness` helpers the tracker reuses.
-- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand. **2C gains** per-persona `computeJourneyProgress` assertions (pure, ~0 tokens) once the tracker lands.
+- **Merge PR #4** (2C layers 1+2a). Full suite 208 green, tsc + lint clean; test-only, no `src/` changes.
+- **2C layers 2b+3 (deferred follow-up):** the hard/expensive half — a recorded `LanguageModelV3` stream replayed through the *real* `buildAgentTurn` loop (2b; hand-rolled V3 protocol, SDK-drift-exposed), plus a live-LLM nightly/on-demand runner + user-simulator (3). This session also builds the first `.github/workflows/` CI (PR deterministic gate + nightly live run; serial to dodge `EMAXPOOLSREACHED`). Scope/rationale in the 2C design doc's "Follow-up" section.
+- **2B secondary scope (not built in the tracker slice):** rich in-chat renderers (the registry has minimal cards) + left-sidebar section drill-downs. NOTE: `Nav.tsx` still has a stale `#overview` anchor — `Overview.tsx` was deleted in PR #3 and replaced by `Tracker.tsx`; the sidebar's `#overview` link points at nothing. Fix when touching the sidebar.
 
 The Pinned decisions below carry forward.
 
-### Journey-tracker dashboard (2B centerpiece — designed 2026-05-31, not started)
+### 2C persona-driven E2E (layers 1+2a SHIPPED in PR #4 — 2026-06-01)
 
-Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (commit `4db6846`). **2A.2 is done, so this is now unblocked and is the NEXT build.** Start with brainstorming → writing-plans against the spec (no plan written yet). The tracker REUSES the pure helpers 2A.2 shipped — `evaluateEligibility` (`src/lib/rules/eligibility.ts`), `assessReadiness` (`eligibility-readiness.ts`), `summarizeFigures` (`eligibility-figures.ts`) — at ~0 token cost; `computeJourneyProgress` should call them, not re-derive. The eligibility verdict + figures already flow through `check_eligibility`; the tracker is a separate read-only center-column projection (not a chat renderer).
+Spec: `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md`; plan: `docs/superpowers/plans/2026-06-01-phase-2c-persona-e2e.md`. Built the **deterministic core + onFinish-replay** half of the layered strategy (2b real-stream replay + 3 live LLM deferred — see above). What shipped:
+- **`tests/_personas/harness.ts`** — single source of truth for the persona→`CaseFacts` mapping (deduped from `eligibility.test.ts` + `compute-personas.test.ts`, which now import it). Adds `flattenLeafValues`, `isLeafValueValid`, `deriveUpdateCalls` (derives `update_case` inputs from `persona.caseFacts` — **derive-don't-store**, no persona JSON/schema change), `synthesizeTurnEvent` (builds an `onFinish` event: `update_case` bundle for in-scope, `out_of_scope` for out-of-scope personas).
+- **Layer 1** (`tests/personas/case-file.test.ts`) — DB-backed: applies derived `update_case` calls through the **real** repository, asserts persisted leaf *values* (compares values, NOT provenance wrappers — `applyUpdate` re-stamps `updatedAt`/`sourceTurnId`). Out-of-scope persona's invalid-enum leaf (`intendedVisa:'asylum'`, enum is `['blue_card']`) is **isolated into its own call** because `applyUpdate` validates eagerly + throws, rejecting the whole call — bundling would sink the valid leaves.
+- **Layer 2a** (`tests/personas/agent-turn-replay.test.ts`) — drives the **real** `buildAgentTurn` `onFinish` (mocks `ai`/persistence/inngest via the dependency-free `vi.mock('ai')` seam) per persona; asserts `appendChatTurn` receives the mapped turn AND the Inngest `case.facts.updated` emit fires for `update_case` personas, not for out-of-scope.
+- **`test:personas`** npm script groups the deterministic core (6 files / 27 tests).
 
-Decisions locked in the spec (do NOT redebate — brainstormed with the user 2026-05-31):
+### Journey-tracker dashboard (2B centerpiece — SHIPPED, merged to main PR #3, 2026-06-01)
+
+Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (`4db6846`); plan: `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md`. **Built and merged.** Shipped `config/rules/journey.yaml` + `src/lib/journey/` (`loader`, `types`, `citations`, `provenance`, `compute`) + `src/components/workspace/Tracker.tsx` (replaced `Overview.tsx`), wired into the case page. `computeJourneyProgress(caseFacts, profile, documents, verdict, today)` reuses the pure 2A.2 helpers (`evaluateEligibility`, `assessReadiness`, `summarizeFigures`) at ~0 token cost. `documents.yaml` gained the optional `condition` field; `CaseFacts.family` gained `spousePresent`/`childrenCount`. Per-persona `computeJourneyProgress` assertions live in `tests/journey/compute-personas.test.ts`. The decisions below are the locked design record (still accurate):
 - **Center column = journey tracker**, a *read-only projection* over existing case state. No new write path (rule 5 holds). Layout "Option A": tracker is the center; chat stays pinned right; **left sidebar stays** as portal chrome + section drill-down links. Tracker and sidebar are two projections of one case state.
 - **Approach: config-driven.** New `config/rules/journey.yaml` (phase manifest) + pure `computeJourneyProgress(caseFacts, profile, documents, verdict, today)` in `src/lib/journey/`. Mirrors `evaluateEligibility` + rules-loader. Honors rule 7.
 - **4 phases:** eligibility (8 curated steps) · documents (dynamic count from `documents.yaml`) · drafts (locked) · VIDEX+package (locked). Locked phases render greyed "coming soon" from day one.
@@ -331,13 +339,13 @@ Decisions locked in the spec (do NOT redebate — brainstormed with the user 202
 - **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
 - **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
 - **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`). Dispatches on `type` ONLY; `version` deliberately ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships — comment in file). `ChatPanel` reads the static-tool part's result off `part.output` (AI SDK v5 shape; `if (!out?.type) return null` skips in-flight/errored parts). The minimal renderers stay for in-chat tool outputs; 2B's rich UI is the journey-tracker (a separate center-column projection, not a renderer). NOTE for 2B: `OutOfScopeResult` is a block-level amber card rendered inside the chat bubble — revisit whether block renderers should sit outside the bubble.
-- `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`). **(Superseded by 2B journey-tracker: `Overview.tsx` → `Tracker.tsx`, which renders phases not raw sections. Preserve the empty-state copy. See tracker spec.)**
-- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts. **(2B journey-tracker keeps Option-A 3-column shape — sidebar / tracker / chat — so the grid likely stands; confirm against tracker spec.)**
+- `Overview.tsx` was **deleted in 2B (PR #3)** and replaced by `Tracker.tsx` (renders journey phases, not raw sections; its empty-state copy was preserved). NOTE: `Nav.tsx` still links `#overview` at a now-deleted anchor — fix when touching the sidebar.
+- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx` — sidebar / tracker / chat (Option-A 3-column shape, **shipped in 2B**). Update there if design shifts.
 
 **Phase-2 strategy**
 - **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
-- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
-- **2B journey-tracker dashboard:** full locked decision list is in the "Journey-tracker dashboard" subsection above. Touches `CaseFacts.family` (spouse/children mini-profiles), `documents.yaml` (`condition` field), rules loader; adds `src/lib/journey/` + `Tracker.tsx`. **NEXT build (2A.2 done).**
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs at ~0 tokens. The LLM-driven loop is recorded once and replayed (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam. **2C layers 1+2a shipped this (PR #4):** the deterministic core (incl. DB-backed scripted-sequence→end-state) + the `onFinish`-replay seam. Layer 2b (real `LanguageModelV3` stream replay through the live loop) + layer 3 (live LLM + user-simulator) + the GitHub Actions CI ("runs every PR") are the deferred follow-up — see the 2C subsection above.
+- **2B journey-tracker dashboard: SHIPPED (PR #3).** Full record in the "Journey-tracker dashboard" subsection above. Touched `CaseFacts.family` (`spousePresent`/`childrenCount`), `documents.yaml` (`condition` field), rules loader; added `src/lib/journey/` + `Tracker.tsx`.
 
 ---
 
