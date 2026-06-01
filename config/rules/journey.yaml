@@ -1,0 +1,56 @@
+schemaVersion: 1
+phases:
+  - id: eligibility
+    label: Eligibility & route
+    # headline: reserved for future rich verdict rendering inside the phase card.
+    # Not yet consumed by computeJourneyProgress — the verdict currently flows to the
+    # Tracker via a separate eligibilityHeadline prop (out-of-scope banner only).
+    headline: verdict
+    source: steps
+    steps:
+      - id: target
+        label: Target visa & consulate
+        paths: ['target.intendedVisa', 'target.targetConsulate']
+        cite: consulate
+      - id: employer
+        label: Employer & location
+        paths: ['employment.employerName', 'employment.employerCity']
+        cite: null
+      - id: job
+        label: Job title & occupation code
+        paths: ['employment.jobTitle', 'employment.iscoCode']
+        cite: shortage-occupations
+      - id: salary
+        label: Annual gross salary
+        paths: ['employment.annualGrossSalaryEur']
+        cite: blue-card-threshold
+      - id: contract
+        label: Contract type & start date
+        paths: ['employment.contractType', 'employment.contractStartDate']
+        cite: blue-card-general
+      - id: degree
+        label: Highest degree & field
+        paths: ['education.highestDegree', 'education.fieldOfStudy']
+        cite: blue-card-degree
+      - id: recognition
+        label: Degree recognition (Anabin)
+        paths: ['education.anabinStatus', 'education.institution', 'education.completionYear']
+        cite: anabin
+      - id: experience
+        label: Prior work experience
+        paths: ['employment.priorExperienceYears']
+        cite: it-no-degree
+  - id: documents
+    label: Documents
+    source: documents
+    steps: []
+  - id: drafts
+    label: Drafts
+    locked: true
+    comingSoon: Cover letter, employer declaration, and CV drafting arrives in a later step.
+    steps: []
+  - id: package
+    label: VIDEX form + submission package
+    locked: true
+    comingSoon: VIDEX form completion and the assembled submission package arrive in a later step.
+    steps: []

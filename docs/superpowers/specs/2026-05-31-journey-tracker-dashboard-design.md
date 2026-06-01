@@ -31,7 +31,7 @@ The product principle this serves: **the case is the spine, the chat is one pane
 1. **Layout = Option A.** Drop case-navigation from a dedicated center view; the center column *is* the tracker (phase cards). Chat stays pinned right, always visible (PRD: "chat is never hidden behind a button"). The **left sidebar stays** as portal chrome (settings, sign in/out) **plus** section drill-down links. Tracker and sidebar are **two projections of one case state** — the tracker summarizes the journey; the sidebar links to detailed section views.
 2. **Approach 1 — config-driven journey manifest.** A new `config/rules/journey.yaml` declares phases and per-phase "complete" rules. A pure `computeJourneyProgress(...)` reads manifest + case state and returns typed `JourneyProgress`. Mirrors the existing `evaluateEligibility` + rules-loader pattern. Honors rule 7 (no hardcoded requirements in code) and rule 3 (server-authoritative).
 3. **4 phases, not 5.** Identity (Profile) is **folded into the Documents phase** — identity facts are extracted from the passport upload and confirmed in place, then consumed by VIDEX. The `Profile` DB table is untouched (it is user-level, reused across cases, load-bearing for anon→authed merge). The user never fills a standalone identity form.
-4. **Family = Option A (one account, family as case data).** The primary applicant is the only *user*. Spouse + children are **mini-profile** identity sub-entities inside `CaseFacts.family`, each carrying the identity fields their own VIDEX/passport documents require. The document composer emits one document set per member; at output each member produces their own visa sub-package. No auth change, single case, one thread. Family members' address **defaults to the primary's, overridable**.
+4. **Family = Option A (one account, family as case data).** The primary applicant is the only *user*. Spouse + children are **mini-profile** identity sub-entities inside `CaseFacts.family`, each carrying the identity fields their own VIDEX/passport documents require. The document composer emits one document set per member; at output each member produces their own visa sub-package. No auth change, single case, one thread. Family members' address **defaults to the primary's, overridable**. *(Slice note — see §5.1: the tracker's first slice lands **composition only**; the full per-member identity fields described here are the eventual target, deferred to the upload-backend slice.)*
 5. **Conditional documents.** `documents.yaml` items gain an optional `condition` so the document count is accurate (ZAB only when Anabin unknown/unrecognized; distance-learning clarification only for distance/online study; marriage/birth certs only when spouse/children present).
 6. **Locked phases shown.** All 4 phases render from day one. Drafts and VIDEX/package show greyed "coming soon" until their features ship (Phase 2B+), so the user sees the whole path and the finish line.
 7. **Dual provenance (trust layer).** Every step surfaces two independent provenance lines — **requirement provenance** ("says who", resolved from authoritative YAML) and **answer provenance** ("we didn't invent your data", read from rule-9 fact metadata). Compact line by default, expandable to full detail.
@@ -68,9 +68,27 @@ EligibilityVerdict ──────────┘                         RSC
 
 ### 5.1 `CaseFacts.family` extension (`src/lib/case/schema.ts`)
 
+> **Scope amendment (2026-06-01, brainstorming):** this slice lands **family composition only** — just enough signal to count per-member document sets and conditional family docs honestly. The full per-member **identity fields** (`fullName`, `dateOfBirth`, `placeOfBirth`, `nationality`, `passportNumber`, `passportExpiry`, `address`) are **deferred to the upload-backend slice** that actually consumes them (per-member VIDEX + passport documents, both in locked/deferred phases). Rationale: the tracker's first slice reads composition, not identity; landing ~12 unused identity leaves now would bloat the schema-derived path catalog (the 2A.2 live-smoke risk surface) for fields nothing reads yet. YAGNI. The deferred shape below is the eventual target, not this slice's work.
+
+**This slice — composition only:**
+
 ```
 family: {
   maritalStatus: Field<MaritalStatus>          // existing
+  spousePresent?: Field<boolean>                 // accompanying spouse? drives spouse doc set + marriage cert
+  childrenCount?: Field<number>                  // # accompanying children → per-child doc sets + birth certs
+}
+```
+
+- Two scalar `Field` leaves — the minimal honest composition signal. `spousePresent` is distinct from `maritalStatus` ("married" ≠ "spouse accompanying the application"). The Documents phase reads exactly these two.
+- Drives the Documents-phase per-member expansion (§6.2) and the marriage/birth-certificate `condition`s (§5.2) entirely from composition.
+- Reuses the existing `FieldSchema` helper → provenance (rule 9) comes for free. Adds exactly **2 leaves** to the path catalog (both scalar — no enum, no nested recursion).
+- **Why not the array now:** `listLeafPaths` does not recurse into `ArrayField` element schemas, but it *does* recurse into a plain nested object-of-`Field`s — so the deferred `spouse: MemberIdentity` (a nested object) would add ~7 catalog leaves the moment it lands. Scalars keep the catalog honest. When identity lands, `childrenCount` is superseded by `children: ArrayField<MemberIdentity>` (`count = children.value.length`); a clean, documented swap.
+
+**Deferred to the upload-backend slice — full per-member identity (the eventual §5.1 target):**
+
+```
+family: {
   spouse?: MemberIdentity                        // present iff accompanying
   children?: ArrayField<MemberIdentity>
 }
@@ -82,9 +100,9 @@ MemberIdentity = {
 }
 ```
 
-- Reuses existing `FieldSchema` / `ArrayFieldSchema` / `CurrentAddressValue` helpers → provenance (rule 9) and address shape come for free.
-- `update_case` writes arbitrary paths → **no tool change**.
-- **Eligibility engine untouched:** family does not gate the primary's verdict (confirmed against `family-reunification.yaml` — spouse/children affect documents only, not the salary/degree/route logic).
+- Will reuse `FieldSchema` / `ArrayFieldSchema` / `CurrentAddressValue` → provenance + address shape for free.
+- `update_case` writes arbitrary paths → **no tool change** (true for both slices).
+- **Eligibility engine untouched** (both slices): family does not gate the primary's verdict (confirmed against `family-reunification.yaml` — spouse/children affect documents only, not the salary/degree/route logic).
 
 ### 5.2 `documents.yaml` — optional `condition`
 
@@ -181,7 +199,7 @@ Count = items applicable to **this** case after filtering by (a) route, (b) `con
 
 **Identity folds in here:** the passport item, on upload, yields `Profile` identity facts ("we read your name + passport no. — confirm"). No separate Profile phase.
 
-**Grouped by family member:** "You (applicant)" / "Spouse — {name}" / "Child — {name}", since each member maps to a distinct visa sub-package.
+**Grouped by family member:** "You (applicant)" / "Spouse" / "Child 1", "Child 2"…, since each member maps to a distinct visa sub-package. (This slice has composition only — §5.1 — so members are labelled by position, not name; the `{name}` form lights up once per-member identity lands with the upload-backend slice.)
 
 ### 6.3 Phase 3 · Drafts — locked (Phase 2B)
 
@@ -270,3 +288,25 @@ Compact one-liner by default (keeps ~25 rows scannable); click/hover expands to 
 - **Drafts & VIDEX (Phase 2B+):** locked phases light up as those features ship.
 - **Mobile:** PRD specifies stacked layout + chat bottom-sheet on mobile; this design assumes desktop 3-column. Mobile adaptation deferred (not regressed — current layout is already desktop-first).
 - **Section drill-down views:** the left-sidebar links to detailed per-section views (Profile, Documents, …) are a separate 2B concern; this design only guarantees the tracker projection and that the sidebar remains as chrome + links.
+
+---
+
+## 11. Build sequencing (added 2026-06-01)
+
+Bottom-up, data-layer first — every slice has its own verification gate; nothing renders against unproven data. Mirrors how the eligibility engine was built (pure + tested, then surfaced). The implementation plan expands each slice into tasks.
+
+| # | Slice | Lands | Verified by |
+|---|---|---|---|
+| 1 | **Config + types foundation** | `config/rules/journey.yaml` (4-phase manifest, 8 eligibility steps, `cite` pointers) · `src/lib/journey/types.ts` (Zod) · `src/lib/journey/loader.ts` (module-scope cache, mirrors `rules/loader.ts`) · `condition` field added to `DocumentItem` in `src/lib/rules/types.ts` + parsed by `loader.ts` | Loader unit tests (manifest parses; unknown `cite` fails loudly); `condition` Zod round-trips |
+| 2 | **Family composition schema** | The composition-only `CaseFacts.family` extension (amended §5.1) — `spousePresent` + minimal `children` | Schema test + **path-catalog test** (leaves enumerate; every `validateLeafPath` resolves) — the 2A.2 regression guard |
+| 3 | **Pure `computeJourneyProgress`** | `src/lib/journey/compute.ts`: condition evaluator, per-member doc expansion, `resolveCitation()`, answer-provenance mapping → `JourneyProgress` | **Per-persona unit tests** (§9): priya 8/8 + no ZAB; vikram blocked + ZAB present; arjun IT-route; asylum out-of-scope. ~0 tokens (the 2C signal). Plus `resolveCitation` + `condition`-evaluator unit tests |
+| 4 | **`<Tracker>` component** | `src/components/workspace/Tracker.tsx`: phase cards (done/active/todo/locked) + overall %, expand-to-steps, compact + expandable dual provenance | Renders against persona fixtures; visual check via `run` skill |
+| 5 | **Wiring** | `page.tsx` also loads `profile`, computes `verdict` + `journeyProgress`; `Layout` swaps `<Overview>`→`<Tracker>` (preserve empty-state copy); `<Nav>` stays; grid unchanged | Full build/lint/tsc clean; live smoke in the real app |
+
+Slices 1–3 are pure/server logic, provable at ~0 tokens before any UI exists. Once `computeJourneyProgress` is green against all four personas, the component (4) renders a proven data structure and wiring (5) is plumbing — the correctness-critical work is verified earliest and cheapest.
+
+### Code-vs-spec reconciliation (verified 2026-06-01 against current `main`)
+
+- `documents.yaml` family docs already live in a separate `familyItems: { spouse: [...], child: [...] }` block (`src/lib/rules/types.ts:251`), **not** inline `applicableTo`-tagged items. Per-member expansion (§6.2) iterates `familyItems` × composition, not a filter over one flat list.
+- The `condition` field is added to the `DocumentItem` Zod object in `rules/types.ts`; `loader.ts` already validates `documents.yaml` through that schema, so parsing comes for free once the field exists.
+- `evaluateEligibility(caseFacts, profile, today)`, `summarizeFigures(facts, today)`, `assessReadiness(facts)` exist with the signatures the tracker assumes. `page.tsx` does **not** currently load `profile` or compute a verdict — that wiring is genuinely new (slice 5).

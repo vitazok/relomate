@@ -19,6 +19,16 @@ describe('listLeafPaths', () => {
     expect(paths).toContain('passportNumber');
   });
 
+  it('includes the family composition leaves (and only those, not identity)', () => {
+    const paths = listLeafPaths().map((p) => p.path);
+    expect(paths).toContain('family.maritalStatus');
+    expect(paths).toContain('family.spousePresent');
+    expect(paths).toContain('family.childrenCount');
+    // composition-only slice: no per-member identity leaves yet
+    expect(paths).not.toContain('family.spouse.fullName');
+    expect(paths).not.toContain('family.spouse.passportNumber');
+  });
+
   it('does NOT include invented/guessed paths', () => {
     const paths = listLeafPaths().map((p) => p.path);
     expect(paths).not.toContain('education.level');

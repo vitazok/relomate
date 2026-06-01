@@ -7,6 +7,7 @@ import {
   getShortageMappings,
   loadRules,
 } from '@/lib/rules/loader';
+import { DocumentCondition } from '@/lib/rules/types';
 
 describe('rules loader', () => {
   it('loads and validates all 5 YAMLs + anabin seed', () => {
@@ -47,5 +48,33 @@ describe('rules loader', () => {
   it('seeds at least 8 shortage-occupation mappings', () => {
     const mappings = getShortageMappings();
     expect(mappings.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('parses optional condition on document items', () => {
+    const { items } = loadRules().documents;
+    const zab = items.find((i) => i.id === 'zab_statement');
+    expect(zab?.condition).toEqual({
+      path: 'education.anabinStatus',
+      in: ['unknown', 'H-'],
+    });
+    const noCondition = items.find((i) => i.id === 'passport');
+    expect(noCondition?.condition).toBeUndefined();
+  });
+});
+
+describe('DocumentCondition schema', () => {
+  it('rejects a condition with neither in nor equals', () => {
+    const result = DocumentCondition.safeParse({ path: 'education.anabinStatus' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a condition with in', () => {
+    const result = DocumentCondition.safeParse({ path: 'x', in: ['a'] });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a condition with equals', () => {
+    const result = DocumentCondition.safeParse({ path: 'x', equals: true });
+    expect(result.success).toBe(true);
   });
 });

@@ -257,19 +257,21 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ## Current state (as of 2026-05-31)
 
-| Phase | Status | Notes |
+| Phase | Status | Spec / plan |
 |---|---|---|
-| 0 | complete | user-declared 2026-05-27 |
-| 1A foundation | complete, pushed | plan: `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
-| 1B-1 persistence + `update_case` | complete, pushed 2026-05-28 | plan: `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md`. Last commit `f7ab0be` |
-| 1B-2 auth + anon→authed merge | complete, pushed 2026-05-28 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md`. 88/88 tests |
-| 1B-3 chat + workspace + Inngest | complete, pushed 2026-05-29 | spec: `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md`. Plan: `docs/superpowers/plans/2026-05-28-phase-1b-3-chat-workspace.md`. 110/110 tests; smoke green |
-| 2A.1 agent brain | **complete; merged to main** (PR #1 `4a457c9` + smoke-fix PR #2 `f405d59`); live-smoke PASSED 2026-05-30 | plan: `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md`. 128/128 tests, build/lint/tsc clean. Live-smoke caught + fixed 3 runtime bugs the mocked unit tests missed: `ai@5`→`^6` (v3-model 500, casts removed), 5th cache_control breakpoint (400), bogus `MODEL_ID` `-4-7`→`-4-6` (404). Verified live: `update_case` self-corrects on tool errors, contradiction path, `out_of_scope` activity log + renderer output shape. |
-| 2A.2 — eligibility + knowledge | **complete; live-smoke PASSED 2026-05-31** | spec: `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md`; plan: `docs/superpowers/plans/2026-05-31-phase-2a-2-eligibility-knowledge.md`. 157/157 tests, build/lint/tsc clean. Tools `check_eligibility` + `lookup_anabin` wired in; `simulate_what_if` deferred (fold into `check_eligibility.overrides` if needed). Live-smoke caught + fixed a pre-existing bug: agent guessed invalid `update_case` paths → errored retries exhausted the step budget → dead-end no-answer turn. Fix: schema-derived path catalog (`listLeafPaths`) injected into context + tool description; `MAX_AGENT_STEPS` 5→8. **Merged + pushed to `origin/main` 2026-05-31 (fast-forward, HEAD `9619562`)** — branch + worktree removed. |
-| **2B journey-tracker dashboard (NEXT)** | **designed 2026-05-31, not started** (build as 2B centerpiece) | spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (commit `4db6846`). Reconceives PRD §7: center column becomes a journey tracker (read-only projection over case state), sidebar sections demoted to drill-downs. See "Journey-tracker dashboard" under Next. |
+| 0 | complete | — |
+| 1A foundation | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
+| 1B-1 persistence + `update_case` | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md` |
+| 1B-2 auth + anon→authed merge | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md` |
+| 1B-3 chat + workspace + Inngest | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
+| 2A.1 agent brain | complete, merged to main | `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md` |
+| 2A.2 eligibility + knowledge | complete, merged to main | `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
+| **2B journey-tracker dashboard** | **NEXT — designed, not started** | `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (`4db6846`) |
 | 2C persona-driven E2E | designed | layered strategy; see Pinned. After 2B. |
 
-**Post-1B-3 review pass (2026-05-29, commits `8241e7a` + `f33895c`):** external red-flag review fixed the merge FK bug (tombstone, see Auth.js gotcha), `/api/chat` input bounds + 4xx safety, generic auth error, test `afterAll` cleanup guards, gitignore `*.swp`. Two of its deferred items are now done in 2A.1 (`buildAgentContext`/`v0` prompt; `ai@6` alignment + cast removal). **Still open, NOT a regression:** `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
+(Per-phase commit hashes, test counts, and resolved-bug write-ups live in git history + the Stack gotchas section.)
+
+**Open item (not a regression):** `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
@@ -279,8 +281,6 @@ Phase 2 is sliced into four sessions (kept well below 1M tokens each — session
 
 - **2B — workspace comes alive (NEXT):** the **journey-tracker dashboard** is the centerpiece — see the dedicated subsection below. Plus rich renderers (the 2A.2 registry has minimal in-chat cards) and the left-sidebar section drill-downs. 2A.2 shipped the pure `evaluateEligibility` + `summarizeFigures` + `assessReadiness` helpers the tracker reuses.
 - **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand. **2C gains** per-persona `computeJourneyProgress` assertions (pure, ~0 tokens) once the tracker lands.
-
-**2A.2 outcome (complete 2026-05-31):** `check_eligibility` (ephemeral verdict + `case.eligibility.checked` activity trail; statuses out_of_scope / incomplete / assessed) and `lookup_anabin` (not-found vs seeded-unknown) are registered. Figures are threshold-centric (`summarizeFigures` reads the engine's exported `activeThreshold` — no drift; the card pairs thresholds with the engine's granted `routes`, never re-deriving). Single cache breakpoint on `lookup_anabin` (last tool). `simulate_what_if` deferred. **Live-smoke fix (see "Tools" gotcha below):** the agent was guessing invalid `update_case` paths; now a schema-derived path catalog is injected into context + the tool description, and `MAX_AGENT_STEPS` is 8.
 
 The Pinned decisions below carry forward.
 
@@ -302,36 +302,42 @@ Decisions locked in the spec (do NOT redebate — brainstormed with the user 202
 
 ### Pinned decisions — do NOT redebate
 
+(Set across 1B and 2A brainstorming. Phase-2 strategy decisions are folded in here.)
+
+**Turn / persistence**
 - Server mints `userMessageId`; never trust client-supplied ids.
 - Two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file still correct. Accepted; eval workflow in Phase 7 catches trends.
+- `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
+- `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
+
+**Agent loop / model seam**
+- **`buildAgentTurn({ model, repo, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop: composes `systemPrompt + "\n\n" + context.systemContext`, registers the tool set, sets `stopWhen: stepCountIs(5)` + ephemeral cache, and runs `onFinish` (persist + Inngest emit). The route injects the real Anthropic model and keeps only HTTP concerns; tests inject a mock via `vi.mock('ai')` capturing `streamText` args — the 2C model-injection / fixture-replay seam.
+- **`MockLanguageModelV2` is NOT installed** — `ai/test` needs `msw` (forbidden new dep). Seam tests use the dependency-free pattern from `tests/api/chat.test.ts` (`vi.mock('ai')` capturing `streamText` args + `onFinish`). The fixture-*replay* dep question is resolved in 2C, not 2A.1.
+- `buildAgentContext` returns `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); `buildAgentTurn` composes `system = v0.md + "\n\n" + systemContext`. (Async signature kept for future Phase 2 awaits, e.g. activity tail.)
+- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
+
+**Inngest**
 - Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free. (Pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved the loop into the factory.)
 - Inngest **event** payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** then writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
 - `onFinish` mapping (now in `buildAgentTurn`): filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables are `updateResults` / `result`.
-- **`buildAgentTurn({ model, repo, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop: composes `systemPrompt + "\n\n" + context.systemContext`, registers the tool set, sets `stopWhen: stepCountIs(5)` + ephemeral cache, and runs `onFinish` (persist + Inngest emit). The route injects the real Anthropic model; tests inject a mock via `vi.mock('ai')` capturing `streamText` args (the 2C fixture-replay seam — `MockLanguageModelV2` stays uninstalled, needs forbidden `msw`). Route keeps only HTTP concerns.
-- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown. Dispatches on `type` ONLY; `version` deliberately ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships — comment in file). `ChatPanel` reads the static-tool part's result off `part.output` (AI SDK v5 shape; `if (!out?.type) return null` skips in-flight/errored parts). Minimal renderers now; rich UI is 2B. NOTE for 2B: `OutOfScopeResult` is a block-level amber card rendered inside the chat bubble — revisit whether block renderers should sit outside the bubble.
+
+**Caching / refresh / model / prompt**
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: `claude-sonnet-4-6` pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). **(Corrected 2026-05-30: the prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API returns `not_found_error`. Verified `claude-sonnet-4-6` against `/v1/models`. Don't restore `-4-7`.)**
-- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'` (2A.1; the `v0-stub` was removed).
-- `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
-- `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
-- `buildAgentContext` returns `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); `buildAgentTurn` composes `system = v0.md + "\n\n" + systemContext`. (Async signature kept for future Phase 2 awaits, e.g. activity tail.)
+- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'` (2A.1; the `v0-stub` was removed). **`v0.md` covers the full Phase 2 tool catalog** — all six tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`lookup_anabin`) are registered and un-caveated. `PROMPT_VERSION` stays `v0` (the Phase-2 generation, built incrementally — reserve a bump for the next generational rewrite).
 
-### Phase 2 pinned decisions (set during 2A.1 brainstorming — do NOT redebate)
-
-- **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
-- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
-- **`buildAgentTurn({ model, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop (system+context, tools, `stopWhen`, caching, `onFinish`). Route injects the real provider; tests inject a mock. The model-injection seam for 2C. Route keeps only HTTP concerns.
-- **`MockLanguageModelV2` is NOT installed** — `ai/test` needs `msw` (forbidden new dep). Seam tests use the dependency-free pattern from `tests/api/chat.test.ts` (`vi.mock('ai')` capturing `streamText` args + `onFinish`). The fixture-*replay* dep question is resolved in 2C, not 2A.1.
-- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
+**Tools / renderer / layout**
 - **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
 - **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
-- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` dispatches tool `{type}` outputs → React component, `FallbackResult` for unknown. Minimal renderers (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`); rich UI is 2B's job.
-- **`v0.md` covers the full Phase 2 tool catalog.** As of 2A.2, all six tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`lookup_anabin`) are registered and un-caveated in the prompt. `PROMPT_VERSION` stays `v0` (the Phase-2 generation, built incrementally — reserve a bump for the next generational rewrite).
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown (closes rule-8 gap; `ChatPanel` no longer renders `[tool-name]`). Dispatches on `type` ONLY; `version` deliberately ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships — comment in file). `ChatPanel` reads the static-tool part's result off `part.output` (AI SDK v5 shape; `if (!out?.type) return null` skips in-flight/errored parts). The minimal renderers stay for in-chat tool outputs; 2B's rich UI is the journey-tracker (a separate center-column projection, not a renderer). NOTE for 2B: `OutOfScopeResult` is a block-level amber card rendered inside the chat bubble — revisit whether block renderers should sit outside the bubble.
 - `Overview.tsx` `SECTION_ORDER` is `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which doesn't exist on `CaseFacts`). **(Superseded by 2B journey-tracker: `Overview.tsx` → `Tracker.tsx`, which renders phases not raw sections. Preserve the empty-state copy. See tracker spec.)**
 - CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx`. Update there if design shifts. **(2B journey-tracker keeps Option-A 3-column shape — sidebar / tracker / chat — so the grid likely stands; confirm against tracker spec.)**
-- **Renderer registry "rich UI is 2B's job" note** (above): 2B's rich UI is now anchored by the journey-tracker dashboard. The minimal renderers stay for in-chat tool outputs; the tracker is a separate center-column projection, not a renderer.
-- **2B journey-tracker dashboard** (designed 2026-05-31, spec `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`): see the "Journey-tracker dashboard" subsection under Next for the full locked decision list. Touches `CaseFacts.family` (spouse/children mini-profiles), `documents.yaml` (`condition` field), rules loader, and adds `src/lib/journey/` + `Tracker.tsx`. **NEXT build (2A.2 done).**
+
+**Phase-2 strategy**
+- **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
+- **2B journey-tracker dashboard:** full locked decision list is in the "Journey-tracker dashboard" subsection above. Touches `CaseFacts.family` (spouse/children mini-profiles), `documents.yaml` (`condition` field), rules loader; adds `src/lib/journey/` + `Tracker.tsx`. **NEXT build (2A.2 done).**
 
 ---
 

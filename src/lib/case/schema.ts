@@ -90,6 +90,8 @@ export const CaseFactsSchema = z.object({
   family: z
     .object({
       maritalStatus: Optional(MaritalStatus),
+      spousePresent: Optional(z.boolean()),
+      childrenCount: Optional(z.number().int().min(0)),
     })
     .optional(),
   target: z
