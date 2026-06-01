@@ -5,6 +5,7 @@ import {
   flattenLeafValues,
   isLeafValueValid,
   deriveUpdateCalls,
+  synthesizeTurnEvent,
 } from './harness';
 
 describe('flattenLeafValues', () => {
@@ -46,5 +47,23 @@ describe('deriveUpdateCalls', () => {
     expect(asylumCall!.updates['target.intendedVisa']).toBe('asylum');
     // the valid bundle must NOT contain the invalid leaf
     expect('target.intendedVisa' in calls[0]!.updates).toBe(false);
+  });
+});
+
+describe('synthesizeTurnEvent', () => {
+  it('emits an update_case tool call + result for an in-scope persona', () => {
+    const ev = synthesizeTurnEvent(loadPersona('priya-strong'));
+    expect(ev.toolCalls).toHaveLength(1);
+    expect(ev.toolCalls[0]!.toolName).toBe('update_case');
+    expect(ev.toolResults[0]!.toolName).toBe('update_case');
+    const out = ev.toolResults[0]!.output as { data: { updatedPaths: string[] } };
+    expect(out.data.updatedPaths).toContain('employment.annualGrossSalaryEur');
+    expect(typeof ev.text).toBe('string');
+  });
+
+  it('emits an out_of_scope call and NO update_case for an out-of-scope persona', () => {
+    const ev = synthesizeTurnEvent(loadPersona('out-of-scope-asylum'));
+    expect(ev.toolCalls.some((c) => c.toolName === 'update_case')).toBe(false);
+    expect(ev.toolCalls.some((c) => c.toolName === 'out_of_scope')).toBe(true);
   });
 });

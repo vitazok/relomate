@@ -175,3 +175,72 @@ export function deriveUpdateCalls(persona: Persona): UpdateCaseInputForLLM[] {
   calls.push(...isolated);
   return calls;
 }
+
+export interface SynthToolCall {
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+}
+export interface SynthToolResult {
+  toolCallId: string;
+  toolName: string;
+  output: unknown;
+}
+export interface SynthTurnEvent {
+  text: string;
+  content: Array<{ type: 'text'; text: string }>;
+  toolCalls: SynthToolCall[];
+  toolResults: SynthToolResult[];
+  steps: never[];
+}
+
+/**
+ * Build a well-formed onFinish event for a persona. In-scope personas emit the derived
+ * update_case bundle (call index 0); out-of-scope personas emit an out_of_scope call instead,
+ * so the Inngest `case.facts.updated` emit (which fires only for update_case) does not fire.
+ */
+export function synthesizeTurnEvent(persona: Persona): SynthTurnEvent {
+  if (persona.expected.outOfScope) {
+    const text = 'That request is outside what I can help with here.';
+    return {
+      text,
+      content: [{ type: 'text', text }],
+      toolCalls: [
+        {
+          toolCallId: 'call-oos',
+          toolName: 'out_of_scope',
+          input: { reason: persona.expected.reason ?? 'out of scope' },
+        },
+      ],
+      toolResults: [
+        {
+          toolCallId: 'call-oos',
+          toolName: 'out_of_scope',
+          output: { type: 'out_of_scope_result', version: 1, data: {} },
+        },
+      ],
+      steps: [],
+    };
+  }
+
+  const bundle = deriveUpdateCalls(persona)[0]!; // in-scope personas have only the valid bundle
+  const updatedPaths = Object.keys(bundle.updates);
+  const text = 'Recorded.';
+  return {
+    text,
+    content: [{ type: 'text', text }],
+    toolCalls: [{ toolCallId: 'call-1', toolName: 'update_case', input: bundle }],
+    toolResults: [
+      {
+        toolCallId: 'call-1',
+        toolName: 'update_case',
+        output: {
+          type: 'update_case_result',
+          version: 1,
+          data: { caseId: 'case-synthetic', updatedPaths, contradictions: [] },
+        },
+      },
+    ],
+    steps: [],
+  };
+}
