@@ -39,7 +39,7 @@ describe('deriveUpdateCalls', () => {
     const calls = deriveUpdateCalls(loadPersona('out-of-scope-asylum'));
     // First call = the valid bundle; subsequent calls = one isolated invalid leaf each.
     const isolated = calls.slice(1);
-    expect(isolated.length).toBeGreaterThanOrEqual(1);
+    expect(isolated).toHaveLength(1);
     const asylumCall = isolated.find((c) => 'target.intendedVisa' in c.updates);
     expect(asylumCall).toBeDefined();
     expect(Object.keys(asylumCall!.updates)).toEqual(['target.intendedVisa']);

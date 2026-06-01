@@ -129,6 +129,8 @@ export function flattenLeafValues(
   const out: Array<{ path: string; value: unknown }> = [];
   for (const [key, node] of Object.entries(obj)) {
     const path = prefix ? `${prefix}.${key}` : key;
+    // Leaf detection: FieldSchema/ArrayFieldSchema wrappers always carry a 'value' key;
+    // intermediate objects on the CaseFacts/Profile tree do not.
     if (node && typeof node === 'object' && 'value' in (node as object)) {
       out.push({ path, value: (node as { value: unknown }).value });
     } else if (node && typeof node === 'object') {
