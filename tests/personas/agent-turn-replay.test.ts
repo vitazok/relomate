@@ -33,6 +33,8 @@ function stubRepo(): Repository {
   const notCalled = () => {
     throw new Error('repo method should not be called in the replay test');
   };
+  // reason: the stub only needs to satisfy the Repository type — no method is reached at runtime
+  // (streamText is mocked so tools never run; onFinish calls the mocked appendChatTurn/inngest).
   return {
     createCase: notCalled,
     loadCase: notCalled,
@@ -83,6 +85,8 @@ describe('persona agent-turn onFinish replay', () => {
         expect(sent.name).toBe('case.facts.updated');
         expect(sent.data.caseId).toBe(CASE_ID);
         expect(sent.data.sourceTurnId).toBe(TURN_ID);
+        // Couples to a path all 3 current in-scope personas carry. If a future in-scope persona
+        // omits employment salary, weaken to `expect(sent.data.paths.length).toBeGreaterThan(0)`.
         expect(sent.data.paths).toContain('employment.annualGrossSalaryEur');
       }
     });
