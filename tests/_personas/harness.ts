@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { PersonaSchema, type Persona } from '../../data/personas/schema';
 import type { CaseFacts } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
+import { validateLeafPath, validateLeafValue } from '@/lib/case/paths';
+import type { UpdateCaseInputForLLM } from '@/lib/case/types';
 
 export const PERSONAS_DIR = join(process.cwd(), 'data', 'personas');
 
@@ -117,4 +119,57 @@ export function toCaseFacts(p: Persona): CaseFacts {
   }
 
   return cf;
+}
+
+/** Walk a wrapped case-tree object, returning each leaf's dotted path + raw value (drops provenance). */
+export function flattenLeafValues(
+  obj: Record<string, unknown>,
+  prefix = '',
+): Array<{ path: string; value: unknown }> {
+  const out: Array<{ path: string; value: unknown }> = [];
+  for (const [key, node] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (node && typeof node === 'object' && 'value' in (node as object)) {
+      out.push({ path, value: (node as { value: unknown }).value });
+    } else if (node && typeof node === 'object') {
+      out.push(...flattenLeafValues(node as Record<string, unknown>, path));
+    }
+  }
+  return out;
+}
+
+/** True iff `value` is a legal value for the leaf at `path` (mirrors applyUpdate's eager check). */
+export function isLeafValueValid(path: string, value: unknown): boolean {
+  try {
+    const resolved = validateLeafPath(path);
+    validateLeafValue(resolved.inner, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Derive the update_case calls that reproduce a persona's facts. Valid leaves are bundled into
+ * one call (index 0). Each leaf whose raw value is invalid for its schema is isolated into its
+ * own single-path call (appended after the bundle) — because applyUpdate validates eagerly and
+ * rejects the WHOLE call on one bad value, so bundling an invalid leaf would sink the valid ones.
+ */
+export function deriveUpdateCalls(persona: Persona): UpdateCaseInputForLLM[] {
+  const leaves = flattenLeafValues(toCaseFacts(persona));
+  const valid: Record<string, unknown> = {};
+  const isolated: UpdateCaseInputForLLM[] = [];
+  for (const { path, value } of leaves) {
+    if (isLeafValueValid(path, value)) {
+      valid[path] = value;
+    } else {
+      isolated.push({ source: 'user_stated', confidence: 1, updates: { [path]: value } });
+    }
+  }
+  const calls: UpdateCaseInputForLLM[] = [];
+  if (Object.keys(valid).length > 0) {
+    calls.push({ source: 'user_stated', confidence: 1, updates: valid });
+  }
+  calls.push(...isolated);
+  return calls;
 }
