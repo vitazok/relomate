@@ -73,6 +73,8 @@ describe('persona agent-turn LIVE LOOP (L2b, DB-backed)', () => {
         userId: seeded.userId,
         userMessageId: TURN_ID,
         caseFacts: {},
+        // reason: a minimal valid ModelMessage; streamText is real but the scripted model ignores
+        // input, so the precise ModelMessage[] shape is irrelevant here.
         modelMessages: [{ role: 'user', content: 'here is my situation' }] as never,
       });
 
@@ -162,6 +164,7 @@ describe('persona agent-turn LIVE LOOP (L2b, DB-backed)', () => {
       userId: seeded.userId,
       userMessageId: TURN_ID,
       caseFacts: {},
+      // reason: minimal valid ModelMessage; the scripted model ignores input (see above).
       modelMessages: [{ role: 'user', content: 'my situation' }] as never,
     });
     for await (const _ of result.textStream) {
