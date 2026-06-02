@@ -85,8 +85,11 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
     async onFinish(event) {
       // The SDK's onFinish top-level toolCalls/toolResults are the LAST STEP only
       // (index.d.ts: OnFinishEvent = StepResult & { steps }). A turn that calls a tool then
-      // replies with text in a later step has an empty last step → tool parts dropped from
-      // history AND the case.facts.updated emit never fires. Aggregate across all steps.
+      // replies with text in a later step has an empty last step → the structured tool_calls
+      // rows AND the case.facts.updated emit were both dropped. Aggregate across all steps.
+      // (event.text/event.content stay last-step-only by design: we persist the final reply.
+      //  The messages.parts blob is therefore last-step content; structured tool data lives in
+      //  the tool_calls table, which these aggregated arrays now populate in full.)
       const allToolCalls = event.steps.flatMap((s) => s.toolCalls);
       const allToolResults = event.steps.flatMap((s) => s.toolResults);
 
