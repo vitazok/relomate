@@ -186,12 +186,18 @@ export interface SynthToolResult {
   toolName: string;
   output: unknown;
 }
+export interface SynthStep {
+  text: string;
+  content: Array<{ type: 'text'; text: string }>;
+  toolCalls: SynthToolCall[];
+  toolResults: SynthToolResult[];
+}
 export interface SynthTurnEvent {
   text: string;
   content: Array<{ type: 'text'; text: string }>;
   toolCalls: SynthToolCall[];
   toolResults: SynthToolResult[];
-  steps: never[];
+  steps: SynthStep[];
 }
 
 /**
@@ -219,7 +225,19 @@ export function synthesizeTurnEvent(persona: Persona): SynthTurnEvent {
           output: { type: 'out_of_scope_result', version: 1, data: {} },
         },
       ],
-      steps: [],
+      steps: [
+        {
+          text: '',
+          content: [],
+          toolCalls: [
+            { toolCallId: 'call-oos', toolName: 'out_of_scope', input: { reason: persona.expected.reason ?? 'out of scope' } },
+          ],
+          toolResults: [
+            { toolCallId: 'call-oos', toolName: 'out_of_scope', output: { type: 'out_of_scope_result', version: 1, data: {} } },
+          ],
+        },
+        { text, content: [{ type: 'text', text }], toolCalls: [], toolResults: [] },
+      ],
     };
   }
 
@@ -243,6 +261,24 @@ export function synthesizeTurnEvent(persona: Persona): SynthTurnEvent {
         },
       },
     ],
-    steps: [],
+    steps: [
+      {
+        text: '',
+        content: [],
+        toolCalls: [{ toolCallId: 'call-1', toolName: 'update_case', input: bundle }],
+        toolResults: [
+          {
+            toolCallId: 'call-1',
+            toolName: 'update_case',
+            output: {
+              type: 'update_case_result',
+              version: 1,
+              data: { caseId: 'case-synthetic', updatedPaths, contradictions: [] },
+            },
+          },
+        ],
+      },
+      { text, content: [{ type: 'text', text }], toolCalls: [], toolResults: [] },
+    ],
   };
 }
