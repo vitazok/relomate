@@ -48,8 +48,11 @@ export function makeScriptedModel(steps: ScriptStep[]): LanguageModel {
         stream: new ReadableStream({
           start(controller) {
             for (const chunk of chunksFor(step!)) {
-              // reason: LanguageModelV3StreamPart and LanguageModelV3Usage are internal types not exported by ai@6;
-              // chunksFor returns the correct runtime shape, but TS can't verify without the hidden types
+              // reason: LanguageModelV3StreamPart/LanguageModelV3Usage are not re-exported from `ai`
+              // and live in @ai-sdk/provider (a forbidden new dep). Cast-free typing was attempted
+              // (as-const literals, type derived from MockLanguageModelV3, provider import) — all
+              // blocked by the non-exported nested-usage type. Safe here: this is a test mock, and
+              // the two tests run the real streamText loop, proving the runtime chunk shape is accepted.
               controller.enqueue(chunk as never);
             }
             controller.close();
