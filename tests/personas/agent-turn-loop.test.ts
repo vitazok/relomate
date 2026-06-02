@@ -129,4 +129,51 @@ describe('persona agent-turn LIVE LOOP (L2b, DB-backed)', () => {
       expect(sent.data.paths.length).toBeGreaterThan(0);
     });
   }
+
+  it('recovers from a mid-loop tool error within MAX_AGENT_STEPS and writes correct facts', async () => {
+    const { buildAgentTurn } = await import('@/lib/ai/chat/agent-turn');
+    const persona = loadAllPersonas().find((p) => p.id === 'priya-strong')!;
+    const repo = makeRepository(handle.db, handle.schemaName);
+    const { caseId, threadId } = await repo.createCase({
+      userId: seeded.userId,
+      visaType: 'blue_card',
+      targetCountry: 'DE',
+      targetConsulate: 'bengaluru',
+    });
+
+    const goodBundle = deriveUpdateCalls(persona)[0]!;
+    const script: ScriptStep[] = [
+      // 1) bad path → real update_case tool throws (applyUpdate validates eagerly); loop survives.
+      { kind: 'tool', toolCallId: 'c1', toolName: 'update_case', input: { source: 'user_stated', confidence: 1, updates: { 'employment.bogusField': 'x' } } },
+      // 2) recover by reading the case.
+      { kind: 'tool', toolCallId: 'c2', toolName: 'read_case', input: {} },
+      // 3) correct write.
+      { kind: 'tool', toolCallId: 'c3', toolName: 'update_case', input: goodBundle },
+      // 4) eligibility, then reply.
+      { kind: 'tool', toolCallId: 'c4', toolName: 'check_eligibility', input: {} },
+      { kind: 'text', text: 'Recovered and recorded.' },
+    ];
+
+    const result = await buildAgentTurn({
+      model: makeScriptedModel(script),
+      repo,
+      caseId,
+      threadId,
+      userId: seeded.userId,
+      userMessageId: TURN_ID,
+      caseFacts: {},
+      modelMessages: [{ role: 'user', content: 'my situation' }] as never,
+    });
+    for await (const _ of result.textStream) {
+      void _;
+    }
+
+    // Despite the mid-loop error, the correct facts landed (5 steps < MAX_AGENT_STEPS = 8).
+    const loaded = await repo.loadCase(caseId);
+    const expectedMap = toValueMap(flattenLeafValues(toCaseFacts(persona)));
+    expect(toValueMap(flattenLeafValues(loaded.caseFacts))).toEqual(expectedMap);
+
+    // The good update_case fired → emit happened.
+    expect(inngestSendSpy).toHaveBeenCalled();
+  });
 });
