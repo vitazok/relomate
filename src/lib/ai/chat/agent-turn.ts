@@ -83,6 +83,13 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
     // providerOptions.anthropic.cacheControl here, and do NOT re-add per-tool breakpoints —
     // Anthropic allows max 4, and the system string embeds per-turn case context (would miss).
     async onFinish(event) {
+      // The SDK's onFinish top-level toolCalls/toolResults are the LAST STEP only
+      // (index.d.ts: OnFinishEvent = StepResult & { steps }). A turn that calls a tool then
+      // replies with text in a later step has an empty last step → tool parts dropped from
+      // history AND the case.facts.updated emit never fires. Aggregate across all steps.
+      const allToolCalls = event.steps.flatMap((s) => s.toolCalls);
+      const allToolResults = event.steps.flatMap((s) => s.toolResults);
+
       try {
         await appendChatTurn({
           threadId,
@@ -90,12 +97,12 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
           userMessageContent: extractLastUserText(modelMessages as never),
           assistantText: event.text,
           assistantParts: event.content,
-          toolCalls: event.toolCalls.map((c) => ({
+          toolCalls: allToolCalls.map((c) => ({
             toolCallId: c.toolCallId,
             toolName: c.toolName,
             input: c.input,
           })),
-          toolResults: event.toolResults.map((r) => ({
+          toolResults: allToolResults.map((r) => ({
             toolCallId: r.toolCallId,
             toolName: r.toolName,
             output: r.output,
@@ -107,7 +114,7 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
         console.error('appendChatTurn failed', err);
       }
 
-      const updateResults = event.toolResults.filter((r) => r.toolName === 'update_case');
+      const updateResults = allToolResults.filter((r) => r.toolName === 'update_case');
       for (const result of updateResults) {
         const data = (result.output as { data?: { updatedPaths?: string[] } })?.data;
         try {
