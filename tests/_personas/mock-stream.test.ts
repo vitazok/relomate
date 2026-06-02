@@ -37,14 +37,14 @@ describe('makeScriptedModel', () => {
     ];
     const model = makeScriptedModel(script);
 
-    let event: { steps: Array<{ toolResults: Array<{ toolName: string }> }> } | undefined;
+    let toolNamesUsed: string[] = [];
     const result = streamText({
       model,
       tools: { echo },
       stopWhen: stepCountIs(8),
       messages: [{ role: 'user', content: 'go' }],
       onFinish: (e) => {
-        event = e as never;
+        toolNamesUsed = e.steps.flatMap((s) => s.toolResults).map((r) => r.toolName);
       },
     });
     let text = '';
@@ -53,7 +53,6 @@ describe('makeScriptedModel', () => {
     expect(calls).toEqual(['first']); // the REAL tool executed
     expect(text).toBe('done');
     // The result lives in steps[], not top-level (this is the SDK shape L2b depends on).
-    const allToolResults = event!.steps.flatMap((s) => s.toolResults);
-    expect(allToolResults.map((r) => r.toolName)).toContain('echo');
+    expect(toolNamesUsed).toContain('echo');
   });
 });
