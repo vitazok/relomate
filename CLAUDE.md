@@ -256,7 +256,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ---
 
-## Current state (as of 2026-05-31)
+## Current state (as of 2026-06-02)
 
 | Phase | Status | Spec / plan |
 |---|---|---|
@@ -267,8 +267,10 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 1B-3 chat + workspace + Inngest | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
 | 2A.1 agent brain | complete, merged to main | `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md` |
 | 2A.2 eligibility + knowledge | complete, merged to main | `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
-| **2B journey-tracker dashboard** | **NEXT — designed, not started** | `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (`4db6846`) |
-| 2C persona-driven E2E | designed | layered strategy; see Pinned. After 2B. |
+| 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md` |
+| 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
+| 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
+| 2C layer 3 (live LLM + user-simulator) + CI | designed/deferred, not started | follow-up section in the 2C-tail spec |
 
 (Per-phase commit hashes, test counts, and resolved-bug write-ups live in git history + the Stack gotchas section.)
 
@@ -276,28 +278,21 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Next: Phase 2B — workspace comes alive (journey-tracker dashboard)
+### Next: 2C layer 3 (live LLM + user-simulator) + CI, OR 2B secondary scope
 
-Phase 2 is sliced into four sessions (kept well below 1M tokens each — session-token budget, not API cost, drove the cut). **2A.1 and 2A.2 are done.** Remaining slices:
+Phase 2 was sliced into sessions (well below 1M tokens each). **2A.1, 2A.2, 2B (journey-tracker), 2C layers 1+2a, and 2C-tail L2b are all done and merged to `main`.** Remaining:
 
-- **2B — workspace comes alive (NEXT):** the **journey-tracker dashboard** is the centerpiece — see the dedicated subsection below. Plus rich renderers (the 2A.2 registry has minimal in-chat cards) and the left-sidebar section drill-downs. 2A.2 shipped the pure `evaluateEligibility` + `summarizeFigures` + `assessReadiness` helpers the tracker reuses.
-- **2C — persona-driven E2E** (layered, see Pinned): deterministic core every PR + fixture-replayed agent loop (uses 2A.1's `buildAgentTurn` model seam); live LLM nightly/on-demand. **2C gains** per-persona `computeJourneyProgress` assertions (pure, ~0 tokens) once the tracker lands.
+- **2C layer 3 + CI (deferred follow-up):** a live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand; plus the first `.github/workflows/` CI (PR deterministic gate + nightly live run; serial to dodge `EMAXPOOLSREACHED`). Scope/rationale in the 2C-tail spec's "Follow-up" section.
+- **2B secondary scope (not built in the tracker slice):** rich in-chat renderers (the registry has minimal cards) + left-sidebar section drill-downs. NOTE: `Nav.tsx` still has a stale `#overview` anchor pointing at the deleted `Overview.tsx` (now `Tracker.tsx`) — fix when touching the sidebar.
+- **Open `messages.parts` question (from the L2b review):** after the onFinish fix the `tool_calls` table is aggregated across steps, but the `messages.parts` blob is still last-step-only (`event.content`). Decide whether to aggregate `parts` too before any feature treats it as the multi-step render source.
 
 The Pinned decisions below carry forward.
 
-### Journey-tracker dashboard (2B centerpiece — designed 2026-05-31, not started)
+### Journey-tracker dashboard (2B centerpiece — SHIPPED, merged to main PR #3)
 
-Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (commit `4db6846`). **2A.2 is done, so this is now unblocked and is the NEXT build.** Start with brainstorming → writing-plans against the spec (no plan written yet). The tracker REUSES the pure helpers 2A.2 shipped — `evaluateEligibility` (`src/lib/rules/eligibility.ts`), `assessReadiness` (`eligibility-readiness.ts`), `summarizeFigures` (`eligibility-figures.ts`) — at ~0 token cost; `computeJourneyProgress` should call them, not re-derive. The eligibility verdict + figures already flow through `check_eligibility`; the tracker is a separate read-only center-column projection (not a chat renderer).
-
-Decisions locked in the spec (do NOT redebate — brainstormed with the user 2026-05-31):
-- **Center column = journey tracker**, a *read-only projection* over existing case state. No new write path (rule 5 holds). Layout "Option A": tracker is the center; chat stays pinned right; **left sidebar stays** as portal chrome + section drill-down links. Tracker and sidebar are two projections of one case state.
-- **Approach: config-driven.** New `config/rules/journey.yaml` (phase manifest) + pure `computeJourneyProgress(caseFacts, profile, documents, verdict, today)` in `src/lib/journey/`. Mirrors `evaluateEligibility` + rules-loader. Honors rule 7.
-- **4 phases:** eligibility (8 curated steps) · documents (dynamic count from `documents.yaml`) · drafts (locked) · VIDEX+package (locked). Locked phases render greyed "coming soon" from day one.
-- **Identity (Profile) folds into Documents** — extracted from passport upload, confirmed in place, consumed by VIDEX. `Profile` DB table untouched (user-level, load-bearing for anon→authed merge). No standalone Profile phase.
-- **Family = one account, family as case data.** Extends `CaseFacts.family` with `spouse` + `children[]` mini-profiles (identity fields for per-member VIDEX/passport docs; address defaults to primary's, overridable). Reuses `FieldSchema`/`ArrayFieldSchema`/`CurrentAddressValue`. **Eligibility engine untouched** (family doesn't gate the primary's verdict). No auth change.
-- **`documents.yaml` gains optional `condition`** (`{path, in|equals}`) so the doc count is honest (ZAB only when Anabin unknown/H-; distance-learning clarification only for distance/online; marriage/birth certs only when spouse/children present). Rules loader parses it.
-- **Dual provenance (trust layer):** every step shows *requirement provenance* (`resolveCitation(cite)` resolving `legalBasis`/`sources`/`lastVerified` from the authoritative YAML — never duplicated into the manifest) AND *answer provenance* (rule-9 `source`/`updatedAt` → human copy: "You told us in chat", "Read from your passport upload", etc.). Compact line + expandable detail.
-- **Renderer/ChatPanel note from 2A.1 pinned decisions still applies** — the tracker supersedes `Overview.tsx` (preserve its empty-state copy).
+Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md` (`4db6846`); plan: `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md`. **Built and merged.** Shipped `config/rules/journey.yaml` + `src/lib/journey/` (`loader`/`types`/`citations`/`provenance`/`compute`) + `src/components/workspace/Tracker.tsx` (replaced `Overview.tsx`, preserving its empty-state copy). `computeJourneyProgress(caseFacts, profile, documents, verdict, today)` is pure and reuses the 2A.2 helpers (`evaluateEligibility`/`assessReadiness`/`summarizeFigures`) at ~0 token cost. Touched `CaseFacts.family` (`spousePresent`/`childrenCount`) + `documents.yaml` (optional `condition`). Per-persona assertions in `tests/journey/compute-personas.test.ts`. Center column = the tracker, a **read-only projection** over case state (no new write path; rule 5 holds), config-driven via `journey.yaml` (rule 7). Full locked design record (4 phases, dual provenance, layout Option-A) lives in the spec doc above. Two non-obvious decisions worth keeping inline (do NOT redebate):
+- **Family = one account, family as case data.** `CaseFacts.family` carries `spouse` + `children[]` mini-profiles (identity fields for per-member VIDEX/passport docs). **Eligibility engine untouched** — family doesn't gate the primary's verdict. No auth change.
+- **Identity (Profile) folds into Documents** — extracted from passport, confirmed in place, consumed by VIDEX. No standalone Profile phase; `Profile` DB table untouched (load-bearing for anon→authed merge).
 
 **Dev-only inspectors** (run via `node --env-file=.env.local --import tsx scripts/dev-only/<file> [args]`): `db-state.ts` — row counts + recent cases/users; `inspect-turn.ts <caseId>` — dumps a thread's persisted message parts (tool inputs/outputs/errorText) + `case_facts.data`. The latter (added in 2A.2) is how the path-guessing live-smoke bug was diagnosed; reach for it when a chat turn misbehaves.
 
@@ -320,7 +315,7 @@ Decisions locked in the spec (do NOT redebate — brainstormed with the user 202
 **Inngest**
 - Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free. (Pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved the loop into the factory.)
 - Inngest **event** payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** then writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
-- `onFinish` mapping (now in `buildAgentTurn`): filter `event.toolResults` (not `toolCalls`) by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables are `updateResults` / `result`.
+- `onFinish` mapping (in `buildAgentTurn`): aggregate `event.steps.flatMap((s) => s.toolResults)` (NOT top-level `event.toolResults`, which is last-step-only — see the AI SDK gotcha), filter by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables are `allToolResults` / `updateResults` / `result`. (Fixed PR #5; top-level read dropped the emit when the turn ended on a text step.)
 
 **Caching / refresh / model / prompt**
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
@@ -337,8 +332,8 @@ Decisions locked in the spec (do NOT redebate — brainstormed with the user 202
 
 **Phase-2 strategy**
 - **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (it's the YAGNI tool; not on the happy path).
-- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs every PR at ~0 tokens. The LLM-driven loop is recorded once and replayed in CI (0 tokens/PR). Live LLM run is deliberate nightly/on-demand. This is why 2A.1 builds the injectable-model seam.
-- **2B journey-tracker dashboard:** full locked decision list is in the "Journey-tracker dashboard" subsection above. Touches `CaseFacts.family` (spouse/children mini-profiles), `documents.yaml` (`condition` field), rules loader; adds `src/lib/journey/` + `Tracker.tsx`. **NEXT build (2A.2 done).**
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) runs at ~0 tokens. **Layers 1+2a SHIPPED (PR #4):** the core + the `onFinish`-replay seam (`tests/_personas/harness.ts`, `case-file.test.ts`, `agent-turn-replay.test.ts`). **Layer 2b SHIPPED (PR #5):** real `MockLanguageModelV3` stream replayed through the live `buildAgentTurn` loop (`mock-stream.ts`, `agent-turn-loop.test.ts`) — this is why 2A.1 built the injectable-model seam. **Layer 3 (live LLM + user-simulator) + GitHub Actions CI are the deferred follow-up** (not started).
+- **2B journey-tracker dashboard: SHIPPED (PR #3).** Full record in the "Journey-tracker dashboard" subsection above. Touched `CaseFacts.family` (spouse/children), `documents.yaml` (`condition` field), rules loader; added `src/lib/journey/` + `Tracker.tsx`.
 
 ---
 
