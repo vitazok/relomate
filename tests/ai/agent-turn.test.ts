@@ -82,11 +82,22 @@ describe('buildAgentTurn', () => {
 
   it('persists and emits inngest in onFinish when update_case fired', async () => {
     await buildAgentTurn(baseParams());
+    // onFinish reads event.steps[] (the SDK puts per-step tool results there; top-level is
+    // last-step only). Carry the update_case call/result in a step, then a terminal text step.
+    const updateResult = {
+      toolCallId: 'x',
+      toolName: 'update_case',
+      output: { type: 'update_case_result', version: 1, data: { caseId: 'c', updatedPaths: ['employment.jobTitle'], contradictions: [] } },
+    };
     await captured.onFinish!({
       text: 'ok',
       content: [{ type: 'text', text: 'ok' }],
       toolCalls: [{ toolCallId: 'x', toolName: 'update_case', input: {} }],
-      toolResults: [{ toolCallId: 'x', toolName: 'update_case', output: { type: 'update_case_result', version: 1, data: { caseId: 'c', updatedPaths: ['employment.jobTitle'], contradictions: [] } } }],
+      toolResults: [updateResult],
+      steps: [
+        { text: '', content: [], toolCalls: [{ toolCallId: 'x', toolName: 'update_case', input: {} }], toolResults: [updateResult] },
+        { text: 'ok', content: [{ type: 'text', text: 'ok' }], toolCalls: [], toolResults: [] },
+      ],
     });
     expect(appendChatTurnSpy).toHaveBeenCalledOnce();
     expect(inngestSendSpy).toHaveBeenCalledOnce();
