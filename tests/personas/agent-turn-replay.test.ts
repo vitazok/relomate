@@ -84,11 +84,13 @@ describe('persona agent-turn onFinish replay', () => {
       };
       expect(persisted.threadId).toBe(THREAD_ID);
       expect(persisted.userMessageId).toBe(TURN_ID);
+      // onFinish maps from event.steps[] (the real SDK source), not top-level — assert against
+      // that so this stays correct for any future multi-step/multi-tool synthesized event.
       expect(persisted.toolCalls.map((c) => c.toolName)).toEqual(
-        event.toolCalls.map((c) => c.toolName),
+        event.steps.flatMap((s) => s.toolCalls).map((c) => c.toolName),
       );
       expect(persisted.toolResults.map((r) => r.toolName)).toEqual(
-        event.toolResults.map((r) => r.toolName),
+        event.steps.flatMap((s) => s.toolResults).map((r) => r.toolName),
       );
 
       if (persona.expected.outOfScope) {

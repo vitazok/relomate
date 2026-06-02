@@ -123,7 +123,19 @@ describe('POST /api/chat', () => {
       toolResults: [
         { toolCallId: 'call-1', toolName: 'update_case', output: { type: 'update_case_result', version: 1, data: { caseId, updatedPaths: ['employment.annualGrossSalaryEur'], contradictions: [] } } },
       ],
-      steps: [],
+      steps: [
+        {
+          text: '',
+          content: [],
+          toolCalls: [
+            { toolCallId: 'call-1', toolName: 'update_case', input: { source: 'user_stated', confidence: 0.9, updates: { 'employment.annualGrossSalaryEur': 55000 } } },
+          ],
+          toolResults: [
+            { toolCallId: 'call-1', toolName: 'update_case', output: { type: 'update_case_result', version: 1, data: { caseId, updatedPaths: ['employment.annualGrossSalaryEur'], contradictions: [] } } },
+          ],
+        },
+        { text: 'Recorded.', content: [{ type: 'text', text: 'Recorded.' }], toolCalls: [], toolResults: [] },
+      ],
     });
 
     const messages = await testHandle.db.select().from(schema.messages).where(eq(schema.messages.threadId, threadId));
@@ -158,7 +170,7 @@ describe('POST /api/chat', () => {
       content: [{ type: 'text', text: 'Hi!' }],
       toolCalls: [],
       toolResults: [],
-      steps: [],
+      steps: [{ text: 'Hi!', content: [{ type: 'text', text: 'Hi!' }], toolCalls: [], toolResults: [] }],
     });
 
     expect(inngestSendSpy).not.toHaveBeenCalled();
