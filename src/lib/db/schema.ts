@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
+import type { ExtractedData, Classification } from '@/lib/documents/types';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -141,6 +142,24 @@ export const caseChanges = pgTable('case_changes', {
   sourceTurnId: uuid('source_turn_id'),
   confidence: numeric('confidence', { precision: 3, scale: 2 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const documents = pgTable('documents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  caseId: uuid('case_id').references(() => cases.id).notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  spineItemId: text('spine_item_id'),
+  detectedType: text('detected_type'),
+  status: text('status').notNull().default('pending_upload'),
+  r2Key: text('r2_key').notNull(),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  extracted: jsonb('extracted').$type<ExtractedData | null>(),
+  classification: jsonb('classification').$type<Classification | null>(),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const verificationTokens = pgTable(

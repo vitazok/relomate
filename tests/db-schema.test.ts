@@ -6,6 +6,7 @@ import {
   threads,
   messages,
   activityLog,
+  documents,
 } from '@/lib/db/schema';
 
 describe('db schema', () => {
@@ -22,5 +23,18 @@ describe('db schema', () => {
     const col = cases.eligibilityVerdict;
     expect(col).toBeDefined();
     expect(String(col.dataType)).toContain('json');
+  });
+});
+
+describe('documents table', () => {
+  it('exposes the expected columns', () => {
+    const cols = Object.keys(documents);
+    for (const c of [
+      'id', 'caseId', 'userId', 'spineItemId', 'detectedType', 'status',
+      'r2Key', 'fileName', 'contentType', 'byteSize', 'extracted',
+      'classification', 'error', 'createdAt', 'updatedAt',
+    ]) {
+      expect(cols).toContain(c);
+    }
   });
 });
