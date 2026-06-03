@@ -73,3 +73,56 @@ describe('env', () => {
     expect(result.errors?.some((e) => e.path.includes('INNGEST_SIGNING_KEY'))).toBe(true);
   });
 });
+
+describe('R2 + Reducto env', () => {
+  const base = {
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgres://x',
+    AUTH_SECRET: 'x'.repeat(32),
+    ANTHROPIC_API_KEY: 'k',
+    AUTH_RESEND_KEY: 'r',
+    EMAIL_FROM: 'a@b.com',
+    AUTH_URL: 'https://x',
+    INNGEST_EVENT_KEY: 'e',
+    INNGEST_SIGNING_KEY: 's',
+  };
+
+  it('requires R2_* in production', () => {
+    const r = EnvSchema.safeParse(base);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const paths = r.error.issues.map((i) => i.path.join('.'));
+      for (const key of [
+        'R2_ACCOUNT_ID',
+        'R2_ACCESS_KEY_ID',
+        'R2_SECRET_ACCESS_KEY',
+        'R2_BUCKET',
+        'R2_ENDPOINT',
+      ]) {
+        expect(paths).toContain(key);
+      }
+    }
+  });
+
+  it('passes in production when R2_* present', () => {
+    const r = EnvSchema.safeParse({
+      ...base,
+      R2_ACCOUNT_ID: 'acct',
+      R2_ACCESS_KEY_ID: 'ak',
+      R2_SECRET_ACCESS_KEY: 'sk',
+      R2_BUCKET: 'visa-docs',
+      R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('does NOT require R2_* outside production', () => {
+    const r = EnvSchema.safeParse({
+      NODE_ENV: 'development',
+      DATABASE_URL: 'postgres://x',
+      AUTH_SECRET: 'x'.repeat(32),
+      ANTHROPIC_API_KEY: 'k',
+    });
+    expect(r.success).toBe(true);
+  });
+});

@@ -30,6 +30,12 @@ export const EnvSchema = z
     ANTHROPIC_API_KEY: z.string().min(1),
     INNGEST_EVENT_KEY: optionalString,
     INNGEST_SIGNING_KEY: optionalString,
+    R2_ACCOUNT_ID: optionalString,
+    R2_ACCESS_KEY_ID: optionalString,
+    R2_SECRET_ACCESS_KEY: optionalString,
+    R2_BUCKET: optionalString,
+    R2_ENDPOINT: optionalUrl,
+    REDUCTO_API_KEY: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
@@ -67,6 +73,21 @@ export const EnvSchema = z
           path: ['INNGEST_SIGNING_KEY'],
           message: 'INNGEST_SIGNING_KEY is required in production',
         });
+      }
+      for (const key of [
+        'R2_ACCOUNT_ID',
+        'R2_ACCESS_KEY_ID',
+        'R2_SECRET_ACCESS_KEY',
+        'R2_BUCKET',
+        'R2_ENDPOINT',
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `${key} is required in production`,
+          });
+        }
       }
     }
   });
