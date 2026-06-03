@@ -20,6 +20,7 @@ export interface ToolCallOutput {
 
 export interface AppendChatTurnInput {
   threadId: string;
+  userId: string;
   userMessageId: string;
   userMessageContent: string;
   assistantText: string;
@@ -41,6 +42,7 @@ export async function appendChatTurn(
     await tx.insert(schema.messages).values({
       id: input.userMessageId,
       threadId: input.threadId,
+      userId: input.userId,
       role: 'user',
       content: input.userMessageContent,
       parts: null,
@@ -50,6 +52,7 @@ export async function appendChatTurn(
     await tx.insert(schema.messages).values({
       id: assistantMessageId,
       threadId: input.threadId,
+      userId: input.userId,
       role: 'assistant',
       content: input.assistantText,
       parts: input.assistantParts as never,

@@ -80,6 +80,50 @@ describe('buildAgentTurn', () => {
     expect(captured.system).toContain('Current case state');
   });
 
+  it('passes the userId through to appendChatTurn (#6)', async () => {
+    await buildAgentTurn(baseParams());
+    await captured.onFinish!({
+      text: 'ok',
+      content: [{ type: 'text', text: 'ok' }],
+      toolCalls: [],
+      toolResults: [],
+      steps: [{ text: 'ok', content: [{ type: 'text', text: 'ok' }], toolCalls: [], toolResults: [] }],
+    });
+    expect(appendChatTurnSpy).toHaveBeenCalledOnce();
+    expect(appendChatTurnSpy.mock.calls[0]![0].userId).toBe('u0000000-0000-4000-8000-000000000000');
+  });
+
+  it('persists a tool-error part from step.content as a tool result carrying error (#7)', async () => {
+    await buildAgentTurn(baseParams());
+    // An update_case call whose execute() threw: it appears in step.toolCalls and as a
+    // `tool-error` part in step.content, but NOT in step.toolResults.
+    await captured.onFinish!({
+      text: 'I could not record that.',
+      content: [{ type: 'text', text: 'I could not record that.' }],
+      toolCalls: [],
+      toolResults: [],
+      steps: [
+        {
+          text: '',
+          content: [
+            { type: 'tool-call', toolCallId: 'e1', toolName: 'update_case', input: { updates: { 'education.level': 'x' } } },
+            { type: 'tool-error', toolCallId: 'e1', toolName: 'update_case', input: {}, error: new Error('unknown path: education.level') },
+          ],
+          toolCalls: [{ toolCallId: 'e1', toolName: 'update_case', input: { updates: { 'education.level': 'x' } } }],
+          toolResults: [],
+        },
+        { text: 'I could not record that.', content: [{ type: 'text', text: 'I could not record that.' }], toolCalls: [], toolResults: [] },
+      ],
+    });
+    expect(appendChatTurnSpy).toHaveBeenCalledOnce();
+    const arg = appendChatTurnSpy.mock.calls[0]![0];
+    const errResult = arg.toolResults.find((r: { toolCallId: string }) => r.toolCallId === 'e1');
+    expect(errResult).toBeDefined();
+    expect(errResult.error).toMatch(/unknown path: education\.level/);
+    // a failed update_case must NOT emit case.facts.updated
+    expect(inngestSendSpy).not.toHaveBeenCalled();
+  });
+
   it('persists and emits inngest in onFinish when update_case fired', async () => {
     await buildAgentTurn(baseParams());
     // onFinish reads event.steps[] (the SDK puts per-step tool results there; top-level is

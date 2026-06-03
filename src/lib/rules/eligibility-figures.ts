@@ -14,13 +14,13 @@ export interface Figures {
   reduced: ThresholdFigure;
 }
 
-export function summarizeFigures(facts: CaseFacts, today: Date): Figures {
+export function summarizeFigures(facts: CaseFacts, today: Date): Figures | null {
   const rules = getBlueCardRules();
   const threshold = activeThreshold(rules, today);
   if (!threshold) {
-    // reason: BlueCardRules.thresholds is .min(1), so activeThreshold's `?? thresholds[0]`
-    // is always defined at runtime; this guard satisfies noUncheckedIndexedAccess.
-    throw new Error('no active Blue Card threshold configured');
+    // No threshold period covers `today` — there are no figures to show. The caller
+    // surfaces the no_active_threshold blocker; figures is null rather than thrown.
+    return null;
   }
   const salary = facts.employment?.annualGrossSalaryEur?.value ?? null;
 

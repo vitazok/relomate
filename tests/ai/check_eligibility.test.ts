@@ -69,6 +69,26 @@ describe('check_eligibility tool', () => {
     expect(repo.appendActivity).not.toHaveBeenCalled();
   });
 
+  it('does not throw and reports no_active_threshold when today is outside all configured periods', async () => {
+    const repo = makeRepo({
+      employment: { annualGrossSalaryEur: f(60000), iscoCode: f('2512') },
+      education: { anabinStatus: f('H+'), highestDegree: f('master_eqf7') },
+      target: { intendedVisa: f('blue_card') },
+    });
+    const tool = makeCheckEligibilityTool(repo, {
+      defaultCaseId: CASE_ID,
+      defaultUserId: USER_ID,
+      now: () => new Date('2099-06-01T00:00:00.000Z'),
+    });
+    const out = (await tool.execute!({}, {} as never)) as {
+      data: { status: string; qualifies: boolean; blockers: string[]; figures: unknown };
+    };
+    expect(out.data.status).toBe('assessed');
+    expect(out.data.qualifies).toBe(false);
+    expect(out.data.blockers).toContain('no_active_threshold');
+    expect(out.data.figures).toBeNull();
+  });
+
   it('returns assessed with qualifies=false and logs activity for an anabin-unknown case', async () => {
     const repo = makeRepo({
       employment: { annualGrossSalaryEur: f(50000), iscoCode: f('2512') },

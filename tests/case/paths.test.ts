@@ -43,6 +43,13 @@ describe('listLeafPaths', () => {
     expect(degree?.enumValues).toContain('bachelor_eqf6');
   });
 
+  it('intendedVisa offers blue_card plus non-blue-card values (so out-of-scope is recordable)', () => {
+    const intended = listLeafPaths().find((p) => p.path === 'target.intendedVisa');
+    expect(intended?.enumValues).toContain('blue_card');
+    // at least one non-blue-card value must exist so update_case can persist an out-of-scope intent
+    expect(intended?.enumValues?.some((v) => v !== 'blue_card')).toBe(true);
+  });
+
   it('every enumerated path resolves via validateLeafPath (no drift)', () => {
     for (const { path } of listLeafPaths()) {
       expect(() => validateLeafPath(path)).not.toThrow();

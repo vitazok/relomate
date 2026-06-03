@@ -57,12 +57,14 @@ describe('persona case-file end-state (DB-backed)', () => {
       expect(toValueMap(flattenLeafValues(loaded.caseFacts))).toEqual(toValueMap(expected));
 
       if (persona.expected.outOfScope) {
-        // out-of-scope persona carries an invalid enum leaf (e.g. intendedVisa='asylum')
-        // which applyUpdate must reject, leaving it absent from the persisted file.
-        expect(rejected).toBeGreaterThan(0);
-        expect(flattenLeafValues(loaded.caseFacts).some((l) => l.path === 'target.intendedVisa')).toBe(
-          false,
+        // A non-Blue-Card intent is now a VALID, persistable intendedVisa value (the engine,
+        // not applyUpdate, is responsible for flagging it out-of-scope). So it persists rather
+        // than being rejected, and the recorded intent is whatever the persona stated.
+        expect(rejected).toBe(0);
+        const persisted = flattenLeafValues(loaded.caseFacts).find(
+          (l) => l.path === 'target.intendedVisa',
         );
+        expect(persisted?.value).toBe(persona.caseFacts.target?.visaType);
       } else {
         expect(rejected).toBe(0);
       }

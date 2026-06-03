@@ -128,14 +128,9 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
       const contradictions: ContradictionReport[] = [];
 
       await dbInstance.transaction(async (tx) => {
-        const factsRows = await tx
-          .select({ data: schema.caseFacts.data })
-          .from(schema.caseFacts)
-          .where(eq(schema.caseFacts.caseId, caseId))
-          .for('update');
-        const factsRow = factsRows[0];
-        if (!factsRow) throw new Error(`case_facts not found for case ${caseId}`);
-
+        // Resolve the owning user up front so we can take locks in a consistent global order:
+        // users → case_facts → profiles. (Acquiring the user lock AFTER case_facts would let
+        // two concurrent same-user transactions on different cases deadlock.)
         const caseRows = await tx
           .select({ userId: schema.cases.userId })
           .from(schema.cases)
@@ -143,6 +138,26 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
         const caseRow = caseRows[0];
         if (!caseRow) throw new Error(`case not found: ${caseId}`);
         const userId = caseRow.userId;
+
+        // Profile rows are keyed by user, not case, so two cases of the same user touch the
+        // same profile. Their case_facts FOR UPDATE locks are on DIFFERENT rows and don't
+        // serialize them, and FOR UPDATE on a not-yet-existing profiles row locks nothing —
+        // so without this both would snapshot an empty profile and the second upsert would
+        // clobber the first's write. Lock the always-present users row to serialize the
+        // profile read-modify-write across concurrent same-user transactions.
+        await tx
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(eq(schema.users.id, userId))
+          .for('update');
+
+        const factsRows = await tx
+          .select({ data: schema.caseFacts.data })
+          .from(schema.caseFacts)
+          .where(eq(schema.caseFacts.caseId, caseId))
+          .for('update');
+        const factsRow = factsRows[0];
+        if (!factsRow) throw new Error(`case_facts not found for case ${caseId}`);
 
         const profileRows = await tx
           .select({ data: schema.profiles.data })
@@ -262,10 +277,27 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
   };
 }
 
+// Structural equality that is INSENSITIVE to object key order — the LLM may re-emit the
+// same object-valued leaf (e.g. currentAddress) with keys in a different order, which
+// JSON.stringify would treat as different and surface as a spurious contradiction.
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  if (a === null || b === null) return false;
+  if (a === null || b === null || a === undefined || b === undefined) return false;
   if (typeof a !== typeof b) return false;
   if (typeof a !== 'object') return false;
-  return JSON.stringify(a) === JSON.stringify(b);
+
+  const aIsArr = Array.isArray(a);
+  const bIsArr = Array.isArray(b);
+  if (aIsArr !== bIsArr) return false;
+  if (aIsArr && bIsArr) {
+    if (a.length !== b.length) return false;
+    return a.every((v, i) => deepEqual(v, b[i]));
+  }
+
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const aKeys = Object.keys(ao);
+  const bKeys = Object.keys(bo);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((k) => Object.prototype.hasOwnProperty.call(bo, k) && deepEqual(ao[k], bo[k]));
 }

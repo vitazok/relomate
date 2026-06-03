@@ -256,7 +256,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ---
 
-## Current state (as of 2026-06-02)
+## Current state (as of 2026-06-03)
 
 | Phase | Status | Spec / plan |
 |---|---|---|
@@ -271,6 +271,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
 | 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
 | 2C layer 3 (live LLM + user-simulator) + CI | designed/deferred, not started | follow-up section in the 2C-tail spec |
+| codebase-review hardening pass (15 findings) | complete, in PR (`fix/codebase-review-15-findings`) | see "Codebase-review hardening" subsection below |
 
 (Per-phase commit hashes, test counts, and resolved-bug write-ups live in git history + the Stack gotchas section.)
 
@@ -278,13 +279,33 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
+### Codebase-review hardening (2026-06-03, branch `fix/codebase-review-15-findings`)
+
+A full-codebase review surfaced 15 findings; 13 fixed (TDD), 1 was a false positive, 1 schema change rippled through tests. All `tsc`/`eslint` clean; full suite green (run **serially** — `pnpm exec vitest run --no-file-parallelism` in batches — to dodge `EMAXPOOLSREACHED`). Load-bearing changes the next agent must know:
+
+- **Eligibility engine (`src/lib/rules/eligibility.ts`) — verdict-affecting fixes:**
+  - IT-no-degree route now gates on the **reduced** threshold (was `standard`), matching `blue-card.yaml`'s `reduced.appliesTo`. The `arjun-it-no-degree` persona (€52k > standard) had masked the bug.
+  - `activeThreshold` now returns `undefined` when no period covers `today` (was `?? thresholds[0]`) → the `no_active_threshold` blocker is now reachable. **Ripple:** `summarizeFigures` now returns `Figures | null` (was throwing); `check_eligibility` returns `status:'assessed'` with `figures:null`; the `EligibilityResult` renderer handles null figures with an amber "figures unavailable" card.
+  - Recent-graduate route now also requires `hasEducation` (a degree on file), not just `completionYear` + recognition.
+- **`IntendedVisa` enum widened** (`src/lib/case/schema.ts`) from `['blue_card']` to include `student`/`job_seeker`/`family_reunion`/`asylum`/`other`. **This makes the engine's `outOfScope` branch reachable through validated/persisted facts** — non-Blue-Card intents now persist via `update_case` and the engine flags them (engine stays the sole setter of the `outOfScope` flag; the `out_of_scope` tool still doesn't set it). The leaf-path catalog auto-derives the new enum options. The out-of-scope-asylum persona's `intendedVisa:'asylum'` now persists as a VALID leaf (no longer rejected/isolated) — `case-file.test.ts` + `harness.test.ts` were updated to the new contract.
+- **`messages.user_id` is now populated** — `appendChatTurn` requires a `userId` field (threaded from the route via `buildAgentTurn`). Any new caller MUST pass it.
+- **Tool-call errors persist** — `agent-turn.ts` `onFinish` now scans each step's `content` for `tool-error` parts (they are NOT in `step.toolResults`) and writes their message into `tool_calls.error`. A failed `update_case` still does NOT emit `case.facts.updated`.
+- **`deepEqual` in `repository.ts` is now key-order insensitive** (structural recurse, not `JSON.stringify`) — reordered keys on object leaves (`currentAddress`) no longer raise spurious contradictions.
+- **Profile lost-update race fixed** — `applyUpdate` now takes a `FOR UPDATE` lock on the always-present `users` row BEFORE `case_facts`/`profiles` (global lock order: users → case_facts → profiles). Two cases of the same user no longer clobber each other's profile writes. Don't reorder these locks.
+- **`getCurrentUserId` now hits the DB** (`src/lib/auth/session.ts`) — returns null for a deleted user or one with `users.merged_into` set. **New column `users.merged_into`** (migration `drizzle/0002_melodic_silver_surfer.sql` + snapshot/journal hand-authored — regenerate with `pnpm db:generate` against a real DB before deploying). The branch-(c) merge in `merge.ts` now sets `merged_into` when tombstoning the anon user.
+- **Branch-(b) orphan fixed** (`merge.ts`) — identity insert happens FIRST with conflict detection; on conflict it re-resolves the owner and falls through to the merge path instead of leaving a non-anon user with no identity.
+- **`/api/chat` guards `convertToModelMessages`** — malformed-but-valid-JSON transcripts now 400 (was an unhandled 500).
+- **Empty-bubble-on-reload fixed** — `src/components/workspace/hydrate-messages.ts` (`hydrateMessages`) is the pure, tested mapping from persisted rows → `UIMessage[]`; `page.tsx` uses it. When persisted `parts` are tool-only with no renderable output, it appends the assistant's text `content` so the bubble isn't empty. **This partially addresses the `messages.parts` last-step open item at render time** (the persisted blob is still last-step-only; the decision to aggregate `parts` at write time is still open).
+- **Persona seeding wired** — `src/lib/personas/seed.ts` (`seedCaseFromPersona`, `personaToLeafUpdates`, `loadPersona`, `listPersonaIds`) is the production seeder; `/api/case/new?persona=<id>` seeds via the normal `update_case` path (unknown ids = no-op). NOTE: the test harness (`tests/_personas/harness.ts`) still has its OWN persona→facts conversion (wrapped/provenance shape) — the two are parallel implementations; consolidate if you touch either.
+- **False positive (NOT changed):** `assessReadiness` treating anabin `'unknown'`/`'H-'` as a satisfied recognition signal is INTENTIONAL — `check_eligibility.test.ts` codifies that `unknown` returns `assessed` (with ZAB guidance), and `ready` is an internal assessed-vs-incomplete gate, never surfaced as a positive user-facing state. Do not "fix" it.
+
 ### Next: 2C layer 3 (live LLM + user-simulator) + CI, OR 2B secondary scope
 
 Phase 2 was sliced into sessions (well below 1M tokens each). **2A.1, 2A.2, 2B (journey-tracker), 2C layers 1+2a, and 2C-tail L2b are all done and merged to `main`.** Remaining:
 
 - **2C layer 3 + CI (deferred follow-up):** a live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand; plus the first `.github/workflows/` CI (PR deterministic gate + nightly live run; serial to dodge `EMAXPOOLSREACHED`). Scope/rationale in the 2C-tail spec's "Follow-up" section.
 - **2B secondary scope (not built in the tracker slice):** rich in-chat renderers (the registry has minimal cards) + left-sidebar section drill-downs. NOTE: `Nav.tsx` still has a stale `#overview` anchor pointing at the deleted `Overview.tsx` (now `Tracker.tsx`) — fix when touching the sidebar.
-- **Open `messages.parts` question (from the L2b review):** after the onFinish fix the `tool_calls` table is aggregated across steps, but the `messages.parts` blob is still last-step-only (`event.content`). Decide whether to aggregate `parts` too before any feature treats it as the multi-step render source.
+- **Open `messages.parts` question (from the L2b review):** after the onFinish fix the `tool_calls` table is aggregated across steps, but the `messages.parts` blob is still last-step-only (`event.content`). The 2026-06-03 hardening pass added a RENDER-time mitigation (`hydrateMessages` falls back to text `content` when persisted parts are tool-only) so reload no longer shows an empty bubble — but the persisted blob is still last-step-only. Decide whether to aggregate `parts` at WRITE time before any feature treats it as the multi-step render source.
 
 The Pinned decisions below carry forward.
 

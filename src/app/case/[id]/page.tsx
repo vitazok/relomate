@@ -5,7 +5,7 @@ import { makeRepository } from '@/lib/case/repository';
 import { getCurrentUserId } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
-import type { UIMessage } from 'ai';
+import { hydrateMessages } from '@/components/workspace/hydrate-messages';
 import { evaluateEligibility } from '@/lib/rules/eligibility';
 import { computeJourneyProgress } from '@/lib/journey/compute';
 import { getDocumentRules } from '@/lib/rules/loader';
@@ -36,11 +36,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     .orderBy(asc(schema.messages.createdAt))
     .limit(50);
 
-  const initialMessages: UIMessage[] = recent.map((m) => ({
-    id: m.id,
-    role: m.role as 'user' | 'assistant' | 'system',
-    parts: (m.parts as UIMessage['parts']) ?? [{ type: 'text', text: m.content }],
-  }));
+  const initialMessages = hydrateMessages(recent);
 
   const profile: Profile = { schemaVersion: 1 };
   const today = new Date();

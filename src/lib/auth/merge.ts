@@ -36,16 +36,16 @@ export async function promoteToAuthed(
   { anonymousUserId, email }: PromoteInput,
 ): Promise<PromoteResult> {
   return db.transaction(async (tx) => {
-    const existing = await findExistingByEmail(tx as unknown as Db, email);
+    let existing = await findExistingByEmail(tx as unknown as Db, email);
 
     if (!existing && anonymousUserId) {
-      // Branch (b): promote anon in place
-      await tx
-        .update(schema.users)
-        .set({ isAnonymous: false, lastSeenAt: new Date() })
-        .where(eq(schema.users.id, anonymousUserId));
-
-      await tx
+      // Branch (b): promote anon in place.
+      // Insert the identity FIRST and detect a conflict. A concurrent claim for the same email
+      // from a different anon user can win the unique(provider,providerId) constraint between our
+      // findExistingByEmail() read and this insert. If that happens we must NOT flip this anon to
+      // non-anonymous (that would leave an authed user with no identity — an orphan that passes
+      // requireAuthedUserId). Instead, fall through to the merge path against the real owner.
+      const insertedIdentity = await tx
         .insert(schema.userIdentities)
         .values({
           userId: anonymousUserId,
@@ -55,15 +55,27 @@ export async function promoteToAuthed(
         })
         .onConflictDoNothing({
           target: [schema.userIdentities.provider, schema.userIdentities.providerId],
+        })
+        .returning({ id: schema.userIdentities.id });
+
+      if (insertedIdentity.length > 0) {
+        // We own the identity — safe to promote this anon in place.
+        await tx
+          .update(schema.users)
+          .set({ isAnonymous: false, lastSeenAt: new Date() })
+          .where(eq(schema.users.id, anonymousUserId));
+
+        await tx.insert(schema.activityLog).values({
+          userId: anonymousUserId,
+          kind: 'auth.promoted_anon',
+          payload: { email, from: 'anonymous' } as never,
         });
 
-      await tx.insert(schema.activityLog).values({
-        userId: anonymousUserId,
-        kind: 'auth.promoted_anon',
-        payload: { email, from: 'anonymous' } as never,
-      });
-
-      return { targetUserId: anonymousUserId };
+        return { targetUserId: anonymousUserId };
+      }
+      // Conflict: someone else claimed this email first. Re-resolve and merge into them below.
+      existing = await findExistingByEmail(tx as unknown as Db, email);
+      if (!existing) throw new Error('identity conflict but owner not found');
     }
 
     if (!existing && !anonymousUserId) {
@@ -143,7 +155,13 @@ export async function promoteToAuthed(
       // referenced by append-only audit rows (activity_log, profile_changes) written
       // during the anonymous session. Deleting would violate those FKs (ON DELETE no
       // action); re-pointing the rows would violate the append-only rule. Leave the
-      // row as a dead tombstone — `auth.merged_anon` below records where it merged to.
+      // row as a dead tombstone — `merged_into` (and `auth.merged_anon` below) record
+      // where it merged to, and getCurrentUserId treats merged_into as logged-out so a
+      // stale 30-day cookie for this anon id can no longer authenticate.
+      await tx
+        .update(schema.users)
+        .set({ mergedInto: targetUserId })
+        .where(eq(schema.users.id, anonymousUserId));
 
       await tx.insert(schema.activityLog).values({
         userId: targetUserId,

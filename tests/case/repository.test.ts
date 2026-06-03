@@ -273,6 +273,42 @@ describe('case repository: applyUpdate', () => {
     expect(second.contradictions).toEqual([]);
   });
 
+  it('does not report a contradiction when an object leaf is re-written with reordered keys (#8)', async () => {
+    const { repo, caseId } = await freshCase();
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-0000000000d1',
+      confidence: 0.9,
+      updates: {
+        currentAddress: {
+          line1: '27 MG Road',
+          city: 'Pune',
+          stateOrProvince: 'MH',
+          country: 'IN',
+          postalCode: '411001',
+        },
+      },
+    });
+    const second = await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: '00000000-0000-4000-8000-0000000000d2',
+      confidence: 0.9,
+      updates: {
+        // same address, keys in a DIFFERENT order
+        currentAddress: {
+          postalCode: '411001',
+          country: 'IN',
+          city: 'Pune',
+          stateOrProvince: 'MH',
+          line1: '27 MG Road',
+        },
+      },
+    });
+    expect(second.contradictions).toEqual([]);
+  });
+
   it('rejects an unknown path and writes nothing', async () => {
     const { repo, caseId } = await freshCase();
     await expect(
@@ -308,6 +344,49 @@ describe('case repository: applyUpdate', () => {
     );
     expect((changes.rows[0] as { n: number }).n).toBe(0);
   });
+
+  it('does not lose a profile update across concurrent writes to two cases of one user (#9)', async () => {
+    // Two cases of the SAME user lock DIFFERENT case_facts rows, so the case_facts FOR UPDATE
+    // does not serialize them. Both transactions write profile leaves. The buggy version
+    // SELECT ... FOR UPDATE'd the profiles row that did not exist yet (locking nothing), so
+    // both snapshot {schemaVersion:1} and the second upsert clobbers the first's profile write.
+    // Repeat a few times — the interleaving is timing-dependent but reproduced 25/25 when buggy.
+    for (let i = 0; i < 4; i++) {
+      const repo = makeRepository(handle.db, handle.schemaName);
+      const { caseId: caseA } = await repo.createCase({
+        userId: seeded.userId,
+        visaType: 'blue_card',
+        targetCountry: 'DE',
+        targetConsulate: 'bengaluru',
+      });
+      const { caseId: caseB } = await repo.createCase({
+        userId: seeded.userId,
+        visaType: 'blue_card',
+        targetCountry: 'DE',
+        targetConsulate: 'bengaluru',
+      });
+      await Promise.all([
+        repo.applyUpdate({
+          caseId: caseA,
+          source: 'user_stated',
+          sourceTurnId: '00000000-0000-4000-8000-0000000000e1',
+          confidence: 0.9,
+          updates: { nationality: 'IN' },
+        }),
+        repo.applyUpdate({
+          caseId: caseB,
+          source: 'user_stated',
+          sourceTurnId: '00000000-0000-4000-8000-0000000000e2',
+          confidence: 0.9,
+          updates: { passportNumber: 'P1234567' },
+        }),
+      ]);
+
+      const loaded = await repo.loadCase(caseA);
+      expect(loaded.profile?.nationality?.value).toBe('IN');
+      expect(loaded.profile?.passportNumber?.value).toBe('P1234567');
+    }
+  }, 30_000);
 
   it('serialises concurrent writes to the same case (row lock)', async () => {
     const { repo, caseId } = await freshCase();

@@ -59,7 +59,7 @@ export const EligibilityResult: Renderer = ({ output }) => {
       salaryOnFile: number | null;
       standard: { annualGrossEur: number; meets: boolean | null };
       reduced: { annualGrossEur: number; meets: boolean | null };
-    };
+    } | null;
   };
 
   if (data.status === 'out_of_scope') {
@@ -79,7 +79,18 @@ export const EligibilityResult: Renderer = ({ output }) => {
     );
   }
 
-  const fig = data.figures!;
+  if (!data.figures) {
+    // Assessed, but no threshold period covers the assessment date — show the blocker
+    // rather than confidently-wrong (stale) salary figures.
+    return (
+      <span className="block rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+        Eligibility figures are unavailable for this date — the salary thresholds on file may be
+        out of date. Please check back once current figures are published.
+      </span>
+    );
+  }
+
+  const fig = data.figures;
   const mark = (m: boolean | null) => (m === null ? '·' : m ? '✓' : '✗');
   return (
     <div className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700">
