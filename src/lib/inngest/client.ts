@@ -11,3 +11,8 @@ export type CaseFactsUpdatedEvent = {
   name: 'case.facts.updated';
   data: { caseId: string; paths: string[]; sourceTurnId: string };
 };
+
+export type DocumentUploadedEvent = {
+  name: 'document.uploaded';
+  data: { documentId: string; caseId: string; userId: string };
+};
