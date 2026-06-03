@@ -271,7 +271,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 | 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
 | 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
 | 2C layer 3 (live LLM + user-simulator) + CI | designed/deferred, not started | follow-up section in the 2C-tail spec |
-| codebase-review hardening pass (15 findings) | complete, in PR (`fix/codebase-review-15-findings`) | see "Codebase-review hardening" subsection below |
+| codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | see "Codebase-review hardening" subsection below |
 
 (Per-phase commit hashes, test counts, and resolved-bug write-ups live in git history + the Stack gotchas section.)
 
@@ -279,7 +279,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 **Key Phase 1A decision:** the eligibility engine was *slimmed* to fit Visa's minimal `CaseFacts`, not ported verbatim from Nomad. It does NOT yet handle multi-degree arrays, ZAB statements, professional experience arrays, German level, spouse/children — Phase 2+ concerns. Engine emits exactly the codes the 4 personas expect.
 
-### Codebase-review hardening (2026-06-03, branch `fix/codebase-review-15-findings`)
+### Codebase-review hardening (2026-06-03, merged to main PR #7)
 
 A full-codebase review surfaced 15 findings; 13 fixed (TDD), 1 was a false positive, 1 schema change rippled through tests. All `tsc`/`eslint` clean; full suite green (run **serially** — `pnpm exec vitest run --no-file-parallelism` in batches — to dodge `EMAXPOOLSREACHED`). Load-bearing changes the next agent must know:
 
