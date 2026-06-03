@@ -92,10 +92,18 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       //  the tool_calls table, which these aggregated arrays now populate in full.)
       const allToolCalls = event.steps.flatMap((s) => s.toolCalls);
       const allToolResults = event.steps.flatMap((s) => s.toolResults);
+      // A tool whose execute() threw produces a `tool-error` content part (with the error),
+      // NOT a toolResults entry — so without this it would persist with output:null, error:null
+      // and the failure would vanish from the tool_calls audit table.
+      const allToolErrors = event.steps.flatMap((s) =>
+        (s.content as Array<{ type: string; toolCallId?: string; toolName?: string; error?: unknown }>)
+          .filter((p) => p.type === 'tool-error'),
+      );
 
       try {
         await appendChatTurn({
           threadId,
+          userId,
           userMessageId,
           userMessageContent: extractLastUserText(modelMessages as never),
           assistantText: event.text,
@@ -105,11 +113,18 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
             toolName: c.toolName,
             input: c.input,
           })),
-          toolResults: allToolResults.map((r) => ({
-            toolCallId: r.toolCallId,
-            toolName: r.toolName,
-            output: r.output,
-          })),
+          toolResults: [
+            ...allToolResults.map((r) => ({
+              toolCallId: r.toolCallId,
+              toolName: r.toolName,
+              output: r.output,
+            })),
+            ...allToolErrors.map((e) => ({
+              toolCallId: e.toolCallId ?? '',
+              toolName: e.toolName ?? '',
+              error: e.error instanceof Error ? e.error.message : String(e.error),
+            })),
+          ],
           promptVersion: PROMPT_VERSION,
           modelVersion: MODEL_ID,
         });

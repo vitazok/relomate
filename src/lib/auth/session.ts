@@ -18,12 +18,26 @@ function buildCookieOptions() {
   };
 }
 
-/** RSC-safe. Returns null on missing/invalid/expired cookie. Never sets the cookie. */
+/**
+ * RSC-safe. Returns null on missing/invalid/expired cookie. Never sets the cookie.
+ * Also confirms the user row still exists and has not been tombstoned by an anon→authed
+ * merge (merged_into set): a 30-day signed cookie must not keep granting a session to a
+ * user that has been merged away or deleted. There is no server-side revocation list, so
+ * this DB check is the only thing that retires a stale-but-cryptographically-valid cookie.
+ */
 export async function getCurrentUserId(): Promise<string | null> {
   const jar = await cookies();
   const raw = jar.get(VISA_SESSION_COOKIE)?.value;
   if (!raw) return null;
-  return decodeSession(raw)?.userId ?? null;
+  const userId = decodeSession(raw)?.userId ?? null;
+  if (!userId) return null;
+
+  const [row] = await db
+    .select({ mergedInto: schema.users.mergedInto })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  if (!row || row.mergedInto != null) return null;
+  return userId;
 }
 
 /** Route-handler / server-action only. Throws if no valid session. */

@@ -65,6 +65,14 @@ describe('evaluateEligibility', () => {
     expect(verdict.routes).toEqual([]);
   });
 
+  // #3: out-of-scope must be reachable through a VALIDATED intendedVisa value, not just a
+  // test-only cast. A widened enum lets update_case persist 'student' and the engine flag it.
+  it('flags out-of-scope for a validated non-blue-card intendedVisa value', () => {
+    const cf: CaseFacts = { target: { intendedVisa: field('student') } };
+    const verdict = evaluateEligibility(cf, profile, TODAY);
+    expect(verdict.outOfScope).toBe(true);
+  });
+
   it('blocks on anabin unknown with ZAB + consulate warnings', () => {
     const verdict = evaluateEligibility(
       makeCaseFacts({
@@ -180,6 +188,75 @@ describe('evaluateEligibility', () => {
     );
     expect(verdict.qualifies).toBe(false);
     expect(verdict.blockers).toContain('no_route_qualifies');
+    expect(verdict.routes).toEqual([]);
+  });
+
+  // #1: IT-no-degree route uses the REDUCED threshold (blue-card.yaml lists
+  // it_specialist_no_degree under reduced.appliesTo), not the standard one.
+  it('qualifies on IT no-degree route at reduced salary (below standard)', () => {
+    const verdict = evaluateEligibility(
+      makeCaseFacts({
+        // no education on file
+        salary: 48000, // ≥ reduced 45934.20, < standard 50700
+        isco: '2512', // under '25' (IT)
+        priorExperienceYears: 5, // ≥ 3
+      }),
+      profile,
+      TODAY,
+    );
+    expect(verdict.qualifies).toBe(true);
+    expect(verdict.routes).toContain('it_no_degree');
+    expect(verdict.warnings).toContain('proof_of_experience_required');
+  });
+
+  it('does NOT qualify IT no-degree below the reduced threshold', () => {
+    const verdict = evaluateEligibility(
+      makeCaseFacts({
+        salary: 40000, // < reduced 45934.20
+        isco: '2512',
+        priorExperienceYears: 5,
+      }),
+      profile,
+      TODAY,
+    );
+    expect(verdict.routes).not.toContain('it_no_degree');
+  });
+
+  // #5: recent-graduate route requires an actual degree on file, not just a
+  // stray completionYear + recognition status.
+  it('does NOT match recent_graduate when no degree is on file', () => {
+    const verdict = evaluateEligibility(
+      makeCaseFacts({
+        anabinStatus: 'H+',
+        // highestDegree intentionally omitted (null)
+        highestDegree: null,
+        completionYear: 2025,
+        salary: 46000,
+        isco: '4120',
+      }),
+      profile,
+      TODAY,
+    );
+    expect(verdict.routes).not.toContain('recent_graduate');
+  });
+
+  // #4: when no threshold period matches `today`, the engine refuses to assess
+  // rather than silently applying stale figures.
+  it('blocks with no_active_threshold when today is outside all configured periods', () => {
+    const future = new Date('2099-06-01T00:00:00.000Z');
+    const verdict = evaluateEligibility(
+      makeCaseFacts({
+        anabinStatus: 'H+',
+        highestDegree: 'master_eqf7',
+        completionYear: 2010,
+        salary: 60000,
+        isco: '4120',
+      }),
+      profile,
+      future,
+    );
+    expect(verdict.qualifies).toBe(false);
+    expect(verdict.blockers).toContain('no_active_threshold');
     expect(verdict.routes).toEqual([]);
   });
 });

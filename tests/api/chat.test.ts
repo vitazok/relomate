@@ -97,6 +97,24 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(403);
   });
 
+  it('returns 400 (not 500) when messages are structurally invalid for convertToModelMessages (#10)', async () => {
+    cookieStore.set(
+      'visa_session',
+      encodeSession({ userId, iat: Date.now(), exp: Date.now() + 60_000 }),
+    );
+    const { POST } = await import('@/app/api/chat/route');
+    // Valid JSON, non-empty array (passes BodySchema + auth + ownership), but a message shape
+    // convertToModelMessages rejects (unknown role / malformed parts) → must be a clean 400.
+    const res = await POST(new Request('http://localhost/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        caseId,
+        messages: [{ id: 'bad', role: 'not-a-role', parts: 'definitely-not-an-array' }],
+      }),
+    }));
+    expect(res.status).toBe(400);
+  });
+
   it('persists user + assistant rows and emits inngest event when update_case fires', async () => {
     cookieStore.set(
       'visa_session',

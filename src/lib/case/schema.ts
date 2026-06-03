@@ -59,7 +59,18 @@ const DegreeLevel = z.enum([
 ]);
 const ModeOfStudy = z.enum(['regular', 'distance', 'online']);
 const AnabinInstitutionStatus = z.enum(['H+', 'H+/-', 'H-', 'unknown']);
-const IntendedVisa = z.enum(['blue_card']);
+// Widened beyond 'blue_card' so a non-Blue-Card intent can be PERSISTED via update_case and
+// the eligibility engine can genuinely flag the case out_of_scope (the engine is the sole
+// setter of the verdict's outOfScope flag). MVP only ASSESSES blue_card; the other values
+// exist solely to record an out-of-scope intent the agent should decline to evaluate.
+const IntendedVisa = z.enum([
+  'blue_card',
+  'student',
+  'job_seeker',
+  'family_reunion',
+  'asylum',
+  'other',
+]);
 const Consulate = z.enum(['bengaluru']);
 
 const Optional = <T extends z.ZodTypeAny>(inner: T) => FieldSchema(inner).optional();

@@ -12,10 +12,10 @@ function iscoMatchesAny(code: string | undefined, groups: string[]): boolean {
 
 export function activeThreshold(blueCard: BlueCardRules, today: Date) {
   const iso = today.toISOString().slice(0, 10);
-  const match = blueCard.thresholds.find(
-    (t) => t.effectiveFrom <= iso && iso <= t.effectiveUntil,
-  );
-  return match ?? blueCard.thresholds[0];
+  // No fallback: if `today` is outside every configured period, return undefined so the
+  // caller blocks rather than assessing against stale figures (the threshold YAML is
+  // year-specific; applying last year's numbers to a later year is a confidently-wrong verdict).
+  return blueCard.thresholds.find((t) => t.effectiveFrom <= iso && iso <= t.effectiveUntil);
 }
 
 export function evaluateEligibility(
@@ -115,9 +115,11 @@ export function evaluateEligibility(
     routes.push('shortage_occupation');
   }
 
-  // Recent graduate
+  // Recent graduate — requires an actual recognized degree on file, not just a stray
+  // completionYear (a completionYear without a highestDegree must not fabricate a route).
   const recentGraduateYears = rules.recentGraduateRule.maxYearsSinceDegree;
   if (
+    hasEducation &&
     salary != null &&
     salary >= reduced &&
     recognized &&
@@ -127,13 +129,14 @@ export function evaluateEligibility(
     routes.push('recent_graduate');
   }
 
-  // IT no-degree (§18g(2))
+  // IT no-degree (§18g(2)) — qualifies at the REDUCED threshold: blue-card.yaml lists
+  // it_specialist_no_degree under reduced.appliesTo (§18g Abs. 1 S. 2 AufenthG).
   const itGroups = rules.itNoDegreeRule.iscoGroups;
   const minExp = rules.itNoDegreeRule.minYearsExperience;
   if (
     !hasEducation &&
     salary != null &&
-    salary >= standard &&
+    salary >= reduced &&
     iscoMatchesAny(isco, itGroups) &&
     priorExperienceYears != null &&
     priorExperienceYears >= minExp

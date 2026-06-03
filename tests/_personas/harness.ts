@@ -110,8 +110,9 @@ export function toCaseFacts(p: Persona): CaseFacts {
   const target = p.caseFacts.target;
   if (target) {
     const targetOut: NonNullable<CaseFacts['target']> = {};
-    // reason: persona visaType is a free string; out-of-scope personas carry non-blue_card values.
-    // The cast keeps toCaseFacts total; L1 derives the RAW value and lets applyUpdate reject it.
+    // reason: persona visaType is a free string; the IntendedVisa enum now covers the
+    // out-of-scope values (student/asylum/etc.), so these persist as valid leaves and the
+    // engine flags them out-of-scope. The cast keeps toCaseFacts total over the free string.
     if (target.visaType) targetOut.intendedVisa = wrap(target.visaType as 'blue_card');
     if (target.consulate) targetOut.targetConsulate = wrap(target.consulate as 'bengaluru');
     if (target.moveDate) targetOut.targetMoveDate = wrap(target.moveDate);

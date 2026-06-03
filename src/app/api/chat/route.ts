@@ -44,7 +44,15 @@ export async function POST(req: Request) {
   if (loaded.case.userId !== userId) return new NextResponse('forbidden', { status: 403 });
 
   const userMessageId = crypto.randomUUID();
-  const modelMessages = await convertToModelMessages(body.messages as never);
+  // BodySchema only checks that messages is a non-empty array of unknowns; the per-message
+  // shape can still be invalid (unknown role, malformed parts). convertToModelMessages throws
+  // on those — treat it as a client error (400), not an unhandled 500 leaking a stack.
+  let modelMessages;
+  try {
+    modelMessages = await convertToModelMessages(body.messages as never);
+  } catch {
+    return new NextResponse('invalid messages', { status: 400 });
+  }
 
   const result = await buildAgentTurn({
     model: anthropic(MODEL_ID),

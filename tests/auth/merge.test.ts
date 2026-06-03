@@ -222,6 +222,50 @@ describe('promoteToAuthed', () => {
     expect(idents).toHaveLength(1);
   });
 
+  it('never leaves a non-anonymous user without an identity row when two anons claim one email (#11)', async () => {
+    // Two DIFFERENT anon users race to claim the same email. Both read findExistingByEmail()=null
+    // and enter branch (b). Only one can win the unique(provider,providerId) identity; the loser
+    // must NOT be left flipped to isAnonymous=false with zero identities (an orphan that passes
+    // requireAuthedUserId yet whose "verified email" belongs to the other account).
+    for (let i = 0; i < 10; i++) {
+      const email = `orphan${i}@example.com`;
+      const a1 = await seedAnonUser(handle);
+      const a2 = await seedAnonUser(handle);
+
+      const results = await Promise.allSettled([
+        promoteToAuthed(handle.db, { anonymousUserId: a1.userId, email }),
+        promoteToAuthed(handle.db, { anonymousUserId: a2.userId, email }),
+      ]);
+
+      // Exactly one identity row exists for the email.
+      const idents = await handle.db
+        .select()
+        .from(schema.userIdentities)
+        .where(eq(schema.userIdentities.providerId, email));
+      expect(idents).toHaveLength(1);
+      const identityOwner = idents[0]!.userId;
+
+      // Invariant: any user flipped to non-anonymous must own an identity.
+      for (const uid of [a1.userId, a2.userId]) {
+        const [u] = await handle.db.select().from(schema.users).where(eq(schema.users.id, uid));
+        const uidIdents = await handle.db
+          .select()
+          .from(schema.userIdentities)
+          .where(eq(schema.userIdentities.userId, uid));
+        if (u && !u.isAnonymous) {
+          expect(uidIdents.length).toBeGreaterThan(0);
+        }
+      }
+
+      // Both calls that succeeded must converge on the identity owner.
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          expect(r.value.targetUserId).toBe(identityOwner);
+        }
+      }
+    }
+  }, 30_000);
+
   it('branch (a): no anon, no existing — creates new user from scratch', async () => {
     const email = 'vikram@example.com';
     const { targetUserId } = await promoteToAuthed(handle.db, {

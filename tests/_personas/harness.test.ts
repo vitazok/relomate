@@ -21,7 +21,10 @@ describe('flattenLeafValues', () => {
 describe('isLeafValueValid', () => {
   it('accepts a valid enum value and rejects an invalid one', () => {
     expect(isLeafValueValid('target.intendedVisa', 'blue_card')).toBe(true);
-    expect(isLeafValueValid('target.intendedVisa', 'asylum')).toBe(false);
+    // 'asylum' is now a VALID intendedVisa value (the enum was widened so the engine can flag
+    // out-of-scope through persisted facts — see #3); a truly invalid enum value is still rejected.
+    expect(isLeafValueValid('target.intendedVisa', 'asylum')).toBe(true);
+    expect(isLeafValueValid('target.intendedVisa', 'not-a-real-visa')).toBe(false);
     expect(isLeafValueValid('employment.annualGrossSalaryEur', 48500)).toBe(true);
   });
 });
@@ -36,19 +39,12 @@ describe('deriveUpdateCalls', () => {
     expect(calls[0]!.updates['target.intendedVisa']).toBe('blue_card');
   });
 
-  it('isolates an invalid-enum leaf into its own single-path call (out-of-scope persona)', () => {
+  it('bundles the now-valid out-of-scope visa value (no isolated invalid leaf)', () => {
     const calls = deriveUpdateCalls(loadPersona('out-of-scope-asylum'));
-    // First call = the valid bundle; subsequent calls = one isolated invalid leaf each.
-    // The count (1) is specific to this persona's leaf set: only intendedVisa='asylum' is
-    // invalid here (its salary 0 is filtered out as falsy by toCaseFacts before derivation).
-    const isolated = calls.slice(1);
-    expect(isolated).toHaveLength(1);
-    const asylumCall = isolated.find((c) => 'target.intendedVisa' in c.updates);
-    expect(asylumCall).toBeDefined();
-    expect(Object.keys(asylumCall!.updates)).toEqual(['target.intendedVisa']);
-    expect(asylumCall!.updates['target.intendedVisa']).toBe('asylum');
-    // the valid bundle must NOT contain the invalid leaf
-    expect('target.intendedVisa' in calls[0]!.updates).toBe(false);
+    // Since the IntendedVisa enum was widened (#3), intendedVisa='asylum' is a VALID leaf and
+    // bundles into call 0 like any other — there is no longer an isolated invalid-leaf call.
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.updates['target.intendedVisa']).toBe('asylum');
   });
 });
 

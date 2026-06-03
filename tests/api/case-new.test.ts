@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { createTestSchema, type TestDbHandle } from '../_db/setup';
 import * as schema from '@/lib/db/schema';
 
@@ -47,6 +47,36 @@ describe('POST /api/case/new', () => {
     expect(cases).toHaveLength(1);
     const threads = await testHandle.db.select().from(schema.threads);
     expect(threads).toHaveLength(1);
+  });
+
+  it('seeds the new case from ?persona=<id> when provided (#15)', async () => {
+    const { POST } = await import('@/app/api/case/new/route');
+    const res = await POST(
+      new Request('http://localhost/api/case/new?persona=priya-strong', { method: 'POST' }),
+    );
+    expect(res.status).toBeGreaterThanOrEqual(300);
+    const location = res.headers.get('location') ?? '';
+    const match = /\/case\/([0-9a-f-]{36})/.exec(location);
+    expect(match).not.toBeNull();
+    const caseId = match![1]!;
+
+    const facts = await testHandle.db
+      .select()
+      .from(schema.caseFacts)
+      .where(eq(schema.caseFacts.caseId, caseId));
+    const data = facts[0]?.data as { employment?: { annualGrossSalaryEur?: { value: number } } };
+    // priya-strong has a salary on file — seeding must have populated case_facts.
+    expect(data?.employment?.annualGrossSalaryEur?.value).toBeGreaterThan(0);
+  });
+
+  it('ignores an unknown ?persona=<id> and still creates an empty case (#15)', async () => {
+    const { POST } = await import('@/app/api/case/new/route');
+    const res = await POST(
+      new Request('http://localhost/api/case/new?persona=does-not-exist', { method: 'POST' }),
+    );
+    expect(res.status).toBeGreaterThanOrEqual(300);
+    const cases = await testHandle.db.select().from(schema.cases);
+    expect(cases).toHaveLength(1);
   });
 
   it('reuses an existing anon session if the cookie is valid', async () => {

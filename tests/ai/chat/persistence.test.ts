@@ -36,6 +36,7 @@ describe('appendChatTurn', () => {
     await appendChatTurn(
       {
         threadId,
+        userId,
         userMessageId,
         userMessageContent: 'hello',
         assistantText: 'hi there',
@@ -57,6 +58,9 @@ describe('appendChatTurn', () => {
     const assistant = messages.find((m) => m.role === 'assistant');
     expect(user?.id).toBe(userMessageId);
     expect(user?.content).toBe('hello');
+    // #6: both message rows must carry the authoring user's id.
+    expect(user?.userId).toBe(userId);
+    expect(assistant?.userId).toBe(userId);
     expect(assistant?.content).toBe('hi there');
     expect(assistant?.modelVersion).toBe('claude-sonnet-4-7');
     expect(assistant?.promptVersion).toBe('v0');
@@ -65,11 +69,13 @@ describe('appendChatTurn', () => {
     expect(tools).toHaveLength(0);
   });
 
+
   it('writes one tool_calls row per tool result on the assistant message', async () => {
     const userMessageId = crypto.randomUUID();
     await appendChatTurn(
       {
         threadId,
+        userId,
         userMessageId,
         userMessageContent: 'I make 55k',
         assistantText: 'Recorded.',
@@ -118,6 +124,7 @@ describe('appendChatTurn', () => {
     await appendChatTurn(
       {
         threadId,
+        userId,
         userMessageId,
         userMessageContent: 'x',
         assistantText: 'y',
@@ -139,11 +146,51 @@ describe('appendChatTurn', () => {
     }
   });
 
+  it('persists a tool-call error into tool_calls.error (#7)', async () => {
+    const userMessageId = crypto.randomUUID();
+    const { assistantMessageId } = await appendChatTurn(
+      {
+        threadId,
+        userId,
+        userMessageId,
+        userMessageContent: 'set a bad path',
+        assistantText: 'I hit an error.',
+        assistantParts: [{ type: 'text', text: 'I hit an error.' }],
+        toolCalls: [
+          {
+            toolCallId: 'call-err',
+            toolName: 'update_case',
+            input: { source: 'user_stated', confidence: 0.9, updates: { 'education.level': 'x' } },
+          },
+        ],
+        toolResults: [
+          {
+            toolCallId: 'call-err',
+            toolName: 'update_case',
+            error: 'unknown path: education.level',
+          },
+        ],
+        promptVersion: 'v0',
+        modelVersion: 'claude-sonnet-4-7',
+      },
+      handle.db,
+    );
+
+    const tools = await handle.db
+      .select()
+      .from(schema.toolCalls)
+      .where(eq(schema.toolCalls.messageId, assistantMessageId));
+    expect(tools).toHaveLength(1);
+    expect(tools[0]?.error).toBe('unknown path: education.level');
+    expect(tools[0]?.output).toBeNull();
+  });
+
   it('throws (and rolls back) when threadId does not exist', async () => {
     await expect(
       appendChatTurn(
         {
           threadId: '00000000-0000-0000-0000-000000000000',
+          userId,
           userMessageId: crypto.randomUUID(),
           userMessageContent: 'x',
           assistantText: 'y',

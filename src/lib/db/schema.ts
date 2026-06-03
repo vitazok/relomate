@@ -25,6 +25,10 @@ export const users = pgTable('users', {
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   displayName: text('display_name'),
   isAnonymous: boolean('is_anonymous').notNull().default(false),
+  // Set when this (anon) user is merged into another during anon→authed promotion. The row is
+  // kept as a tombstone (append-only audit rows FK to it), but it is no longer a usable session:
+  // getCurrentUserId treats a non-null merged_into as logged-out. Recoverable merge pointer.
+  mergedInto: uuid('merged_into'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
 });
