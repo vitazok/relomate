@@ -57,10 +57,10 @@ describe('buildAgentTurn', () => {
     expect(captured.model).toBe(SENTINEL_MODEL);
   });
 
-  it('registers all six tools', async () => {
+  it('registers all seven tools', async () => {
     await buildAgentTurn(baseParams());
     expect(Object.keys(captured.tools ?? {}).sort()).toEqual(
-      ['add_case_note', 'check_eligibility', 'lookup_anabin', 'out_of_scope', 'read_case', 'update_case'].sort(),
+      ['add_case_note', 'check_eligibility', 'lookup_anabin', 'out_of_scope', 'read_case', 'request_document_upload', 'update_case'].sort(),
     );
   });
 

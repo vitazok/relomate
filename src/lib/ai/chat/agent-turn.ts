@@ -8,6 +8,7 @@ import { makeAddCaseNoteTool } from '@/lib/ai/tools/add_case_note';
 import { makeOutOfScopeTool } from '@/lib/ai/tools/out_of_scope';
 import { makeCheckEligibilityTool } from '@/lib/ai/tools/check_eligibility';
 import { makeLookupAnabinTool } from '@/lib/ai/tools/lookup_anabin';
+import { makeRequestDocumentUploadTool } from '@/lib/ai/tools/request_document_upload';
 import { inngest } from '@/lib/inngest/client';
 import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
@@ -67,6 +68,7 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       defaultCaseId: caseId,
       defaultUserId: userId,
     }),
+    request_document_upload: makeRequestDocumentUploadTool(),
     // lookup_anabin MUST stay last: it carries the single cache_control breakpoint
     // (in its factory), which caches the whole static tools block. See lookup_anabin.ts.
     lookup_anabin: makeLookupAnabinTool(),
