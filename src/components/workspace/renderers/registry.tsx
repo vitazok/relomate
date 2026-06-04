@@ -145,10 +145,39 @@ export const DocumentUploadRequest: Renderer = ({ output }) => {
 };
 
 export const DocumentExtractionStatus: Renderer = ({ output }) => {
-  const data = output.data as { documentId: string; fileName?: string };
+  const data = output.data as {
+    documentId: string;
+    caseId?: string;
+    fileName?: string;
+    status?: string;
+  };
+  const name = data.fileName ?? 'document';
+
+  if (data.status === 'awaiting_confirmation' && data.caseId) {
+    return (
+      <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+        {name} is ready —{' '}
+        <a
+          href={`/case/${data.caseId}/documents/${data.documentId}/review`}
+          className="text-blue-600 underline"
+        >
+          Review &amp; confirm
+        </a>
+      </span>
+    );
+  }
+
+  if (data.status === 'confirmed') {
+    return <span className="block px-2 py-1 text-xs text-green-700">✓ Added to your case</span>;
+  }
+
+  if (data.status === 'rejected') {
+    return <span className="block px-2 py-1 text-xs text-zinc-400">Dismissed</span>;
+  }
+
   return (
     <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
-      Processing {data.fileName ?? 'document'}…
+      Processing {name}…
     </span>
   );
 };
