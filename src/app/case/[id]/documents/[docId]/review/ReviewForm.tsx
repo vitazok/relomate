@@ -32,7 +32,14 @@ export function ReviewForm({
       .map((r) => ({ key: r.key, value: values[r.key], edited: values[r.key] !== r.value }));
     startTransition(async () => {
       const res = await confirmExtraction({ caseId, documentId, fields });
-      if (res?.error) setError(res.message ?? 'Could not save. Please check the highlighted fields.');
+      if (res?.error) {
+        setError(res.message ?? 'Could not save. Please check the highlighted fields.');
+      } else if (res?.unmapped && res.unmapped.length > 0) {
+        const labels = res.unmapped
+          .map((k) => rows.find((r) => r.key === k)?.label ?? k)
+          .join(', ');
+        setError(`Saved, but we couldn't recognize: ${labels}. Please correct ${res.unmapped.length === 1 ? 'it' : 'them'} and confirm again.`);
+      }
     });
   }
 

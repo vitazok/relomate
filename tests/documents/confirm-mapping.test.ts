@@ -45,4 +45,18 @@ describe('buildConfirmUpdates (passport)', () => {
     const { updates } = buildConfirmUpdates('passport', fields);
     expect(Object.keys(updates)).not.toContain('mystery');
   });
+
+  it('normalizes a non-ISO date via the field transform', () => {
+    const fields = base.map((f) => (f.key === 'dateOfBirth' ? { ...f, value: '15 JAN 1990', edited: true } : f));
+    const { updates, perPathSource } = buildConfirmUpdates('passport', fields);
+    expect(updates.dateOfBirth).toBe('1990-01-15');
+    expect(perPathSource.dateOfBirth).toBe('user_corrected');
+  });
+
+  it('leaves an unparseable date unmapped', () => {
+    const fields = base.map((f) => (f.key === 'dateOfBirth' ? { ...f, value: 'whenever', edited: true } : f));
+    const { updates, unmapped } = buildConfirmUpdates('passport', fields);
+    expect(updates.dateOfBirth).toBeUndefined();
+    expect(unmapped).toContain('dateOfBirth');
+  });
 });

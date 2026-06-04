@@ -16,6 +16,7 @@ import type { ReviewedField } from '@/lib/documents/confirm-mapping';
 export interface ReviewActionState {
   error?: ConfirmError;
   message?: string;
+  unmapped?: string[];
 }
 
 function deps() {
@@ -34,6 +35,16 @@ export async function confirmExtraction(input: {
   const userId = await requireAuthedUserId();
   const res = await confirmExtractionCore(deps(), { ...input, userId });
   if (!res.ok) return { error: res.error, message: res.message };
+
+  const submittedKeys = new Set(input.fields.map((f) => f.key));
+  const unsavedSubmitted = res.unmapped.filter((k) => submittedKeys.has(k));
+  if (unsavedSubmitted.length > 0) {
+    // The confirm DID persist everything it could (and resolved/closed the doc), but some
+    // submitted fields couldn't be saved (unrecognized value). Tell the user which ones
+    // rather than redirecting as if everything saved.
+    return { unmapped: unsavedSubmitted };
+  }
+
   revalidatePath(`/case/${input.caseId}`);
   redirect(`/case/${input.caseId}`);
 }
