@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DocumentUpload } from '@/components/workspace/DocumentUpload';
 
 export interface ToolOutput {
   type: string;
@@ -138,6 +139,20 @@ export const AnabinResult: Renderer = ({ output }) => {
   );
 };
 
+export const DocumentUploadRequest: Renderer = ({ output }) => {
+  const data = output.data as { spineItemId: string | null; label: string; accept: string };
+  return <DocumentUpload spineItemId={data.spineItemId} label={data.label} accept={data.accept} />;
+};
+
+export const DocumentExtractionStatus: Renderer = ({ output }) => {
+  const data = output.data as { documentId: string; fileName?: string };
+  return (
+    <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+      Processing {data.fileName ?? 'document'}…
+    </span>
+  );
+};
+
 const registry: Record<string, Renderer> = {
   update_case_result: UpdateCaseResult,
   read_case_result: ReadCaseResult,
@@ -145,6 +160,8 @@ const registry: Record<string, Renderer> = {
   out_of_scope_result: OutOfScopeResult,
   eligibility_result: EligibilityResult,
   anabin_result: AnabinResult,
+  document_upload_request: DocumentUploadRequest,
+  document_extraction_status: DocumentExtractionStatus,
 };
 
 // Dispatch keys on `type` only; `output.version` is intentionally ignored while
