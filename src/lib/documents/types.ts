@@ -16,6 +16,8 @@ export const DocumentStatusEnum = z.enum([
   'classifying',
   'extracting',
   'awaiting_confirmation',
+  'confirmed',
+  'rejected',
   'failed',
 ]);
 export type DocumentStatus = z.infer<typeof DocumentStatusEnum>;

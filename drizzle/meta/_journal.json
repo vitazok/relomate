@@ -29,6 +29,13 @@
       "when": 1780519241259,
       "tag": "0003_dear_grandmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780605145097,
+      "tag": "0004_zippy_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }
