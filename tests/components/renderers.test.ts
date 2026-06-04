@@ -57,3 +57,14 @@ describe('eligibility_result + anabin_result renderers', () => {
     expect(found).toBeTruthy();
   });
 });
+
+describe('document renderers', () => {
+  it('resolves document_upload_request to a non-fallback renderer', () => {
+    const r = resolveRenderer('document_upload_request');
+    expect(r).not.toBe(FallbackResult);
+  });
+  it('resolves document_extraction_status to a non-fallback renderer', () => {
+    const r = resolveRenderer('document_extraction_status');
+    expect(r).not.toBe(FallbackResult);
+  });
+});
