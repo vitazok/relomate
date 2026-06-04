@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const ALLOWED_UPLOAD_TYPES = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/heic',
+  'image/webp',
+] as const;
+
+export const ALLOWED_UPLOAD_ACCEPT = ALLOWED_UPLOAD_TYPES.join(',');
+
 export const DocumentStatusEnum = z.enum([
   'pending_upload',
   'uploaded',

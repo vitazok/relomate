@@ -5,19 +5,14 @@ import { getCurrentUserId } from '@/lib/auth/session';
 import { makeRepository } from '@/lib/case/repository';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeR2StorageAdapter, documentKey } from '@/lib/storage/r2';
+import { ALLOWED_UPLOAD_TYPES } from '@/lib/documents/types';
 import { db } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
 
 const MAX_BODY_BYTES = 4 * 1024;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/heic',
-  'image/webp',
-]);
+const ALLOWED_TYPES = new Set<string>(ALLOWED_UPLOAD_TYPES);
 
 const BodySchema = z.object({
   caseId: z.string().uuid(),

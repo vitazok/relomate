@@ -32,4 +32,20 @@ describe('uploadDocument', () => {
     const file = new File([new Uint8Array([1])], 'p.pdf', { type: 'application/pdf' });
     await expect(uploadDocument('c', file)).rejects.toThrow();
   });
+
+  it('throws if upload-url fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 }) as Response));
+    const file = new File([new Uint8Array([1])], 'p.pdf', { type: 'application/pdf' });
+    await expect(uploadDocument('c', file)).rejects.toThrow();
+  });
+
+  it('throws if finalize fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/upload-url')) return { ok: true, json: async () => ({ documentId: 'd', uploadUrl: 'https://r2/put' }) } as Response;
+      if (url === 'https://r2/put') return { ok: true } as Response;
+      return { ok: false, status: 500 } as Response; // finalize fails
+    }));
+    const file = new File([new Uint8Array([1])], 'p.pdf', { type: 'application/pdf' });
+    await expect(uploadDocument('c', file)).rejects.toThrow();
+  });
 });

@@ -1,8 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { getDocumentSpine } from '@/lib/extraction/schema';
-
-const ACCEPT = 'application/pdf,image/png,image/jpeg,image/heic,image/webp';
+import { ALLOWED_UPLOAD_ACCEPT } from '@/lib/documents/types';
 
 const description = [
   'Ask the user to upload a document so it can be read and added to their case.',
@@ -29,7 +28,7 @@ export function makeRequestDocumentUploadTool() {
         data: {
           spineItemId: match?.id ?? null,
           label: match?.label ?? 'Upload a document',
-          accept: ACCEPT,
+          accept: ALLOWED_UPLOAD_ACCEPT,
         },
       };
     },

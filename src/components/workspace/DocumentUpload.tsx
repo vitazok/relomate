@@ -59,14 +59,19 @@ export function DocumentUpload({
     try {
       const documentId = await uploadDocument(caseId, file);
       setState('processing');
+      let terminal = false;
       for (let i = 0; i < 30; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         const res = await fetch(`/api/documents/${documentId}`);
         if (!res.ok) break;
         const v = (await res.json()) as DocumentStatusView;
         setView(v);
-        if (v.status === 'awaiting_confirmation' || v.status === 'failed') break;
+        if (v.status === 'awaiting_confirmation' || v.status === 'failed') {
+          terminal = true;
+          break;
+        }
       }
+      if (!terminal) setState('error');
     } catch {
       setState('error');
     }

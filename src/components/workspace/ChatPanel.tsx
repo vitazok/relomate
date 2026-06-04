@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { resolveRenderer, type ToolOutput } from '@/components/workspace/renderers/registry';
 import { DocumentUpload } from '@/components/workspace/DocumentUpload';
+import { ALLOWED_UPLOAD_ACCEPT } from '@/lib/documents/types';
 
 function messageContainsUpdateCase(message: UIMessage): boolean {
   if (!Array.isArray(message.parts)) return false;
@@ -73,7 +74,7 @@ export function ChatPanel({ caseId, initialMessages }: { caseId: string; initial
           caseId={caseId}
           spineItemId={null}
           label="Upload a document"
-          accept="application/pdf,image/png,image/jpeg,image/heic,image/webp"
+          accept={ALLOWED_UPLOAD_ACCEPT}
         />
       </div>
       <form
