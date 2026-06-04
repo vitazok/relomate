@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { resolveRenderer, type ToolOutput } from '@/components/workspace/renderers/registry';
+import { DocumentUpload } from '@/components/workspace/DocumentUpload';
 
 function messageContainsUpdateCase(message: UIMessage): boolean {
   if (!Array.isArray(message.parts)) return false;
@@ -67,6 +68,14 @@ export function ChatPanel({ caseId, initialMessages }: { caseId: string; initial
           ))}
         </div>
       </ScrollArea>
+      <div className="border-t border-zinc-200 px-3 py-2">
+        <DocumentUpload
+          caseId={caseId}
+          spineItemId={null}
+          label="Upload a document"
+          accept="application/pdf,image/png,image/jpeg,image/heic,image/webp"
+        />
+      </div>
       <form
         className="border-t border-zinc-200 p-3 flex gap-2"
         onSubmit={(e) => {
