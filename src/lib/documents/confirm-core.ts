@@ -43,6 +43,13 @@ export async function confirmExtractionCore(deps: ConfirmDeps, input: ConfirmInp
 
   const { updates, perPathSource, unmapped } = buildConfirmUpdates(doc.spineItemId, input.fields);
 
+  // Submitted fields that couldn't be saved (target-bearing but value/transform failed).
+  // We persist what we CAN below, but must NOT finalize (resolve + close) while any of
+  // these remain — otherwise the doc flips to 'confirmed' and the user can never re-confirm
+  // the corrected value (the wrong_status guard would block it).
+  const submittedKeys = new Set(input.fields.map((f) => f.key));
+  const unsavedSubmitted = unmapped.filter((k) => submittedKeys.has(k));
+
   // Group paths by source → at most two applyUpdate calls (zero change to applyUpdate itself).
   const bySource: Record<FieldSource, Record<string, unknown>> = { document: {}, user_corrected: {} };
   for (const [path, value] of Object.entries(updates)) {
@@ -73,24 +80,26 @@ export async function confirmExtractionCore(deps: ConfirmDeps, input: ConfirmInp
     return { ok: false, error: 'validation', message: err instanceof Error ? err.message : String(err) };
   }
 
-  const approval = await deps.approvals.getBySubject('document', input.documentId);
-  if (approval) {
-    await deps.approvals.resolve(approval.id, {
-      status: 'approved',
-      decision: { confirmedPaths, editedPaths, rejectedReason: null },
-      resolvedBy: input.userId,
+  if (unsavedSubmitted.length === 0) {
+    const approval = await deps.approvals.getBySubject('document', input.documentId);
+    if (approval) {
+      await deps.approvals.resolve(approval.id, {
+        status: 'approved',
+        decision: { confirmedPaths, editedPaths, rejectedReason: null },
+        resolvedBy: input.userId,
+      });
+    }
+
+    await deps.docs.setStatus(input.documentId, 'confirmed');
+
+    // PII-safe audit row: leaf KEYS only, never values.
+    await deps.repo.appendActivity({
+      caseId: input.caseId,
+      userId: input.userId,
+      kind: 'case.approval.resolved',
+      payload: { subjectType: 'document', subjectId: input.documentId, status: 'approved', confirmedPaths, editedPaths },
     });
   }
-
-  await deps.docs.setStatus(input.documentId, 'confirmed');
-
-  // PII-safe audit row: leaf KEYS only, never values.
-  await deps.repo.appendActivity({
-    caseId: input.caseId,
-    userId: input.userId,
-    kind: 'case.approval.resolved',
-    payload: { subjectType: 'document', subjectId: input.documentId, status: 'approved', confirmedPaths, editedPaths },
-  });
 
   return { ok: true, updatedPaths: confirmedPaths, unmapped };
 }

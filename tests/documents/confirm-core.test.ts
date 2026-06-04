@@ -124,4 +124,40 @@ describe('confirmExtractionCore', () => {
     const after = await deps().repo.loadCase(caseId);
     expect(after.profile).toEqual(before.profile);
   });
+
+  it('does NOT finalize when a submitted field is unresolvable (stays reviewable, re-confirm works)', async () => {
+    const documentId = await seedAwaitingDoc(caseId, userId);
+    // 'whenever' can't be normalized to an ISO date → dateOfBirth stays unmapped.
+    const badFields = [
+      { key: 'surname', value: 'Sharma', edited: false },
+      { key: 'givenNames', value: 'Priya', edited: false },
+      { key: 'passportNumber', value: 'X1234567', edited: false },
+      { key: 'dateOfBirth', value: 'whenever', edited: true },
+      { key: 'nationality', value: 'India', edited: false },
+      { key: 'dateOfExpiry', value: '2030-09-01', edited: false },
+    ];
+    const res = await confirmExtractionCore(deps(), { documentId, caseId, userId, fields: badFields });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.unmapped).toContain('dateOfBirth');
+
+    // Doc stays reviewable; approval still pending — so the user CAN re-confirm.
+    const doc = await deps().docs.getById(documentId);
+    expect(doc?.status).toBe('awaiting_confirmation');
+    const stillPending = (await deps().approvals.listPending(caseId)).find((a) => a.subjectId === documentId);
+    expect(stillPending).toBeDefined();
+
+    // The good fields were persisted (partial progress).
+    const loaded = await deps().repo.loadCase(caseId);
+    expect(loaded.profile?.passportNumber?.value).toBe('X1234567');
+
+    // Re-confirm with a corrected date now succeeds and finalizes.
+    const fixed = badFields.map((f) => (f.key === 'dateOfBirth' ? { ...f, value: '15 JAN 1990' } : f));
+    const res2 = await confirmExtractionCore(deps(), { documentId, caseId, userId, fields: fixed });
+    expect(res2.ok).toBe(true);
+    if (res2.ok) expect(res2.unmapped).toEqual([]);
+    const doc2 = await deps().docs.getById(documentId);
+    expect(doc2?.status).toBe('confirmed');
+    const loaded2 = await deps().repo.loadCase(caseId);
+    expect(loaded2.profile?.dateOfBirth?.value).toBe('1990-01-15');
+  });
 });

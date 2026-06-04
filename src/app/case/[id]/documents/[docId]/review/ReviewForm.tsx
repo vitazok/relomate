@@ -38,7 +38,7 @@ export function ReviewForm({
         const labels = res.unmapped
           .map((k) => rows.find((r) => r.key === k)?.label ?? k)
           .join(', ');
-        setError(`Saved, but we couldn't recognize: ${labels}. Please correct ${res.unmapped.length === 1 ? 'it' : 'them'} and confirm again.`);
+        setError(`We couldn't recognize: ${labels}. Please correct ${res.unmapped.length === 1 ? 'it' : 'them'} and confirm again to finish.`);
       }
     });
   }
