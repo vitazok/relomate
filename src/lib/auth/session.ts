@@ -5,7 +5,7 @@ import * as schema from '@/lib/db/schema';
 import { decodeSession, encodeSession } from './cookie';
 import { env } from '@/lib/env';
 
-export const VISA_SESSION_COOKIE = 'visa_session';
+export const RELOMATE_SESSION_COOKIE = 'relomate_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function buildCookieOptions() {
@@ -27,7 +27,7 @@ function buildCookieOptions() {
  */
 export async function getCurrentUserId(): Promise<string | null> {
   const jar = await cookies();
-  const raw = jar.get(VISA_SESSION_COOKIE)?.value;
+  const raw = jar.get(RELOMATE_SESSION_COOKIE)?.value;
   if (!raw) return null;
   const userId = decodeSession(raw)?.userId ?? null;
   if (!userId) return null;
@@ -83,7 +83,7 @@ export async function writeAuthedSession(userId: string): Promise<void> {
   const jar = await cookies();
   const now = Date.now();
   jar.set(
-    VISA_SESSION_COOKIE,
+    RELOMATE_SESSION_COOKIE,
     encodeSession({ userId, iat: now, exp: now + SESSION_TTL_MS }),
     buildCookieOptions(),
   );
@@ -92,5 +92,5 @@ export async function writeAuthedSession(userId: string): Promise<void> {
 /** Route-handler / server-action only. */
 export async function clearSession(): Promise<void> {
   const jar = await cookies();
-  jar.delete(VISA_SESSION_COOKIE);
+  jar.delete(RELOMATE_SESSION_COOKIE);
 }

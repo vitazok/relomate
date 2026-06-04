@@ -41,7 +41,7 @@ describe('POST /api/case/new', () => {
     const match = /\/case\/([0-9a-f-]{36})/.exec(location);
     expect(match).not.toBeNull();
 
-    expect(cookieStore.get('visa_session')).toBeDefined();
+    expect(cookieStore.get('relomate_session')).toBeDefined();
 
     const cases = await testHandle.db.select().from(schema.cases);
     expect(cases).toHaveLength(1);
@@ -83,11 +83,11 @@ describe('POST /api/case/new', () => {
     const { POST } = await import('@/app/api/case/new/route');
     const first = await POST(new Request('http://localhost/api/case/new', { method: 'POST' }));
     expect(first.status).toBeGreaterThanOrEqual(300);
-    const cookieAfterFirst = cookieStore.get('visa_session');
+    const cookieAfterFirst = cookieStore.get('relomate_session');
 
     const second = await POST(new Request('http://localhost/api/case/new', { method: 'POST' }));
     expect(second.status).toBeGreaterThanOrEqual(300);
-    expect(cookieStore.get('visa_session')).toBe(cookieAfterFirst);
+    expect(cookieStore.get('relomate_session')).toBe(cookieAfterFirst);
 
     const users = await testHandle.db.select().from(schema.users);
     expect(users).toHaveLength(1);  // anon user reused

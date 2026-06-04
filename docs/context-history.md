@@ -1,4 +1,4 @@
-# Visa — Context History
+# Relomate — Context History
 
 Relocated out of `CLAUDE.md` to keep it lean. CLAUDE.md carries the forward-looking
 **directives** (what not to redo, what must hold); this file carries the **why** behind
