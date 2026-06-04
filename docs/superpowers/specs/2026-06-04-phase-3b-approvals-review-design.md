@@ -115,11 +115,13 @@ partial unique (subject_type, subject_id) WHERE status = 'pending'   -- one open
 
 ```jsonc
 {
-  "confirmedPaths": ["profile.passportNumber", "profile.fullName"],  // written as-extracted
-  "editedPaths":    ["profile.nationality"],                          // user changed before confirm
-  "rejectedReason": null                                              // string when status='rejected'
+  "confirmedPaths": ["passportNumber", "fullName"],  // written as-extracted (BARE leaf paths)
+  "editedPaths":    ["nationality"],                  // user changed before confirm
+  "rejectedReason": null                              // string when status='rejected'
 }
 ```
+
+> **Leaf-path note:** profile leaves resolve at the **root** in `validateLeafPath` (e.g. `fullName`, `passportNumber`, `nationality`), NOT `profile.fullName`. All `target:`/path strings below use the bare form.
 
 ### 5.3 Repository `src/lib/approvals/repository.ts`
 
@@ -152,12 +154,12 @@ Idempotent (partial unique + return-existing). Only touch to 3A code; additive.
 ```yaml
 extraction:
   fields:
-    surname:        { type: string, target: profile.fullName, transform: composeFullName, part: surname }
-    givenNames:     { type: string, target: profile.fullName, transform: composeFullName, part: given }
-    passportNumber: { type: string, sensitive: true, target: profile.passportNumber }
-    dateOfBirth:    { type: date,   target: profile.dateOfBirth }
-    nationality:    { type: string, target: profile.nationality, transform: toIso2 }
-    dateOfExpiry:   { type: date,   target: profile.passportExpiry }
+    surname:        { type: string, target: fullName, transform: composeFullName, part: surname }
+    givenNames:     { type: string, target: fullName, transform: composeFullName, part: given }
+    passportNumber: { type: string, sensitive: true, target: passportNumber }
+    dateOfBirth:    { type: date,   target: dateOfBirth }
+    nationality:    { type: string, target: nationality, transform: toIso2 }
+    dateOfExpiry:   { type: date,   target: passportExpiry }
 ```
 
 - A field with **no `target`** is reviewable/visible but never written (excluded from `updates`).
@@ -166,7 +168,7 @@ extraction:
 ### 6.2 Transform registry `src/lib/documents/transforms.ts`
 
 Typed `Record<string, Transform>`:
-- `composeFullName` — fan-IN: `surname` + `givenNames` (via the `part` discriminator) compose into one `profile.fullName` (`"GIVEN SURNAME"` order; configurable later). The mapper groups fields by `target` and applies a fan-in transform once per group.
+- `composeFullName` — fan-IN: `surname` + `givenNames` (via the `part` discriminator) compose into one `fullName` leaf (`"GIVEN SURNAME"` order; configurable later). The mapper groups fields by `target` and applies a fan-in transform once per group.
 - `toIso2` — `"Indian"`/`"INDIA"`/`"IND"` → `"IN"`, backed by a small lookup in `config/rules/` (reuse existing country data if present; otherwise seed a minimal map covering India + common cases, MVP being India-source). On failure, the field is left **unmapped + flagged** so the UI forces a pick rather than writing an invalid ISO2 that fails Zod.
 - 1:1 fields need no transform — `value` passes through, validated by `validateLeafValue` against the leaf's inner Zod schema before the write.
 
