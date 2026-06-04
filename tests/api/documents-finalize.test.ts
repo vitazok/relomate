@@ -3,6 +3,7 @@ import { createTestSchema, type TestDbHandle } from '../_db/setup';
 import { seedAnonUser } from '../_db/seed-auth';
 import { makeRepository } from '@/lib/case/repository';
 import { makeDocumentRepository } from '@/lib/documents/repository';
+import type * as R2Module from '@/lib/storage/r2';
 
 let testHandle: TestDbHandle;
 let currentUserId: string | null = null;
@@ -12,8 +13,8 @@ const fakeHead = { ok: true as boolean };
 vi.mock('@/lib/db/client', () => ({ get db() { return testHandle.db; } }));
 vi.mock('@/lib/auth/session', () => ({ getCurrentUserId: () => Promise.resolve(currentUserId) }));
 vi.mock('@/lib/inngest/client', () => ({ inngest: { send: (...a: unknown[]) => sendEvent(...a) } }));
-vi.mock('@/lib/storage/r2', async (orig) => {
-  const actual = (await orig()) as typeof import('@/lib/storage/r2');
+vi.mock('@/lib/storage/r2', async () => {
+  const actual = await vi.importActual<typeof R2Module>('@/lib/storage/r2');
   return {
     ...actual,
     makeR2StorageAdapter: () => ({
