@@ -125,6 +125,7 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
 | 2C layer 3 (live LLM + user-simulator) + CI | designed/deferred, not started | follow-up section in the 2C-tail spec |
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
+| 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
@@ -215,6 +216,102 @@ redebate):
 - **Identity (Profile) folds into Documents** — extracted from passport, confirmed in
   place, consumed by VIDEX. No standalone Profile phase; `Profile` DB table untouched
   (load-bearing for anon→authed merge).
+
+### Phase 3A — document-ingest pipeline (2026-06-04, merged PR #9) — full detail
+
+"File in → structured data out, awaiting confirmation." A user uploads a document; it lands
+in Cloudflare R2 via a presigned direct-to-R2 PUT (bypassing Vercel's ~4.5 MB body limit); a
+durable Inngest workflow classifies it against the document spine and extracts structured
+fields with per-field confidence, parking the result on a new `documents` row in
+`awaiting_confirmation`. Built TDD, subagent-reviewed per task (implementer → spec → quality).
+All `tsc`/`eslint` clean; 91 tests green across the 3A surface (run **serially** —
+`EMAXPOOLSREACHED` is the documented pooler infra limit on full-suite re-runs, not a regression;
+batch DB files). Design: `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md`;
+plan: `docs/superpowers/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
+`docs/runbooks/r2-reducto-setup.md`.
+
+**Why these decisions:**
+
+- **`documents` table is mutable, not append-only.** It's a work-in-progress record (like
+  `case_facts`), so `status`/`extracted`/`classification`/`error` update in place. The
+  append-only rule (10) is satisfied by the `activity_log` rows the workflow writes at each
+  consequential transition — that's the immutable audit trail. Columns:
+  `{id, caseId, userId, spineItemId, detectedType, status, r2Key, fileName, contentType,
+  byteSize, extracted(jsonb), classification(jsonb), error, timestamps}`. Migration
+  `drizzle/0003_dear_grandmaster.sql`.
+
+- **3A stops at `awaiting_confirmation` — no case-state write (rule 5).** The write into
+  `CaseFacts`/identity is 3B's `confirm_extraction`. A dedicated test asserts `case_facts`
+  stays `{}` after the workflow runs. This is the cleanest seam: 3A proves
+  upload→extract→store works without entangling the confirmation/approval primitive.
+
+- **Extraction triggers on the finalize ROUTE, not an agent `extract_document` tool**
+  (intentional PRD deviation). Upload is a user action; the workflow fires off the
+  `document.uploaded` event; the agent never awaits background work (rule 13). The
+  `request_document_upload` tool only renders the upload affordance — it doesn't read/store.
+
+- **Presigned direct-to-R2 (Approach B).** Three thin routes: `POST /upload-url`
+  (auth+ownership+type/size validate → insert `pending_upload` row → presigned PUT url),
+  `POST /[id]/finalize` (ownership → `headObject` confirms the bytes landed [409 if not, closes
+  the orphan gap] → status `uploaded` → emit `document.uploaded`, idempotent: no re-emit once
+  past `pending_upload`), `GET /[id]` (render-safe projection). All routes: 401→404→403 guard
+  order; `headObject` returns null on NotFound and THROWS on other errors so a transient R2
+  failure can't be misread as "upload missing."
+
+- **PII discipline (cross-cutting).** `case.document.extracted` / `extraction_failed`
+  activity rows carry field KEYS + confidences + `sensitiveKeys` only — never values. The GET
+  projection strips `r2Key` and `extracted.raw`. The workflow doesn't even persist
+  `extracted.raw` (stricter than the spec's §10 — eliminates the "does raw leak PII into logs"
+  worry by not storing it). Values live only in `documents.extracted` (DB, behind auth).
+
+- **`extractDocument` Inngest workflow** (`src/lib/inngest/functions/extract-document.ts`,
+  registered in `api/inngest/route.ts`) follows the `log-case-event.ts` pattern: separately
+  exported handler + 2-arg `createFunction`, `StepLike` so tests inject a fake `step.run`.
+  Checkpointed steps `load-document` (idempotency guard: proceeds only on status `uploaded`) →
+  `classify` → `extract` (skips when the spine item has no extraction schema → empty fields) →
+  `store` (`setExtraction` → `awaiting_confirmation`) → `log-extracted`; failure → `setFailed`
+  + `case.document.extraction_failed` row. **Non-blocking follow-up:** the guard is a
+  non-atomic read-check-write; make it race-safe with a conditional
+  `setStatus ... WHERE status='uploaded'` if concurrent re-delivery ever bites. Also: a failed
+  `inngest.send` after `setStatus('uploaded')` leaves a stuck `uploaded` row (MVP-accepted; a
+  sweeper is a 3D follow-up — the emit MUST stay after setStatus because the workflow guard
+  requires `uploaded`).
+
+- **Extraction provider seam** (`src/lib/extraction/`): `makeExtractionProvider()` →
+  Reducto-primary + Anthropic-vision fallback (`withFallback`) when `REDUCTO_API_KEY` is set,
+  else vision-only — so the slice runs end-to-end even without Reducto. Config-driven schemas:
+  `config/rules/documents.yaml` items gain an optional `extraction.fields` block (passport
+  seeded, `passportNumber` flagged `sensitive`); `schema.ts` loads them (module-cached —
+  restart `pnpm dev` after edits). **The Reducto request/response shape in `reducto.ts` is a
+  best-effort guess — reconcile against the live API when the key is provisioned** (runbook §B);
+  the test pins the mapped shape, vision fallback carries extraction until then.
+
+- **NEW deps** `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (R2 is S3-compatible; the
+  conventional lowest-surprise client). **NEW env** `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/
+  `R2_SECRET_ACCESS_KEY`/`R2_BUCKET`/`R2_ENDPOINT` (all `superRefine`-prod-required like
+  `AUTH_RESEND_KEY`); `REDUCTO_API_KEY` NOT prod-required.
+
+- **UI:** `request_document_upload` is the 7th agent tool, registered BEFORE `lookup_anabin`
+  (which MUST stay last — single cache_control breakpoint; the agent-turn test asserts count==1)
+  and documented in `prompts/agent/v0.md` (`PROMPT_VERSION` stays `v0`). Renderers
+  `document_upload_request` + `document_extraction_status`; `DocumentUpload.tsx` (`'use client'`)
+  exports the pure `uploadDocument(caseId, file)` orchestration (upload-url → R2 PUT → finalize)
+  + a polling status card with a terminal-timeout guard; a compact uploader is mounted in
+  `ChatPanel`. The in-bubble card renders without `caseId` and no-ops its file input — accepted
+  for 3A (the composer uploader is the working path; 3B/3C give documents a first-class home).
+  `ALLOWED_UPLOAD_TYPES`/`ALLOWED_UPLOAD_ACCEPT` in `src/lib/documents/types.ts` is the single
+  source of truth for the mime allow-list (route Set, tool accept-string, ChatPanel all derive
+  from it).
+
+- **Built-ahead (intentional forward-wiring, not dead code):** `document_extraction_status`
+  renderer (no 3A emitter — for 3B), `StorageAdapter.presignDownload` (3B review UI) +
+  `deleteObject` (3D sweep), `DocumentRepository.listByCase` (3C Documents section),
+  `listExtractableItems`. Dev exerciser `scripts/dev-only/extract-doc.ts <file> <caseId>` runs
+  the real R2 + provider path end-to-end.
+
+- **Deferred to later slices (NOT gaps):** approvals table + `confirm_extraction` + side-by-side
+  review UI (3B); full Needed/Awaiting/Confirmed Documents section + drag-drop-anywhere (3C);
+  apostille tracker + Resend "ready for review" email (3D).
 
 ---
 
