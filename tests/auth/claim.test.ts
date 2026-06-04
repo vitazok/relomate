@@ -50,7 +50,7 @@ describe('/api/claim-anonymous', () => {
     const anon = await seedAnonUser(testHandle);
     await seedCaseFor(testHandle, anon.userId);
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({
         userId: anon.userId,
         iat: Date.now(),
@@ -76,7 +76,7 @@ describe('/api/claim-anonymous', () => {
     expect(idents[0]?.userId).toBe(anon.userId);
 
     // Cookie should still point at the same userId (we promoted in place)
-    expect(cookieStore.get('visa_session')).toBeDefined();
+    expect(cookieStore.get('relomate_session')).toBeDefined();
   });
 
   it('redirects to /signin?error=verification when no verified email', async () => {

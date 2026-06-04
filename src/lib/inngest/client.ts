@@ -2,7 +2,7 @@ import { Inngest } from 'inngest';
 import { env } from '@/lib/env';
 
 export const inngest = new Inngest({
-  id: 'visa',
+  id: 'relomate',
   ...(env.INNGEST_EVENT_KEY && { eventKey: env.INNGEST_EVENT_KEY }),
   ...(env.INNGEST_SIGNING_KEY && { signingKey: env.INNGEST_SIGNING_KEY }),
 });

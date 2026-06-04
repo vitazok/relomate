@@ -83,7 +83,7 @@ describe('POST /api/chat', () => {
   it('returns 403 when caseId is owned by a different user', async () => {
     const otherSeeded = await seedAnonUser(testHandle);
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({ userId: otherSeeded.userId, iat: Date.now(), exp: Date.now() + 60_000 }),
     );
     const { POST } = await import('@/app/api/chat/route');
@@ -99,7 +99,7 @@ describe('POST /api/chat', () => {
 
   it('returns 400 (not 500) when messages are structurally invalid for convertToModelMessages (#10)', async () => {
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({ userId, iat: Date.now(), exp: Date.now() + 60_000 }),
     );
     const { POST } = await import('@/app/api/chat/route');
@@ -117,7 +117,7 @@ describe('POST /api/chat', () => {
 
   it('persists user + assistant rows and emits inngest event when update_case fires', async () => {
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({ userId, iat: Date.now(), exp: Date.now() + 60_000 }),
     );
     const { POST } = await import('@/app/api/chat/route');
@@ -170,7 +170,7 @@ describe('POST /api/chat', () => {
 
   it('does not emit an inngest event when the assistant fired no tools', async () => {
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({ userId, iat: Date.now(), exp: Date.now() + 60_000 }),
     );
     const { POST } = await import('@/app/api/chat/route');

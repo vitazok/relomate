@@ -40,7 +40,7 @@ describe('getCurrentUserId (#13)', () => {
 
   function setSession(userId: string) {
     cookieStore.set(
-      'visa_session',
+      'relomate_session',
       encodeSession({ userId, iat: Date.now(), exp: Date.now() + 60_000 }),
     );
   }

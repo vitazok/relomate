@@ -1,11 +1,11 @@
-# Visa — Product Requirements Document
+# Relomate — Product Requirements Document
 
 **Status:** Draft v1
 **Owner:** Vitalii Kashin
 **Last updated:** 2026-05-27
 **Target:** MVP build over ~8–10 weeks
 
-This document is the source of truth for building Visa. It is structured for Claude Code consumption — sections are numbered so they can be referenced as "implement §X.Y."
+This document is the source of truth for building Relomate. It is structured for Claude Code consumption — sections are numbered so they can be referenced as "implement §X.Y."
 
 Companion files:
 - `CLAUDE.md` — quick-reference behavior rules and tech stack
@@ -15,13 +15,13 @@ Companion files:
 
 ## 1. Product Vision
 
-### 1.1 What Visa Is
+### 1.1 What Relomate Is
 
-Visa is an AI-native case-management platform for skilled workers applying for the **EU Blue Card to Germany**. Users describe their situation in chat; the system builds a structured case file, runs deterministic eligibility checks, drafts the documents the user needs (cover letter, employer letter, CV, VIDEX visa application), and produces a complete, ready-to-submit application package.
+Relomate is an AI-native case-management platform for skilled workers applying for the **EU Blue Card to Germany**. Users describe their situation in chat; the system builds a structured case file, runs deterministic eligibility checks, drafts the documents the user needs (cover letter, employer letter, CV, VIDEX visa application), and produces a complete, ready-to-submit application package.
 
 The product is the **case**, not the chat. Chat is one interaction surface — always visible — but the system is built around a durable case file that lives beyond any single session, with background work happening on the user's behalf.
 
-### 1.2 What Visa Is NOT
+### 1.2 What Relomate Is NOT
 
 - A chatbot. The product is a workspace where the chat is one panel.
 - A legal advice engine. The system prepares documents and provides information; it does not give legal opinions.
@@ -785,7 +785,7 @@ Export endpoint produces JSON + ZIP of all user data.
 
 Every output (chat, drafts, forms, package) carries:
 
-> Visa is not a law firm. We help prepare and organize immigration applications; we do not provide legal advice. Verify all information against official sources before submission. For complex cases, consult a licensed immigration attorney.
+> Relomate is not a law firm. We help prepare and organize immigration applications; we do not provide legal advice. Verify all information against official sources before submission. For complex cases, consult a licensed immigration attorney.
 
 ### 13.6 Legal positioning
 

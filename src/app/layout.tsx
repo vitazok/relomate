@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata = {
-  title: 'Visa',
+  title: 'Relomate',
   description: 'EU Blue Card to Germany — case management',
 };
 
