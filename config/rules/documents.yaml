@@ -41,6 +41,14 @@ items:
     apostilleRequired: false
     sourceUrl: https://india.diplo.de/in-en/ueber-uns/bengaluru
     routes: null
+    extraction:
+      fields:
+        surname:        { type: string }
+        givenNames:     { type: string }
+        passportNumber: { type: string, sensitive: true }
+        dateOfBirth:    { type: date }
+        nationality:    { type: string }
+        dateOfExpiry:   { type: date }
 
   - id: biometric_photos
     section: identity
