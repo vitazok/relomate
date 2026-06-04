@@ -1,5 +1,6 @@
 import { inngest, type DocumentUploadedEvent } from '@/lib/inngest/client';
 import { makeDocumentRepository } from '@/lib/documents/repository';
+import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { makeR2StorageAdapter, type StorageAdapter } from '@/lib/storage/r2';
 import { makeExtractionProvider } from '@/lib/extraction';
 import type { ExtractionProvider } from '@/lib/extraction/types';
@@ -27,6 +28,7 @@ export async function extractDocumentHandler({
 }): Promise<void> {
   const { documentId, caseId, userId } = event.data;
   const docs = makeDocumentRepository();
+  const approvals = makeApprovalRepository();
   const storage = deps?.storage ?? makeR2StorageAdapter();
   const provider = deps?.provider ?? makeExtractionProvider();
 
@@ -86,6 +88,11 @@ export async function extractDocumentHandler({
         },
       });
     });
+
+    // Step 4b — open a pending approval so the document surfaces in the review inbox (3B).
+    await step.run('create-approval', () =>
+      approvals.createPending({ caseId, userId, subjectType: 'document', subjectId: documentId }),
+    );
 
     // Step 5 — audit log (field KEYS + confidences only; NEVER values — PII rule).
     await step.run('log-extracted', async () => {

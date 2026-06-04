@@ -6,6 +6,7 @@ import { makeRepository } from '@/lib/case/repository';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeFakeStorageAdapter } from '@/lib/storage/r2';
 import { makeFakeExtractionProvider } from '@/lib/extraction';
+import { makeApprovalRepository } from '@/lib/approvals/repository';
 import * as schema from '@/lib/db/schema';
 
 let testHandle: TestDbHandle;
@@ -158,5 +159,31 @@ describe('extractDocument handler', () => {
     });
     const row = await docs.getById(documentId);
     expect(row?.status).toBe('awaiting_confirmation');
+  });
+
+  it('creates a pending approval for the document when extraction lands', async () => {
+    const { extractDocumentHandler } = await import('@/lib/inngest/functions/extract-document');
+    const storage = makeFakeStorageAdapter();
+    const key = `cases/${caseId}/documents/d5/passport.pdf`;
+    await storage.__putForTest(key, new Uint8Array([1]), 'application/pdf');
+    const documentId = await seedDoc(caseId, userId, key);
+    const provider = makeFakeExtractionProvider({
+      classifyResult: { spineItemId: 'passport', confidence: 0.9 },
+      extractResult: {
+        fields: { surname: { value: 'Rao', confidence: 0.9 } },
+        provider: 'anthropic_vision',
+        modelVersion: 'm',
+      },
+    });
+
+    await extractDocumentHandler({
+      event: { name: 'document.uploaded', data: { documentId, caseId, userId } },
+      step,
+      deps: { storage, provider },
+    });
+
+    const approval = await makeApprovalRepository(testHandle.db).getBySubject('document', documentId);
+    expect(approval?.status).toBe('pending');
+    expect(approval?.caseId).toBe(caseId);
   });
 });
