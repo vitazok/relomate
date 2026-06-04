@@ -9,10 +9,13 @@ import {
   numeric,
   primaryKey,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
 import type { ExtractedData, Classification } from '@/lib/documents/types';
+import type { ApprovalDecision } from '@/lib/approvals/types';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -161,6 +164,30 @@ export const documents = pgTable('documents', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const approvals = pgTable(
+  'approvals',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id').references(() => cases.id).notNull(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    subjectType: text('subject_type').notNull(),
+    subjectId: uuid('subject_id').notNull(),
+    status: text('status').notNull().default('pending'),
+    decision: jsonb('decision').$type<ApprovalDecision | null>(),
+    resolvedBy: uuid('resolved_by').references(() => users.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // At most one OPEN (pending) approval per subject. Resolved rows don't conflict,
+    // so a subject can be re-reviewed later (e.g. re-upload after reject).
+    pendingPerSubject: uniqueIndex('approvals_pending_subject_unique')
+      .on(t.subjectType, t.subjectId)
+      .where(sql`${t.status} = 'pending'`),
+  }),
+);
 
 export const verificationTokens = pgTable(
   'verification_tokens',

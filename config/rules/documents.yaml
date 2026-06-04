@@ -43,12 +43,12 @@ items:
     routes: null
     extraction:
       fields:
-        surname:        { type: string }
-        givenNames:     { type: string }
-        passportNumber: { type: string, sensitive: true }
-        dateOfBirth:    { type: date }
-        nationality:    { type: string }
-        dateOfExpiry:   { type: date }
+        surname:        { type: string, target: fullName, transform: composeFullName, part: surname }
+        givenNames:     { type: string, target: fullName, transform: composeFullName, part: given }
+        passportNumber: { type: string, sensitive: true, target: passportNumber }
+        dateOfBirth:    { type: date,   target: dateOfBirth, transform: normalizeDate }
+        nationality:    { type: string, target: nationality, transform: toIso2 }
+        dateOfExpiry:   { type: date,   target: passportExpiry, transform: normalizeDate }
 
   - id: biometric_photos
     section: identity

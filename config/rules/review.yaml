@@ -1,0 +1,15 @@
+schemaVersion: 1
+# Confidence band thresholds for the review UI badges (rule 7: no hardcoded thresholds in code).
+# A field's per-field extraction confidence >= high → green; >= low → amber; below → red.
+confidenceBands:
+  high: 0.9
+  low: 0.7
+# Minimal country-name → ISO 3166-1 alpha-2 seed. MVP is India-source; extend as needed.
+# Used by the toIso2 transform. Keys are matched case-insensitively.
+nationalityToIso2:
+  india: IN
+  indian: IN
+  ind: IN
+  germany: DE
+  german: DE
+  deu: DE

@@ -13,6 +13,8 @@ describe('document types', () => {
       'classifying',
       'extracting',
       'awaiting_confirmation',
+      'confirmed',
+      'rejected',
       'failed',
     ]);
   });

@@ -3,6 +3,14 @@ export type ExtractionFieldType = 'string' | 'date' | 'number' | 'boolean';
 export interface ExtractionFieldSpec {
   type: ExtractionFieldType;
   sensitive: boolean;
+  // Confirm-mapping (3B): the case/profile leaf path this field writes to (bare path,
+  // e.g. 'passportNumber' / 'fullName' — NOT 'profile.passportNumber'). Absent → field is
+  // reviewable but never written.
+  target?: string;
+  // Optional named transform (registry key) applied before the write. Absent → 1:1 passthrough.
+  transform?: string;
+  // Discriminator for fan-in transforms (e.g. composeFullName: part='surname' | 'given').
+  part?: string;
 }
 
 export interface ExtractionSchema {

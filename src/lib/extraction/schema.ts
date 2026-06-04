@@ -3,12 +3,16 @@ import { join } from 'node:path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { ExtractionSchema, SpineItem } from './types';
+import { validateLeafPath } from '@/lib/case/paths';
 
 const RULES_DIR = join(process.cwd(), 'config', 'rules');
 
 const FieldSpecYaml = z.object({
   type: z.enum(['string', 'date', 'number', 'boolean']),
   sensitive: z.boolean().optional().default(false),
+  target: z.string().optional(),
+  transform: z.string().optional(),
+  part: z.string().optional(),
 });
 
 const ItemYaml = z.object({
@@ -48,12 +52,19 @@ function load(): Loaded {
         fields: Object.fromEntries(
           Object.entries(item.extraction.fields).map(([k, v]) => [
             k,
-            { type: v.type, sensitive: v.sensitive },
+            {
+              type: v.type,
+              sensitive: v.sensitive,
+              ...(v.target ? { target: v.target } : {}),
+              ...(v.transform ? { transform: v.transform } : {}),
+              ...(v.part ? { part: v.part } : {}),
+            },
           ]),
         ),
       });
     }
   }
+  assertValidTargets(schemas);
   cache = { schemas, spine };
   return cache;
 }
@@ -74,6 +85,26 @@ export function sensitiveKeys(schema: ExtractionSchema): string[] {
   return Object.entries(schema.fields)
     .filter(([, spec]) => spec.sensitive)
     .map(([k]) => k);
+}
+
+/**
+ * Fail-fast guard: every extraction-field `target` must resolve to a real case/profile
+ * leaf path. A typo here would otherwise surface only at confirm-time as a write failure.
+ */
+export function assertValidTargets(schemas: Map<string, ExtractionSchema>): void {
+  for (const [spineItemId, schema] of schemas) {
+    for (const [fieldKey, spec] of Object.entries(schema.fields)) {
+      if (!spec.target) continue;
+      try {
+        validateLeafPath(spec.target);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `Invalid extraction target for ${spineItemId}.${fieldKey}: "${spec.target}" — ${msg}`,
+        );
+      }
+    }
+  }
 }
 
 /** Test-only: clear the module cache so subsequent calls re-read the YAML. */

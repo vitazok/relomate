@@ -315,6 +315,113 @@ plan: `docs/superpowers/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
 
 ---
 
+### Phase 3B — approvals & review (2026-06-04, branch `feat/phase-3b-approvals-review`, pending PR) — full detail
+
+"File-in → reviewed → in the case." Closes the loop 3A opened: a human reviews the extracted
+document fields on a dedicated route and confirms; confirmed values flow into `CaseFacts`/`Profile`
+via the single `applyUpdate` write path, gated by a generic `approvals` primitive (reused by Phase 4
+drafts). Built subagent-driven (implementer → spec review → quality review per task), TDD throughout.
+`tsc`/`eslint` clean; ~317 tests green (run **serially** — `EMAXPOOLSREACHED` is the documented
+pooler infra limit, not a regression). Spec:
+`docs/superpowers/specs/2026-06-04-phase-3b-approvals-review-design.md`; plan:
+`docs/superpowers/plans/2026-06-04-phase-3b-approvals-review.md`. 13 commits (`e454c06`..`095d63e`).
+
+**Why these decisions:**
+
+- **Server action → `applyUpdate`, not an agent `confirm_extraction` tool.** Rule 5's intent is "one
+  write path for case state"; the `update_case` *tool* was only the agent's manifestation of
+  `repo.applyUpdate`. The confirm `'use server'` action (`review/actions.ts`) calls `applyUpdate`
+  directly — no LLM in the confirm loop (deterministic, fast, good UX), consistent with 3A's
+  precedent of putting upload/finalize on routes (rule 13). The literal `confirm_extraction` tool
+  from the IMPLEMENTATION_PLAN was intentionally dropped. The logic lives in node-testable
+  `confirmExtractionCore`/`rejectExtractionCore` (`confirm-core.ts`); the action is a thin
+  auth+redirect wrapper (so the core is unit-tested without Next's request context).
+
+- **Generic polymorphic `approvals` table** (migration `0004_zippy_kinsey_walden.sql`):
+  `{id, caseId, userId, subjectType, subjectId, status, decision(jsonb), resolvedBy, resolvedAt,
+  timestamps}`. `subjectType:'document'` now, `'draft'` in Phase 4 with zero schema change. MUTABLE
+  (like `documents`/`case_facts`); the immutable audit trail is `activity_log`. **Partial unique
+  index** `approvals_pending_subject_unique` on `(subject_type, subject_id) WHERE status='pending'` =
+  at most one OPEN approval per subject (resolved rows don't conflict, so a subject can be
+  re-reviewed after a reject). `makeApprovalRepository` (`approvals/repository.ts`): `createPending`
+  (idempotent — returns the existing pending if any, the partial unique is the concurrent-race
+  backstop), `getById`, `getBySubject` (filters status='pending'), `listPending` (the uniform "what
+  needs review" inbox), `resolve`. The 3A `extract-document.ts` workflow gains ONE additive
+  `create-approval` step after `store` (idempotent under re-delivery) — the only touch to 3A.
+
+- **Confirm semantics — confidence 1.0, per-field source, ≤2 `applyUpdate` calls.** Human-reviewed
+  data is authoritative: every confirmed leaf is written at confidence 1.0, `sourceTurnId: null`,
+  `source = 'document'` (as-extracted) or `'user_corrected'` (the user edited it). Because
+  `applyUpdate` takes ONE source per call, `confirmExtractionCore` splits the updates into at most
+  two calls (one per source group) — ZERO change to the load-bearing `applyUpdate`
+  (lock-ordering/contradiction logic untouched). At 1.0 a later lower-confidence chat statement won't
+  silently override confirmed identity, and a re-confirm of the same value is a `deepEqual` no-op.
+  Ordering: applyUpdate(s) → resolve approval → setStatus('confirmed') → appendActivity.
+
+- **Finalize-gating (whole-slice-review fix, commit `095d63e`).** Originally confirm ALWAYS resolved
+  the approval + set status `'confirmed'`. But if a SUBMITTED field couldn't be saved (its transform
+  returned null → `unmapped`), the doc flipped to `'confirmed'` and the `wrong_status` guard then
+  made the "correct it and confirm again" instruction a dead-end. Fix: persist every mappable field
+  (partial progress, idempotent at 1.0) but only resolve+close when EVERY submitted field saved
+  (`unsavedSubmitted.length === 0`). Otherwise leave the doc `awaiting_confirmation` + approval
+  `pending` so re-confirm works. Tested end-to-end (bad date → reviewable → corrected → finalized).
+
+- **Field→leaf mapping is config-driven** (rule 7). `config/rules/documents.yaml` extraction fields
+  gain optional `target` (BARE leaf path — `fullName`, `passportNumber`, … — NOT `profile.`-prefixed;
+  `validateLeafPath` resolves profile leaves at the root), `transform`, `part`. `assertValidTargets`
+  validates every `target` at YAML load (fail-fast: a typo crashes at load, not silently at confirm).
+  Typed transform registry (`transforms.ts`): `composeFullName` (surname+givenNames fan-in →
+  `fullName`), `toIso2` (nationality string → ISO2 via the `review.yaml` seed; null on unknown),
+  `normalizeDate` (passport formats `15 JAN 1990` / day-first `DD/MM/YYYY` / `DD.MM.YYYY` →
+  `YYYY-MM-DD`, round-trip-validated; null on unparseable). A transform returning null leaves the
+  field `unmapped` (not written) so junk never reaches the strict Zod leaf. `buildConfirmUpdates`
+  (`confirm-mapping.ts`, pure) groups reviewed fields by `target` and applies each group's transform
+  once; a path is `user_corrected` if ANY contributing field was edited.
+
+- **Silent-data-loss fix (whole-slice-review).** `buildConfirmUpdates` returns `unmapped`;
+  `confirmExtractionCore` returns it on the ok path; the `confirmExtraction` action computes the
+  intersection of submitted keys ∩ unmapped and, when non-empty, returns `{unmapped}` INSTEAD of
+  redirecting; `ReviewForm` warns "We couldn't recognize: X — correct it and confirm again to finish"
+  rather than silently dropping the user's correction. (Pairs with finalize-gating: the doc stays
+  reviewable so the warning is actionable.)
+
+- **PII discipline.** `case.approval.resolved` activity rows carry leaf path KEYS + status only —
+  never values (`ApprovalDecision = {confirmedPaths, editedPaths, rejectedReason}`). Sensitive fields
+  (`passportNumber`, flagged in the extraction schema) render masked (password input + show/hide) in
+  the review form. The review-route RSC passes only `buildReviewRows` output + a presigned URL to the
+  client — `r2Key`/`extracted.raw` never cross the boundary.
+
+- **Review UI = dedicated RSC route** `/case/[id]/documents/[docId]/review` (not in-chat, not modal;
+  `runtime='nodejs'` + `dynamic='force-dynamic'`). Guards mirror the case page: `getCurrentUserId()`
+  null → `/signin`; missing/cross-case → `notFound()`; cross-user → redirect `/`; status ≠
+  `awaiting_confirmation` → redirect to the case. Left column = source preview (`<img>` for images,
+  `<object>` for PDFs, via `StorageAdapter.presignDownload` — 3A's built-ahead finding its first
+  consumer); right = editable fields with confidence badges (`config/rules/review.yaml` bands, rule
+  7) + sensitive masking + "(not saved)" tags on unmapped fields. `ReviewForm` (`'use client'`,
+  `useTransition` per React 19 — not `useFormState`) submits ONLY `mapped` fields. `classifyConfidence`
+  (`confidence.ts`) is pure + client-safe — it `import type`s `ConfidenceBands` so the `node:fs`
+  loader never enters the client bundle.
+
+- **Renderer deep link (built-ahead).** The `document_extraction_status` renderer gains, for
+  `awaiting_confirmation`, a "Review & confirm" deep link to the review route, plus terminal states
+  (`confirmed` → "✓ Added to your case", `rejected` → "Dismissed"). Like 3A, this renderer has NO
+  live emitter yet — the in-chat path to the review screen is dormant; the route is reachable by
+  direct URL and will be wired from the 3C Documents section. Documented as a known gap, not breakage.
+
+- **NEW config** `config/rules/review.yaml` (confidence bands + nationality→ISO2 seed; module-cached
+  loader `review-config.ts`, `__resetReviewConfigCacheForTests` for tests). **NO new deps.** Migration
+  `0004`. Two existing tests updated for the new reality (`documents/types.test.ts` enum lifecycle +
+  `extraction/schema-loader.test.ts` passport field shape) — justified, not scope creep.
+
+- **Deferred to 3C/3D (NOT gaps):** full 3-group Documents workspace section + drag-drop-anywhere
+  (3C); apostille tracker + Inngest reminders + Resend emails (3D); a live
+  `document_extraction_status` emitter (3C); a persona doc-flow E2E test (3C, once a Documents
+  section exists to drive). Minor loose threads from the final review: `subject_id` is uuid-typed
+  (couples the generic table to uuid subjects — fine for documents+drafts); `__resetReviewConfigCacheForTests`
+  currently unused.
+
+---
+
 ## Superseded decisions
 
 - **`Overview.tsx` → `Tracker.tsx`** (2B journey-tracker). `Overview.tsx`'s `SECTION_ORDER`
