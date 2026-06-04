@@ -14,7 +14,13 @@ describe('extraction schema loader', () => {
     const s = getExtractionSchema('passport');
     expect(s).not.toBeNull();
     if (!s) throw new Error('unreachable');
-    expect(s.fields['surname']).toEqual({ type: 'string', sensitive: false });
+    expect(s.fields['surname']).toEqual({
+      type: 'string',
+      sensitive: false,
+      target: 'fullName',
+      transform: 'composeFullName',
+      part: 'surname',
+    });
     expect(s.fields['passportNumber']?.sensitive).toBe(true);
   });
 
