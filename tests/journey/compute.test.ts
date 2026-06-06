@@ -139,15 +139,76 @@ describe('computeJourneyProgress — documents phase', () => {
     expect(docs.steps.some((s) => s.group?.startsWith('Child'))).toBe(false);
   });
 
-  it('marks every document step incomplete with a disabled upload action', () => {
+  it('marks missing document steps incomplete with an enabled upload action', () => {
     const cf: CaseFacts = { education: { anabinStatus: wrap('H+') } };
     const docs = computeJourneyProgress(cf, EMPTY_PROFILE, getDocumentRules(), verdictFor(cf), TODAY)
       .phases.find((p) => p.id === 'documents')!;
     expect(docs.steps.length).toBeGreaterThan(0);
     for (const s of docs.steps) {
       expect(s.state).toBe('incomplete');
-      expect(s.action).toEqual({ kind: 'upload', enabled: false });
+      expect(s.document).toBeNull();
+      expect(s.action).toEqual({ kind: 'upload', enabled: true, spineItemId: s.id });
     }
+  });
+
+  it('reflects uploaded document statuses and counts only confirmed documents complete', () => {
+    const cf: CaseFacts = { education: { anabinStatus: wrap('unknown') } };
+    const docs = computeJourneyProgress(
+      cf,
+      EMPTY_PROFILE,
+      getDocumentRules(),
+      verdictFor(cf),
+      TODAY,
+      [
+        { id: 'd-passport', spineItemId: 'passport', fileName: 'passport.pdf', status: 'confirmed' },
+        {
+          id: 'd-photo',
+          spineItemId: 'biometric_photos',
+          fileName: 'photo.jpg',
+          status: 'awaiting_confirmation',
+        },
+        {
+          id: 'd-contract',
+          spineItemId: 'signed_employment_contract',
+          fileName: 'contract.pdf',
+          status: 'failed',
+        },
+        { id: 'd-zab', spineItemId: 'zab_statement', fileName: 'zab.pdf', status: 'uploaded' },
+        { id: 'd-cv', spineItemId: 'cv_resume', fileName: 'cv.pdf', status: 'rejected' },
+      ],
+      'case-1',
+    ).phases.find((p) => p.id === 'documents')!;
+
+    const passport = docs.steps.find((s) => s.id === 'passport')!;
+    const photo = docs.steps.find((s) => s.id === 'biometric_photos')!;
+    const contract = docs.steps.find((s) => s.id === 'signed_employment_contract')!;
+    const zab = docs.steps.find((s) => s.id === 'zab_statement')!;
+    const cv = docs.steps.find((s) => s.id === 'cv_resume')!;
+
+    expect(passport.state).toBe('complete');
+    expect(passport.value).toBe('confirmed');
+    expect(passport.action).toBeNull();
+
+    expect(photo.state).toBe('incomplete');
+    expect(photo.value).toBe('ready for review');
+    expect(photo.document?.reviewHref).toBe('/case/case-1/documents/d-photo/review');
+    expect(photo.action).toBeNull();
+
+    expect(contract.state).toBe('incomplete');
+    expect(contract.value).toBe('could not read');
+    expect(contract.action).toEqual({
+      kind: 'upload',
+      enabled: true,
+      spineItemId: 'signed_employment_contract',
+    });
+
+    expect(zab.value).toBe('processing');
+    expect(zab.action).toBeNull();
+
+    expect(cv.value).toBe('dismissed');
+    expect(cv.action).toEqual({ kind: 'upload', enabled: true, spineItemId: 'cv_resume' });
+
+    expect(docs.completed).toBe(1);
   });
 
   it('threads the documents-file lastVerified date into document citations', () => {

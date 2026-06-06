@@ -19,7 +19,7 @@ export function Layout({
   return (
     <div className="grid h-screen grid-cols-[220px_1fr_360px]">
       <Nav />
-      <Tracker progress={progress} eligibilityHeadline={eligibilityVerdict} />
+      <Tracker caseId={caseId} progress={progress} eligibilityHeadline={eligibilityVerdict} />
       <ChatPanel caseId={caseId} initialMessages={initialMessages} />
     </div>
   );

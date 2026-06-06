@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EligibilityVerdict } from '@/lib/case/schema';
+import { ALLOWED_UPLOAD_ACCEPT } from '@/lib/documents/types';
 import type { JourneyProgress, PhaseProgress, StepProgress } from '@/lib/journey/types';
+import { DocumentUpload } from './DocumentUpload';
 
 export function phaseBadge(phase: PhaseProgress): string {
   if (phase.status === 'locked') return 'Coming soon';
@@ -51,11 +53,20 @@ function ProvenanceLine({ step }: { step: StepProgress }) {
   );
 }
 
-function StepRow({ step }: { step: StepProgress }) {
+function StepRow({ step, caseId }: { step: StepProgress; caseId: string }) {
+  const uploadAction = step.action?.kind === 'upload' && step.action.enabled ? step.action : null;
+  const canReview = Boolean(step.document?.reviewHref);
+  const rowTone =
+    step.document?.status === 'failed'
+      ? 'text-amber-700'
+      : step.state === 'complete'
+        ? 'text-zinc-900'
+        : 'text-zinc-500';
+
   return (
     <div className="border-b border-zinc-100 py-2 last:border-0">
       <div className="flex items-center justify-between text-sm">
-        <span className={step.state === 'complete' ? 'text-zinc-900' : 'text-zinc-500'}>
+        <span className={rowTone}>
           {step.state === 'complete' ? '✓ ' : '○ '}
           {step.label}
         </span>
@@ -63,6 +74,26 @@ function StepRow({ step }: { step: StepProgress }) {
           {step.value ?? (step.action ? '' : 'not provided yet')}
         </span>
       </div>
+      {step.document?.fileName && (
+        <div className="mt-1 flex items-center justify-between gap-3 text-xs text-zinc-500">
+          <span className="truncate">{step.document.fileName}</span>
+          {canReview && (
+            <a href={step.document.reviewHref!} className="shrink-0 text-blue-600 underline">
+              Review
+            </a>
+          )}
+        </div>
+      )}
+      {uploadAction && (
+        <div className="mt-2">
+          <DocumentUpload
+            caseId={caseId}
+            spineItemId={uploadAction.spineItemId}
+            label={`Upload ${step.label}`}
+            accept={ALLOWED_UPLOAD_ACCEPT}
+          />
+        </div>
+      )}
       <ProvenanceLine step={step} />
     </div>
   );
@@ -82,7 +113,7 @@ function groupByMember(steps: StepProgress[]): Array<[string | null, StepProgres
   return order.map((k) => [k, map.get(k)!]);
 }
 
-function PhaseCard({ phase }: { phase: PhaseProgress }) {
+function PhaseCard({ phase, caseId }: { phase: PhaseProgress; caseId: string }) {
   const grouped = groupByMember(phase.steps);
   return (
     <Card className={phase.status === 'locked' ? 'opacity-60' : undefined}>
@@ -105,7 +136,7 @@ function PhaseCard({ phase }: { phase: PhaseProgress }) {
             <div key={group ?? '_'} className="mb-2 last:mb-0">
               {group && <p className="mb-1 text-xs font-semibold uppercase text-zinc-400">{group}</p>}
               {steps.map((s) => (
-                <StepRow key={s.id} step={s} />
+                <StepRow key={s.id} step={s} caseId={caseId} />
               ))}
             </div>
           ))
@@ -116,9 +147,11 @@ function PhaseCard({ phase }: { phase: PhaseProgress }) {
 }
 
 export function Tracker({
+  caseId,
   progress,
   eligibilityHeadline,
 }: {
+  caseId: string;
   progress: JourneyProgress;
   eligibilityHeadline: EligibilityVerdict | null;
 }) {
@@ -145,7 +178,7 @@ export function Tracker({
       )}
 
       {progress.phases.map((phase) => (
-        <PhaseCard key={phase.id} phase={phase} />
+        <PhaseCard key={phase.id} phase={phase} caseId={caseId} />
       ))}
     </main>
   );

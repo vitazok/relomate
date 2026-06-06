@@ -9,6 +9,7 @@ import { hydrateMessages } from '@/components/workspace/hydrate-messages';
 import { evaluateEligibility } from '@/lib/rules/eligibility';
 import { computeJourneyProgress } from '@/lib/journey/compute';
 import { getDocumentRules } from '@/lib/rules/loader';
+import { makeDocumentRepository } from '@/lib/documents/repository';
 import type { Profile } from '@/lib/profile/schema';
 
 export const runtime = 'nodejs';
@@ -41,12 +42,15 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const profile: Profile = { schemaVersion: 1 };
   const today = new Date();
   const verdict = evaluateEligibility(loaded.caseFacts, profile, today);
+  const uploadedDocuments = await makeDocumentRepository(db).listByCase(loaded.case.id);
   const progress = computeJourneyProgress(
     loaded.caseFacts,
     profile,
     getDocumentRules(),
     verdict,
     today,
+    uploadedDocuments,
+    loaded.case.id,
   );
 
   return (

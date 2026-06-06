@@ -9,6 +9,7 @@ type Db = ReturnType<typeof drizzle<typeof schema>>;
 export interface InsertDocumentInput {
   caseId: string;
   userId: string;
+  spineItemId?: string | null;
   r2Key: string;
   fileName: string;
   contentType: string;
@@ -71,6 +72,7 @@ function insertValues(input: InsertDocumentInput, id?: string) {
     ...(id ? { id } : {}),
     caseId: input.caseId,
     userId: input.userId,
+    spineItemId: input.spineItemId ?? null,
     r2Key: input.r2Key,
     fileName: input.fileName,
     contentType: input.contentType,

@@ -65,13 +65,20 @@ describe('POST /api/documents/upload-url', () => {
   });
 
   it('200 inserts a pending_upload row and returns a presigned url', async () => {
-    const res = await post({ caseId, fileName: 'My Passport.pdf', contentType: 'application/pdf', byteSize: 10 });
+    const res = await post({
+      caseId,
+      spineItemId: 'passport',
+      fileName: 'My Passport.pdf',
+      contentType: 'application/pdf',
+      byteSize: 10,
+    });
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.documentId).toBeTruthy();
     expect(json.uploadUrl).toContain('http');
     const row = await makeDocumentRepository(testHandle.db).getById(json.documentId);
     expect(row?.status).toBe('pending_upload');
+    expect(row?.spineItemId).toBe('passport');
     expect(row?.caseId).toBe(caseId);
     expect(row?.r2Key).toContain(json.documentId);
   });

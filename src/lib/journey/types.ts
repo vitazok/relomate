@@ -42,6 +42,22 @@ export const AnswerProvenance = z.object({
   updatedAt: z.string().nullable(),
 });
 
+export const DocumentProgress = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  status: z.enum([
+    'pending_upload',
+    'uploaded',
+    'classifying',
+    'extracting',
+    'awaiting_confirmation',
+    'confirmed',
+    'rejected',
+    'failed',
+  ]),
+  reviewHref: z.string().nullable(),
+});
+
 export const StepProgress = z.object({
   id: z.string(),
   label: z.string(),
@@ -50,8 +66,9 @@ export const StepProgress = z.object({
   group: z.string().nullable(),
   requirementCitation: RequirementCitation.nullable(),
   answerProvenance: AnswerProvenance.nullable(),
+  document: DocumentProgress.nullable(),
   action: z
-    .object({ kind: z.literal('upload'), enabled: z.boolean() })
+    .object({ kind: z.literal('upload'), enabled: z.boolean(), spineItemId: z.string() })
     .nullable(),
 });
 
@@ -72,6 +89,7 @@ export const JourneyProgress = z.object({
 
 export type RequirementCitation = z.infer<typeof RequirementCitation>;
 export type AnswerProvenance = z.infer<typeof AnswerProvenance>;
+export type DocumentProgress = z.infer<typeof DocumentProgress>;
 export type StepProgress = z.infer<typeof StepProgress>;
 export type PhaseProgress = z.infer<typeof PhaseProgress>;
 export type JourneyProgress = z.infer<typeof JourneyProgress>;
