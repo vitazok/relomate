@@ -257,14 +257,14 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ---
 
-## Current state (as of 2026-06-04)
+## Current state (as of 2026-06-06)
 
-**Everything through Phase 3A (document-ingest) is merged to `main`; Phase 3B (approvals & review) is built on branch `feat/phase-3b-approvals-review` (pending PR).** Phase 0, 1A, 1B-1/2/3, 2A.1, 2A.2, 2B (journey-tracker, PR #3), 2C layers 1+2a (PR #4), 2C-tail L2b (PR #5), codebase-review hardening (PR #7), docs reorg (PR #8), Phase 3A document-ingest (PR #9), Phase 3B approvals & review (branch, pending PR). Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. ~317 tests green (run **serially** — see the `EMAXPOOLSREACHED` gotcha).
+**Everything through Phase 3A (document-ingest) is merged to `main`; Phase 3B (approvals & review) is built on branch `feat/phase-3b-approvals-review` (pending PR); Phase 3C tracker-loop work is in the current local diff.** Phase 0, 1A, 1B-1/2/3, 2A.1, 2A.2, 2B (journey-tracker, PR #3), 2C layers 1+2a (PR #4), 2C-tail L2b (PR #5), codebase-review hardening (PR #7), docs reorg (PR #8), Phase 3A document-ingest (PR #9), Phase 3B approvals & review (branch, pending PR), Phase 3C Documents tracker loop (local Codex handoff, 2026-06-06). Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. ~317 tests green historically (run **serially** — see the `EMAXPOOLSREACHED` gotcha); the 3C local subset + build verification are recorded in `docs/context-history.md`.
 
 **Next up — pick one:**
 - **2C layer 3 + CI (deferred follow-up):** live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand; first `.github/workflows/` CI (PR deterministic gate + nightly live run; serial to dodge `EMAXPOOLSREACHED`). Scope in the 2C-tail spec's "Follow-up" section.
 - **2B secondary scope:** rich in-chat renderers (registry has minimal cards) + left-sidebar section drill-downs. NOTE: `Nav.tsx` still has a stale `#overview` anchor pointing at the deleted `Overview.tsx` (now `Tracker.tsx`) — fix when touching the sidebar.
-- **3C/3D (deferred from 3B):** full 3-group Documents workspace section (Needed / Awaiting / Confirmed) + drag-drop-anywhere; apostille tracker (Karnataka HRD→MEA state machine) + Inngest scheduled reminders; Resend "ready for review" / "apostille due" emails; **a live `document_extraction_status` emitter** (3B shipped the renderer's `awaiting_confirmation`→review deep link, but — like 3A — nothing emits that tool output yet, so the in-chat path to the review screen is dormant; the review route is reachable by direct URL and will be linked from the 3C Documents section).
+- **3C/3D follow-ups:** optional full 3-group Documents workspace section (Needed / Awaiting / Confirmed) if the tracker gets too dense; drag-drop-anywhere; apostille tracker (Karnataka HRD→MEA state machine) + Inngest scheduled reminders; Resend "ready for review" / "apostille due" emails; **a live `document_extraction_status` emitter** (the renderer exists, but the live path after 2026-06-06 is the tracker row's `awaiting_confirmation` → review link).
 
 **Open items (not regressions):**
 - `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
@@ -303,6 +303,12 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
   - **PII:** `case.approval.resolved` activity rows carry leaf path KEYS + status only — never values. `ApprovalDecision = {confirmedPaths, editedPaths, rejectedReason}`. Sensitive fields (`passportNumber`) render masked (password input + show/hide) in the review form.
   - **Review UI = dedicated RSC route** `/case/[id]/documents/[docId]/review` (NOT in-chat, NOT modal). Guards mirror the case page (getCurrentUserId→/signin; cross-case→notFound; cross-user→redirect '/'; wrong status→redirect to case). Left = source preview (img inline / `<object>` via `presignDownload`), right = editable fields + confidence badges (`config/rules/review.yaml` bands, rule 7). `ReviewForm` (client, `useTransition`) only submits `mapped` fields. Confidence classification is a pure client-safe helper (`confidence.ts`, type-only import of `ConfidenceBands` keeps `node:fs` out of the client bundle).
   - **NEW config** `config/rules/review.yaml` (confidence bands + nationality→ISO2 seed; module-cached loader `review-config.ts`). NO new deps. Migration `0004`.
+- **Phase 3C (Documents tracker loop, local diff 2026-06-06) decisions — do NOT redebate** (full write-up: context-history.md):
+  - **Tracker is the live Documents dashboard for now.** `CasePage` loads `DocumentRepository.listByCase(caseId)` and passes those rows to `computeJourneyProgress`; no separate Documents route was added in this slice.
+  - **Document status mapping:** only `confirmed` counts complete. `awaiting_confirmation` renders `ready for review` + `/case/<caseId>/documents/<docId>/review`; `uploaded`/`classifying`/`extracting` render `processing`; `failed` renders `could not read` and allows re-upload; `rejected` renders `dismissed` and allows re-upload; missing rows allow upload.
+  - **Checklist-specific uploads:** `DocumentUpload.uploadDocument(caseId,file,spineItemId?)` sends `spineItemId`; `/api/documents/upload-url` persists it; tracker-row upload controls pass the checklist item id. Chat composer upload still passes `null`.
+  - **Refresh:** `DocumentUpload` calls `router.refresh()` when polling reaches terminal dashboard states (`awaiting_confirmation`/`failed`) or errors, so RSC tracker state catches up.
+  - **Known limitation:** document rows match tracker requirements by `spineItemId` only. Multiple children with the same required doc consume rows in repository order; add a stable member key before relying on exact per-child matching.
 
 **Dev-only inspectors** (run via `node --env-file=.env.local --import tsx scripts/dev-only/<file> [args]`): `db-state.ts` — row counts + recent cases/users; `inspect-turn.ts <caseId>` — dumps a thread's persisted message parts (tool inputs/outputs/errorText) + `case_facts.data`. Reach for the latter when a chat turn misbehaves.
 

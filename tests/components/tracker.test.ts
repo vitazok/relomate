@@ -21,12 +21,12 @@ describe('phaseBadge', () => {
 
 describe('Tracker', () => {
   it('returns an element without throwing for a populated progress', () => {
-    const el = Tracker({ progress: EMPTY, eligibilityHeadline: null });
+    const el = Tracker({ caseId: 'case-1', progress: EMPTY, eligibilityHeadline: null });
     expect(el).toBeTruthy();
   });
 
   it('returns the empty-state element when all phases are empty/todo', () => {
-    const el = Tracker({ progress: EMPTY, eligibilityHeadline: null });
+    const el = Tracker({ caseId: 'case-1', progress: EMPTY, eligibilityHeadline: null });
     expect(el).toBeTruthy();
   });
 });

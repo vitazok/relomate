@@ -1,13 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-export async function uploadDocument(caseId: string, file: File): Promise<string> {
+export async function uploadDocument(
+  caseId: string,
+  file: File,
+  spineItemId?: string | null,
+): Promise<string> {
   const urlRes = await fetch('/api/documents/upload-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       caseId,
+      spineItemId: spineItemId ?? null,
       fileName: file.name,
       contentType: file.type || 'application/octet-stream',
       byteSize: file.size,
@@ -50,6 +56,7 @@ export function DocumentUpload({
   label: string;
   accept: string;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<'idle' | 'uploading' | 'processing' | 'error'>('idle');
   const [view, setView] = useState<DocumentStatusView | null>(null);
 
@@ -57,7 +64,7 @@ export function DocumentUpload({
     if (!caseId) return;
     setState('uploading');
     try {
-      const documentId = await uploadDocument(caseId, file);
+      const documentId = await uploadDocument(caseId, file, spineItemId);
       setState('processing');
       let terminal = false;
       for (let i = 0; i < 30; i++) {
@@ -68,12 +75,17 @@ export function DocumentUpload({
         setView(v);
         if (v.status === 'awaiting_confirmation' || v.status === 'failed') {
           terminal = true;
+          router.refresh();
           break;
         }
       }
-      if (!terminal) setState('error');
+      if (!terminal) {
+        setState('error');
+        router.refresh();
+      }
     } catch {
       setState('error');
+      router.refresh();
     }
   }
 

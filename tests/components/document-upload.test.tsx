@@ -16,12 +16,17 @@ describe('uploadDocument', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const file = new File([new Uint8Array([1, 2, 3])], 'passport.pdf', { type: 'application/pdf' });
-    const documentId = await uploadDocument('case1', file);
+    const documentId = await uploadDocument('case1', file, 'passport');
 
     expect(documentId).toBe('doc1');
     expect(calls[0]).toBe('POST /api/documents/upload-url');
     expect(calls[1]).toBe('PUT https://r2/put');
     expect(calls[2]).toBe('POST /api/documents/doc1/finalize');
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]?.body as string)).toMatchObject({
+      caseId: 'case1',
+      spineItemId: 'passport',
+      fileName: 'passport.pdf',
+    });
   });
 
   it('throws if R2 PUT fails', async () => {

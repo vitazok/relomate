@@ -422,6 +422,73 @@ pooler infra limit, not a regression). Spec:
 
 ---
 
+### Phase 3C — Documents tracker loop (2026-06-06, local Codex handoff) — full detail
+
+"The tracker is the Documents workspace." This slice turns the existing 2B journey tracker +
+3A/3B document backend into a usable document dashboard loop without adding a separate route yet.
+Each document requirement row now reflects the current `documents` row for that checklist item:
+missing → upload, `uploaded`/`classifying`/`extracting` → processing, `awaiting_confirmation` →
+review link, `failed`/`rejected` → re-upload, `confirmed` → complete. The full 3-group layout
+(Needed / Awaiting / Confirmed), drag-drop-anywhere, apostille tracker, emails, and persona doc-flow
+E2E remain deferred.
+
+**What changed:**
+
+- **Tracker consumes `documents`.** `src/app/case/[id]/page.tsx` now loads
+  `makeDocumentRepository(db).listByCase(caseId)` and passes those rows plus `caseId` into
+  `computeJourneyProgress`. The projection stays read-only: it does not mutate documents or case
+  facts; it only maps current DB state to `StepProgress`.
+
+- **`StepProgress` grew a document state.** `src/lib/journey/types.ts` adds
+  `DocumentProgress = {id,fileName,status,reviewHref}` and upload actions now include
+  `{kind:'upload', enabled, spineItemId}`. Eligibility steps set `document:null`; document steps
+  set it when a matching row exists.
+
+- **Matching rule:** `computeJourneyProgress` buckets uploaded rows by `spineItemId` and consumes
+  one row per rendered checklist item. The initial 3C implementation matches only by the document
+  spine item id; this is enough for applicant items and the current spouse/child singletons, but it
+  does **not** yet distinguish multiple children with the same document id beyond consuming rows in
+  repository order. If per-child identity/uploads become first-class, add a stable member key to
+  `documents` before relying on this for exact child matching.
+
+- **Status semantics in the tracker:** only `confirmed` counts as complete. `awaiting_confirmation`
+  renders `ready for review` plus `/case/<caseId>/documents/<docId>/review`. `uploaded`,
+  `classifying`, and `extracting` render `processing` and suppress the upload control. `failed`
+  renders `could not read` and allows re-upload. `rejected` renders `dismissed` and allows re-upload.
+  Missing rows also allow upload.
+
+- **Checklist-specific uploads.** `DocumentUpload.uploadDocument(caseId,file,spineItemId?)` now sends
+  `spineItemId` to `/api/documents/upload-url`; the route validates/persists it through
+  `DocumentRepository.insertWithId`. This means a tracker-row upload can immediately map back to the
+  correct checklist requirement instead of waiting on classifier output alone. The chat composer
+  uploader still passes `null`.
+
+- **Refresh behavior.** `DocumentUpload` calls `router.refresh()` when polling reaches
+  `awaiting_confirmation`/`failed`, times out, or throws, so the RSC tracker swaps from the inline
+  upload card to the persisted document status.
+
+- **Verification in local Codex checkout:** `node_modules/.bin/vitest run
+  tests/journey/compute.test.ts tests/components/tracker.test.ts
+  tests/components/document-upload.test.tsx tests/ai/request_document_upload.test.ts` → 26 tests
+  passed. `node_modules/.bin/tsc --noEmit` passed. `node_modules/.bin/eslint` on touched files
+  passed. `next build` passed with dummy build-time env values (strict env schema requires them).
+  DB-backed tests could not run in this scratch checkout because `.env.test.local`/DB URLs were not
+  available; `tests/api/documents-upload-url.test.ts` was updated to assert `spineItemId`
+  persistence for the proper DB-backed run.
+
+**Still deferred after 3C tracker loop:**
+
+- Full 3-group Documents section or route (Needed / Awaiting / Confirmed) if the tracker becomes too
+  dense.
+- Drag-and-drop-anywhere.
+- A live `document_extraction_status` emitter; the renderer exists, but the tracker review link is
+  the live path now.
+- Apostille tracker + Inngest scheduled reminders.
+- Resend "ready for review" and "apostille due" emails.
+- Persona/doc-flow E2E once a deterministic local document fixture strategy exists.
+
+---
+
 ## Superseded decisions
 
 - **`Overview.tsx` → `Tracker.tsx`** (2B journey-tracker). `Overview.tsx`'s `SECTION_ORDER`

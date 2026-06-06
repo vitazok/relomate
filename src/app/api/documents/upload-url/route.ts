@@ -16,6 +16,7 @@ const ALLOWED_TYPES = new Set<string>(ALLOWED_UPLOAD_TYPES);
 
 const BodySchema = z.object({
   caseId: z.string().uuid(),
+  spineItemId: z.string().min(1).max(100).nullable().optional(),
   fileName: z.string().min(1).max(255),
   contentType: z.string().min(1),
   byteSize: z.number().int().positive(),
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
   await docs.insertWithId(documentId, {
     caseId: body.caseId,
     userId,
+    spineItemId: body.spineItemId ?? null,
     r2Key: key,
     fileName: body.fileName,
     contentType: body.contentType,

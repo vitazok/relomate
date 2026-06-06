@@ -1,5 +1,6 @@
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
+import type { DocumentStatus } from '@/lib/documents/types';
 import type { DocumentCondition, DocumentItem, DocumentRules } from '@/lib/rules/types';
 import { getAtPath } from '@/lib/case/paths';
 import { getJourneyManifest } from './loader';
@@ -16,6 +17,13 @@ interface FactLeaf {
   value: unknown;
   source: string;
   updatedAt: string;
+}
+
+export interface JourneyDocument {
+  id: string;
+  spineItemId: string | null;
+  fileName: string;
+  status: DocumentStatus;
 }
 
 function readLeaf(facts: Record<string, unknown>, path: string): FactLeaf | null {
@@ -75,6 +83,7 @@ function buildEligibilityStep(step: JourneyStep, facts: CaseFacts): StepProgress
     group: null,
     requirementCitation: resolveCitation(step.cite),
     answerProvenance,
+    document: null,
     action: null,
   };
 }
@@ -91,12 +100,19 @@ function docItemToStep(
   group: string | null,
   idSuffix: string,
   docsLastVerified: string,
+  document: JourneyDocument | null,
+  caseId: string | null,
 ): StepProgress {
+  const reviewHref =
+    document?.status === 'awaiting_confirmation' && caseId
+      ? `/case/${caseId}/documents/${document.id}/review`
+      : null;
+  const value = document ? documentStatusLabel(document.status) : null;
   return {
     id: idSuffix ? `${item.id}${idSuffix}` : item.id,
     label: item.label,
-    state: 'incomplete', // upload backend deferred; nothing is uploaded/confirmed yet
-    value: null,
+    state: document?.status === 'confirmed' ? 'complete' : 'incomplete',
+    value,
     group,
     requirementCitation: {
       explainer: item.details,
@@ -105,8 +121,42 @@ function docItemToStep(
       lastVerified: docsLastVerified,
     },
     answerProvenance: null,
-    action: { kind: 'upload', enabled: false },
+    document: document
+      ? {
+          id: document.id,
+          fileName: document.fileName,
+          status: document.status,
+          reviewHref,
+        }
+      : null,
+    action:
+      document?.status === 'uploaded' ||
+      document?.status === 'classifying' ||
+      document?.status === 'extracting' ||
+      document?.status === 'awaiting_confirmation' ||
+      document?.status === 'confirmed'
+        ? null
+        : { kind: 'upload', enabled: true, spineItemId: item.id },
   };
+}
+
+function documentStatusLabel(status: DocumentStatus): string {
+  switch (status) {
+    case 'confirmed':
+      return 'confirmed';
+    case 'awaiting_confirmation':
+      return 'ready for review';
+    case 'failed':
+      return 'could not read';
+    case 'rejected':
+      return 'dismissed';
+    case 'uploaded':
+    case 'classifying':
+    case 'extracting':
+      return 'processing';
+    default:
+      return 'not uploaded yet';
+  }
 }
 
 function routeApplies(item: DocumentItem, verdict: EligibilityVerdict): boolean {
@@ -114,25 +164,64 @@ function routeApplies(item: DocumentItem, verdict: EligibilityVerdict): boolean 
   return item.routes.some((r) => verdict.routes.includes(r));
 }
 
+function buildDocumentBuckets(documents: JourneyDocument[]): Map<string, JourneyDocument[]> {
+  const buckets = new Map<string, JourneyDocument[]>();
+  for (const doc of documents) {
+    if (!doc.spineItemId) continue;
+    const bucket = buckets.get(doc.spineItemId) ?? [];
+    bucket.push(doc);
+    buckets.set(doc.spineItemId, bucket);
+  }
+  return buckets;
+}
+
+function takeDocument(
+  buckets: Map<string, JourneyDocument[]>,
+  spineItemId: string,
+): JourneyDocument | null {
+  return buckets.get(spineItemId)?.shift() ?? null;
+}
+
 function expandDocuments(
   facts: CaseFacts,
   verdict: EligibilityVerdict,
   docs: DocumentRules,
+  uploadedDocuments: JourneyDocument[],
+  caseId: string | null,
 ): StepProgress[] {
   const steps: StepProgress[] = [];
+  const documentBuckets = buildDocumentBuckets(uploadedDocuments);
 
   // (a) applicant items: filter by route + condition
   for (const item of docs.items) {
     if (!routeApplies(item, verdict)) continue;
     if (item.condition && !evaluateCondition(item.condition, facts)) continue;
-    steps.push(docItemToStep(item, 'You (applicant)', '', docs.lastVerified));
+    steps.push(
+      docItemToStep(
+        item,
+        'You (applicant)',
+        '',
+        docs.lastVerified,
+        takeDocument(documentBuckets, item.id),
+        caseId,
+      ),
+    );
   }
 
   // (c) family items by composition
   const spousePresent = readLeaf(facts as Record<string, unknown>, 'family.spousePresent')?.value === true;
   if (spousePresent) {
     for (const item of docs.familyItems.spouse) {
-      steps.push(docItemToStep(item, 'Spouse', '', docs.lastVerified));
+      steps.push(
+        docItemToStep(
+          item,
+          'Spouse',
+          '',
+          docs.lastVerified,
+          takeDocument(documentBuckets, item.id),
+          caseId,
+        ),
+      );
     }
   }
 
@@ -140,7 +229,16 @@ function expandDocuments(
   const childrenCount = typeof childrenCountLeaf?.value === 'number' ? childrenCountLeaf.value : 0;
   for (let i = 1; i <= childrenCount; i++) {
     for (const item of docs.familyItems.child) {
-      steps.push(docItemToStep(item, `Child ${i}`, `__${i}`, docs.lastVerified));
+      steps.push(
+        docItemToStep(
+          item,
+          `Child ${i}`,
+          `__${i}`,
+          docs.lastVerified,
+          takeDocument(documentBuckets, item.id),
+          caseId,
+        ),
+      );
     }
   }
 
@@ -153,6 +251,8 @@ export function computeJourneyProgress(
   documents: DocumentRules,
   verdict: EligibilityVerdict,
   _today: Date,
+  uploadedDocuments: JourneyDocument[] = [],
+  caseId: string | null = null,
 ): JourneyProgress {
   const manifest = getJourneyManifest();
   const phases: PhaseProgress[] = manifest.phases.map((phase) => {
@@ -170,7 +270,7 @@ export function computeJourneyProgress(
 
     let steps: StepProgress[];
     if (phase.source === 'documents') {
-      steps = expandDocuments(caseFacts, verdict, documents);
+      steps = expandDocuments(caseFacts, verdict, documents, uploadedDocuments, caseId);
     } else {
       steps = phase.steps.map((s) => buildEligibilityStep(s, caseFacts));
     }
