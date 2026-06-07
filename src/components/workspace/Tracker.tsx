@@ -84,6 +84,13 @@ function StepRow({ step, caseId }: { step: StepProgress; caseId: string }) {
           )}
         </div>
       )}
+      {step.draft?.reviewHref && (
+        <div className="mt-1 flex items-center justify-end text-xs text-zinc-500">
+          <a href={step.draft.reviewHref} className="text-blue-600 underline">
+            Review
+          </a>
+        </div>
+      )}
       {uploadAction && (
         <div className="mt-2">
           <DocumentUpload
@@ -158,7 +165,7 @@ export function Tracker({
   const anyProgress = progress.phases.some((p) => p.completed > 0);
 
   return (
-    <main className="overflow-y-auto p-8 space-y-4">
+    <main id="tracker" className="overflow-y-auto p-8 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Your application journey</h1>
         <span className="text-sm text-zinc-500">{progress.overallPct}% complete</span>

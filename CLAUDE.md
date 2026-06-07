@@ -147,7 +147,7 @@ These bit us before. Don't redo.
 - **Anthropic prompt caching** via `providerOptions.anthropic.cacheControl: { type: 'ephemeral' }`. Per-message AND per-tool. Tool breakpoints live on **each tool's own `providerOptions`**.
 - **Static-tool message parts serialize as `type: 'tool-${name}'`,** never `type: 'tool-call'`. Don't add a defensive `tool-call` branch — dead code. Dynamic tools use `type: 'dynamic-tool'` with separate `toolName`.
 - **`ai` is pinned `^6` — do NOT re-pin `ai@5` or re-add the `as unknown as LanguageModel` casts** (model in route, transport in ChatPanel). `ai@5`'s `streamText` rejects the `LanguageModelV3` that `@ai-sdk/anthropic@3` returns, at runtime only. Caught only by live smoke (unit tests mock `streamText`). (Post-mortem: context-history.md.)
-- **Exactly ONE `cache_control` breakpoint, on `lookup_anabin`** (Anthropic max is 4; one on the last-registered tool caches the whole static-tools prefix). The other five tools carry NO `providerOptions`. Do NOT re-add per-tool breakpoints; do NOT add a top-level `streamText` `providerOptions.anthropic.cacheControl` (per-turn case context → cache miss + 2nd breakpoint). `lookup_anabin` MUST stay last in the `tools` object. The `agent-turn` test asserts breakpoint count == 1.
+- **Exactly ONE `cache_control` breakpoint, on `lookup_anabin`** (Anthropic max is 4; one on the last-registered tool caches the whole static-tools prefix). The other tools carry NO `providerOptions`. Do NOT re-add per-tool breakpoints; do NOT add a top-level `streamText` `providerOptions.anthropic.cacheControl` (per-turn case context → cache miss + 2nd breakpoint). `lookup_anabin` MUST stay last in the `tools` object. The `agent-turn` test asserts breakpoint count == 1.
 
 ### Inngest
 - Local dev: `npx inngest-cli@latest dev` alongside `pnpm dev`. Webhook is `/api/inngest`.
@@ -259,13 +259,13 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ## Current state (as of 2026-06-07)
 
-**Everything through Phase 3C (Documents tracker loop) is merged to `main`.** Phase 3B approvals & review merged as PR #12; Phase 3C tracker loop merged as PR #13. Phase 0, 1A, 1B-1/2/3, 2A.1, 2A.2, 2B (journey-tracker, PR #3), 2C layers 1+2a (PR #4), 2C-tail L2b (PR #5), codebase-review hardening (PR #7), docs reorg (PR #8), Phase 3A document-ingest (PR #9), Phase 3B approvals & review (PR #12), and Phase 3C Documents tracker loop (PR #13) are done. Current branch `codex/ci-and-agent-docs` adds the first GitHub Actions deterministic CI gate and tracks `AGENTS.md` for Codex alongside this `CLAUDE.md`. Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. ~317 tests green historically (run **serially** — see the `EMAXPOOLSREACHED` gotcha); the 3C local subset + build verification are recorded in `docs/context-history.md`.
+**Everything through PR #14 (deterministic CI + agent docs) is merged to `main`.** Phase 3B approvals & review merged as PR #12; Phase 3C tracker loop merged as PR #13; PR #14 added the first GitHub Actions deterministic gate and tracks `AGENTS.md` for Codex alongside this `CLAUDE.md`. Current branch `codex/phase-4a-cover-letter` implements the Phase 4A cover-letter drafting vertical slice: `drafts` table, `draft_cover_letter`, `draft.requested` Inngest worker, draft review/approval route, tracker Drafts row, and docs. Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. Run tests **serially** for DB suites — see the `EMAXPOOLSREACHED` gotcha.
 
-**Next up — pick one after CI lands:**
+**Next up after Phase 4A lands:**
+- **Phase 4B drafted documents:** employer letter + CV on the same `drafts`/approval foundation; decide regeneration/versioning before adding `regenerate_draft`.
 - **2C layer 3 live LLM (deferred follow-up):** live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand. Scope in the 2C-tail spec's "Follow-up" section; build on the deterministic CI gate rather than mixing it into the first CI slice.
-- **2B secondary scope:** rich in-chat renderers (registry has minimal cards) + left-sidebar section drill-downs. NOTE: `Nav.tsx` still has a stale `#overview` anchor pointing at the deleted `Overview.tsx` (now `Tracker.tsx`) — fix when touching the sidebar.
+- **2B secondary scope:** richer in-chat renderers + left-sidebar section drill-downs.
 - **3C/3D follow-ups:** optional full 3-group Documents workspace section (Needed / Awaiting / Confirmed) if the tracker gets too dense; drag-drop-anywhere; apostille tracker (Karnataka HRD→MEA state machine) + Inngest scheduled reminders; Resend "ready for review" / "apostille due" emails; **a live `document_extraction_status` emitter** (the renderer exists, but the live path after 2026-06-06 is the tracker row's `awaiting_confirmation` → review link).
-- **Phase 4 drafted documents:** cover letter, employer letter, CV, and draft approval flow. Reuse the Phase 3B approvals primitive; do not add a parallel review system.
 
 **Open items (not regressions):**
 - `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
@@ -292,7 +292,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
   - **3A does NOT write case state** — extraction lands on the `documents` row at `awaiting_confirmation`; the write into `CaseFacts`/identity is 3B's `confirm_extraction` (rule 5 holds, tested).
   - **Upload = presigned direct-to-R2** (browser PUTs to R2, bypassing Vercel's body limit). Extraction triggers on the **finalize route**, not an agent `extract_document` tool — **intentional PRD deviation** (rule 13: agent never awaits background work). The `request_document_upload` tool only renders an upload affordance.
   - **PII:** `case.document.extracted` activity rows carry field KEYS + confidences + `sensitiveKeys` only, never values; `GET /api/documents/[id]` projection never leaks `r2Key` or `extracted.raw`. Values live only in `documents.extracted`.
-  - **`request_document_upload` is the 7th tool, registered BEFORE `lookup_anabin`** (which MUST stay last — single cache_control breakpoint). `ALLOWED_UPLOAD_TYPES`/`ALLOWED_UPLOAD_ACCEPT` in `src/lib/documents/types.ts` is the single source of truth for the mime allow-list.
+  - **`request_document_upload` is registered BEFORE `lookup_anabin`** (which MUST stay last — single cache_control breakpoint). `ALLOWED_UPLOAD_TYPES`/`ALLOWED_UPLOAD_ACCEPT` in `src/lib/documents/types.ts` is the single source of truth for the mime allow-list.
   - **NEW deps** `@aws-sdk/client-s3` + `s3-request-presigner`; **NEW env** `R2_*` (prod-required) + `REDUCTO_API_KEY` (NOT required — vision fallback). Migration `drizzle/0003_dear_grandmaster.sql`. Reducto request/response shape in `reducto.ts` is a **best-effort guess — reconcile against the live API** when provisioned (runbook `docs/runbooks/r2-reducto-setup.md`).
   - **Non-blocking follow-ups** (for 3B/3D): race-safe load-document guard (conditional `setStatus ... WHERE status='uploaded'`); AbortController on the DocumentUpload poll loop; orphaned-`pending_upload` sweep; in-bubble upload card no-ops without `caseId` (composer uploader is the working path).
 - **Phase 3B (approvals & review, merged PR #12) decisions — do NOT redebate** (full write-up: context-history.md; spec/plan: `docs/superpowers/{specs,plans}/2026-06-04-phase-3b-approvals-review*.md`):
@@ -310,6 +310,13 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
   - **Checklist-specific uploads:** `DocumentUpload.uploadDocument(caseId,file,spineItemId?)` sends `spineItemId`; `/api/documents/upload-url` persists it; tracker-row upload controls pass the checklist item id. Chat composer upload still passes `null`.
   - **Refresh:** `DocumentUpload` calls `router.refresh()` when polling reaches terminal dashboard states (`awaiting_confirmation`/`failed`) or errors, so RSC tracker state catches up.
   - **Known limitation:** document rows match tracker requirements by `spineItemId` only. Multiple children with the same required doc consume rows in repository order; add a stable member key before relying on exact per-child matching.
+- **Phase 4A (cover-letter drafting, current branch) decisions — do NOT redebate** (spec/plan: `docs/superpowers/{specs,plans}/2026-06-07-phase-4a-cover-letter-drafting*.md`):
+  - **`drafts` table is MUTABLE** like `documents`: a WIP artifact row, not append-only case state. Audit trail = `activity_log`. Migration `0005_real_young_avengers.sql`.
+  - **`draft_cover_letter` does not generate inline in chat.** It creates a `drafting` row, logs `case.draft.requested`, dispatches `draft.requested`, and returns `{type:'draft_request_result',version:1,data}` immediately.
+  - **Generation runs in Inngest** (`generateDraftHandler`) and validates output with `CoverLetterContentSchema`. Success stores content, sets `ready_for_review`, creates `approvals.subjectType:'draft'`, and logs only safe metadata. Failure sets `failed`.
+  - **Draft review route** is `/case/[id]/drafts/[draftId]/review`; users may edit content before approval. Approval resolves the existing approval and marks the draft `approved`; rejection marks `rejected`. Activity payloads never contain draft text.
+  - **Tracker Drafts phase is unlocked for cover letter only.** Only `approved` counts complete. Employer letter, CV, Anabin justification, regeneration, version history, and package completeness are deferred.
+  - **`lookup_anabin` stays last.** `draft_cover_letter` is registered before it; the single cache-control breakpoint invariant still holds.
 
 **Dev-only inspectors** (run via `node --env-file=.env.local --import tsx scripts/dev-only/<file> [args]`): `db-state.ts` — row counts + recent cases/users; `inspect-turn.ts <caseId>` — dumps a thread's persisted message parts (tool inputs/outputs/errorText) + `case_facts.data`. Reach for the latter when a chat turn misbehaves.
 
@@ -337,7 +344,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
 - Anthropic model: **`claude-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
-- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'`. **`v0.md` covers the full Phase 2 tool catalog** — all six tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`lookup_anabin`) registered and un-caveated. Reserve a `PROMPT_VERSION` bump for the next generational rewrite.
+- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'`. **`v0.md` covers the current chat tool catalog** — `update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`request_document_upload`/`draft_cover_letter`/`lookup_anabin`. Reserve a `PROMPT_VERSION` bump for the next generational rewrite; cover-letter generation has its own `draft_cover_letter/v0` prompt version.
 
 **Tools / renderer / layout**
 - **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).

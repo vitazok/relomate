@@ -10,6 +10,7 @@ import { evaluateEligibility } from '@/lib/rules/eligibility';
 import { computeJourneyProgress } from '@/lib/journey/compute';
 import { getDocumentRules } from '@/lib/rules/loader';
 import { makeDocumentRepository } from '@/lib/documents/repository';
+import { makeDraftRepository } from '@/lib/drafting/repository';
 import type { Profile } from '@/lib/profile/schema';
 
 export const runtime = 'nodejs';
@@ -43,6 +44,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const today = new Date();
   const verdict = evaluateEligibility(loaded.caseFacts, profile, today);
   const uploadedDocuments = await makeDocumentRepository(db).listByCase(loaded.case.id);
+  const drafts = await makeDraftRepository(db).listByCase(loaded.case.id);
   const progress = computeJourneyProgress(
     loaded.caseFacts,
     profile,
@@ -51,6 +53,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     today,
     uploadedDocuments,
     loaded.case.id,
+    drafts,
   );
 
   return (

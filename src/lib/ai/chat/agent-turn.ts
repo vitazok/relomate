@@ -9,10 +9,12 @@ import { makeOutOfScopeTool } from '@/lib/ai/tools/out_of_scope';
 import { makeCheckEligibilityTool } from '@/lib/ai/tools/check_eligibility';
 import { makeLookupAnabinTool } from '@/lib/ai/tools/lookup_anabin';
 import { makeRequestDocumentUploadTool } from '@/lib/ai/tools/request_document_upload';
+import { makeDraftCoverLetterTool } from '@/lib/ai/tools/draft_cover_letter';
 import { inngest } from '@/lib/inngest/client';
 import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
 import type { CaseFacts } from '@/lib/case/schema';
+import { makeDraftRepository } from '@/lib/drafting/repository';
 
 // Max agent steps per turn. A turn may fan out: update_case + lookup_anabin, then
 // read_case to recover, then check_eligibility, then a closing reply. 5 was too few
@@ -51,6 +53,7 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
 
   const context = await buildAgentContext({ caseId, caseFacts });
   const system = `${systemPrompt}\n\n${context.systemContext}`;
+  const drafts = makeDraftRepository();
 
   const tools = {
     update_case: makeUpdateCaseTool(repo, {
@@ -69,6 +72,11 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       defaultUserId: userId,
     }),
     request_document_upload: makeRequestDocumentUploadTool(),
+    draft_cover_letter: makeDraftCoverLetterTool(repo, drafts, {
+      defaultCaseId: caseId,
+      defaultUserId: userId,
+      defaultSourceTurnId: userMessageId,
+    }),
     // lookup_anabin MUST stay last: it carries the single cache_control breakpoint
     // (in its factory), which caches the whole static tools block. See lookup_anabin.ts.
     lookup_anabin: makeLookupAnabinTool(),

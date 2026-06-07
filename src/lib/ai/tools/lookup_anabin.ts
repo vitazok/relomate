@@ -23,7 +23,7 @@ export function makeLookupAnabinTool() {
     inputSchema: LookupAnabinInputSchema,
     // The SINGLE tool-block cache breakpoint lives here. lookup_anabin is registered
     // LAST in agent-turn.ts, so marking it caches the entire static tools prefix in one
-    // breakpoint (Anthropic max is 4; the other five tools carry none). Keep it last.
+    // breakpoint (Anthropic max is 4; all other tools carry none). Keep it last.
     providerOptions: {
       anthropic: { cacheControl: { type: 'ephemeral' } },
     },

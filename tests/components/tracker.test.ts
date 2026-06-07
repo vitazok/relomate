@@ -7,7 +7,7 @@ const EMPTY: JourneyProgress = {
   phases: [
     { id: 'eligibility', label: 'Eligibility & route', status: 'todo', completed: 0, total: 8, comingSoon: null, steps: [] },
     { id: 'documents', label: 'Documents', status: 'todo', completed: 0, total: 0, comingSoon: null, steps: [] },
-    { id: 'drafts', label: 'Drafts', status: 'locked', completed: 0, total: 0, comingSoon: 'soon', steps: [] },
+    { id: 'drafts', label: 'Drafts', status: 'todo', completed: 0, total: 1, comingSoon: 'soon', steps: [] },
     { id: 'package', label: 'Package', status: 'locked', completed: 0, total: 0, comingSoon: 'soon', steps: [] },
   ],
 };
@@ -15,7 +15,8 @@ const EMPTY: JourneyProgress = {
 describe('phaseBadge', () => {
   it('renders a fraction for unlocked phases and a lock marker for locked', () => {
     expect(phaseBadge(EMPTY.phases[0]!)).toBe('0/8');
-    expect(phaseBadge(EMPTY.phases[2]!)).toBe('Coming soon');
+    expect(phaseBadge(EMPTY.phases[2]!)).toBe('0/1');
+    expect(phaseBadge(EMPTY.phases[3]!)).toBe('Coming soon');
   });
 });
 
