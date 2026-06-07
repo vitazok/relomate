@@ -14,7 +14,7 @@ export const JourneyPhase = z.object({
   label: z.string(),
   locked: z.boolean().default(false),
   headline: z.enum(['verdict', 'none']).default('none'),
-  source: z.enum(['steps', 'documents']).default('steps'),
+  source: z.enum(['steps', 'documents', 'drafts']).default('steps'),
   comingSoon: z.string().nullable().default(null),
   steps: z.array(JourneyStep).default([]),
 });
@@ -58,6 +58,13 @@ export const DocumentProgress = z.object({
   reviewHref: z.string().nullable(),
 });
 
+export const DraftProgress = z.object({
+  id: z.string(),
+  type: z.enum(['cover_letter']),
+  status: z.enum(['drafting', 'ready_for_review', 'approved', 'rejected', 'failed']),
+  reviewHref: z.string().nullable(),
+});
+
 export const StepProgress = z.object({
   id: z.string(),
   label: z.string(),
@@ -67,6 +74,7 @@ export const StepProgress = z.object({
   requirementCitation: RequirementCitation.nullable(),
   answerProvenance: AnswerProvenance.nullable(),
   document: DocumentProgress.nullable(),
+  draft: DraftProgress.nullable(),
   action: z
     .object({ kind: z.literal('upload'), enabled: z.boolean(), spineItemId: z.string() })
     .nullable(),
@@ -90,6 +98,7 @@ export const JourneyProgress = z.object({
 export type RequirementCitation = z.infer<typeof RequirementCitation>;
 export type AnswerProvenance = z.infer<typeof AnswerProvenance>;
 export type DocumentProgress = z.infer<typeof DocumentProgress>;
+export type DraftProgress = z.infer<typeof DraftProgress>;
 export type StepProgress = z.infer<typeof StepProgress>;
 export type PhaseProgress = z.infer<typeof PhaseProgress>;
 export type JourneyProgress = z.infer<typeof JourneyProgress>;

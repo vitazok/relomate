@@ -22,11 +22,12 @@ describe('journey loader', () => {
     }
   });
 
-  it('marks drafts + package phases locked with coming-soon copy', () => {
+  it('unlocks drafts for cover-letter work while package remains locked', () => {
     const m = getJourneyManifest();
     const drafts = m.phases.find((p) => p.id === 'drafts');
     const pkg = m.phases.find((p) => p.id === 'package');
-    expect(drafts?.locked).toBe(true);
+    expect(drafts?.locked).toBe(false);
+    expect(drafts?.source).toBe('drafts');
     expect(pkg?.locked).toBe(true);
     expect(drafts?.comingSoon).toBeTruthy();
     expect(pkg?.comingSoon).toBeTruthy();

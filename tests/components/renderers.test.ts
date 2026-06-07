@@ -8,6 +8,7 @@ import {
   EligibilityResult,
   AnabinResult,
   FallbackResult,
+  DraftRequestResult,
 } from '@/components/workspace/renderers/registry';
 
 describe('renderer registry', () => {
@@ -66,5 +67,11 @@ describe('document renderers', () => {
   it('resolves document_extraction_status to a non-fallback renderer', () => {
     const r = resolveRenderer('document_extraction_status');
     expect(r).not.toBe(FallbackResult);
+  });
+});
+
+describe('draft renderers', () => {
+  it('resolves draft_request_result to the draft renderer', () => {
+    expect(resolveRenderer('draft_request_result')).toBe(DraftRequestResult);
   });
 });

@@ -16,3 +16,8 @@ export type DocumentUploadedEvent = {
   name: 'document.uploaded';
   data: { documentId: string; caseId: string; userId: string };
 };
+
+export type DraftRequestedEvent = {
+  name: 'draft.requested';
+  data: { draftId: string; caseId: string; userId: string };
+};

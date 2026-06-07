@@ -29,7 +29,7 @@ handshake.** Don't re-add the casts or re-pin `ai@5`.
 
 Anthropic allows max 4 `cache_control` breakpoints. The per-tool breakpoints were
 consolidated to a SINGLE breakpoint on `lookup_anabin` (the last-registered tool — a
-breakpoint there caches the whole static-tools prefix). The other five tools carry NO
+breakpoint there caches the whole static-tools prefix). The other tools carry NO
 `providerOptions`. Do NOT re-add per-tool breakpoints, and do NOT add a top-level
 `streamText` `providerOptions.anthropic.cacheControl` (the system string embeds per-turn
 case context → near-certain miss + would be a 2nd breakpoint). `lookup_anabin` MUST stay
@@ -123,9 +123,11 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md` |
 | 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
 | 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
-| 2C layer 3 (live LLM + user-simulator) + CI | designed/deferred, not started | follow-up section in the 2C-tail spec |
+| deterministic CI + AGENTS.md | complete, merged to main (PR #14) | `docs/runbooks/ci.md` |
+| 2C layer 3 (live LLM + user-simulator) | designed/deferred, not started | follow-up section in the 2C-tail spec |
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
 | 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
+| 4A cover-letter drafting | in progress on `codex/phase-4a-cover-letter` | `docs/superpowers/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
@@ -489,15 +491,75 @@ E2E remain deferred.
 
 ---
 
+### Phase 4A — Cover-letter drafting (2026-06-07, branch `codex/phase-4a-cover-letter`) — full detail
+
+This slice adds the first drafted-document vertical: cover letter only. It deliberately builds the
+artifact/approval foundation without pulling in employer letter, CV, Anabin justification,
+regeneration, VIDEX, or package completeness.
+
+**What changed:**
+
+- **`drafts` table.** Migration `drizzle/0005_real_young_avengers.sql` adds mutable draft rows:
+  `{caseId,userId,type,version,status,content,modelVersion,promptVersion,error,approvedBy,approvedAt}`.
+  Draft rows are WIP artifacts like `documents`, not append-only case state. The audit trail is
+  `activity_log`.
+
+- **Typed cover-letter content.** `src/lib/drafting/types.ts` defines `DraftType`, `DraftStatus`,
+  `CoverLetterContentSchema`, and the `draft_request_result` payload schema. The first supported
+  type is only `cover_letter`.
+
+- **Background generation.** `draft_cover_letter` creates a `drafting` row, logs
+  `case.draft.requested`, emits `draft.requested`, and returns immediately. `generateDraftHandler`
+  loads the current case/profile, calls `DraftGenerator.generateCoverLetter`, validates output with
+  Zod, stores `{type:'cover_letter',data}`, moves the row to `ready_for_review`, creates
+  `approvals.subjectType:'draft'`, and logs `case.draft.ready_for_review`. Failures mark the row
+  `failed` and log `case.draft.failed`.
+
+- **PII discipline.** Draft text can contain user facts. Activity payloads therefore carry only
+  `draftId`, `draftType`, and booleans like `edited`/`hasReason`. Approval decisions use
+  `draft.cover_letter.content` as a key; they never store content text.
+
+- **Review UI.** `/case/[id]/drafts/[draftId]/review` mirrors the document review guard pattern:
+  unauthenticated users redirect to `/signin`, cross-user access redirects to `/`, wrong status
+  returns to the case. Users can edit title, recipient, subject, body paragraphs, and signoff, then
+  approve or reject. Approval marks the draft `approved` and resolves the pending approval;
+  rejection marks `rejected`.
+
+- **Tracker integration.** `config/rules/journey.yaml` unlocks the Drafts phase with
+  `source: drafts`. `computeJourneyProgress` renders one cover-letter step; only `approved` counts
+  complete, and `ready_for_review` links to the review route. Employer letter and CV remain deferred
+  in `comingSoon`.
+
+- **Tool order/cache invariant.** `draft_cover_letter` is registered before `lookup_anabin`.
+  `lookup_anabin` remains last and still carries the single Anthropic cache-control breakpoint.
+
+- **Verification:** `pnpm exec tsc --noEmit` passed. Focused tests passed with DB network allowed:
+  `NODE_ENV=test node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism
+  tests/drafting tests/inngest/generate-draft.test.ts tests/ai/draft_cover_letter.test.ts
+  tests/ai/agent-turn.test.ts tests/components/renderers.test.ts tests/components/tracker.test.ts
+  tests/journey/compute.test.ts tests/journey/loader.test.ts` -> 9 files / 45 tests.
+
+**Still deferred after 4A:**
+
+- Employer letter, CV, and Anabin justification draft types.
+- `regenerate_draft` and any multi-version draft history semantics.
+- Package completeness gates that require approved drafts.
+- Live generated-content quality eval.
+- A full Drafts workspace route if the tracker row becomes too dense.
+
+---
+
 ## Superseded decisions
 
 - **`Overview.tsx` → `Tracker.tsx`** (2B journey-tracker). `Overview.tsx`'s `SECTION_ORDER`
   was `['employment', 'education', 'family', 'target']` (the design-doc said 'risk', which
   doesn't exist on `CaseFacts`). The tracker renders phases not raw sections; it preserved
-  Overview's empty-state copy. `Nav.tsx` still has a stale `#overview` anchor pointing at
-  the deleted `Overview.tsx` — fix when touching the sidebar.
+  Overview's empty-state copy. The stale `#overview` sidebar anchor was fixed to `#tracker` in
+  Phase 4A.
 - **`v0-stub` prompt removed** (2A.1). `prompts/agent/v0.md` is the live prompt;
-  `PROMPT_VERSION = 'v0'` covers the full Phase 2 tool catalog (all six tools registered and
-  un-caveated). Reserve a `PROMPT_VERSION` bump for the next generational rewrite.
+  `PROMPT_VERSION = 'v0'` covers the current chat tool catalog. Phase 4A added
+  `draft_cover_letter` without a generational prompt bump; the generated cover-letter prompt has
+  its own `draft_cover_letter/v0` version. Reserve a `PROMPT_VERSION` bump for the next
+  generational rewrite.
 - **Inngest emit location** — pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved
   the loop into `buildAgentTurn`'s `onFinish` (best-effort). Repository stays Inngest-free.

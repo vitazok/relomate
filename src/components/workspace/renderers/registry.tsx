@@ -182,6 +182,36 @@ export const DocumentExtractionStatus: Renderer = ({ output }) => {
   );
 };
 
+export const DraftRequestResult: Renderer = ({ output }) => {
+  const data = output.data as {
+    draftId: string;
+    caseId?: string;
+    draftType?: string;
+    status?: string;
+  };
+  const label = data.draftType === 'cover_letter' ? 'Cover letter' : 'Draft';
+
+  if (data.status === 'ready_for_review' && data.caseId) {
+    return (
+      <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+        {label} is ready -{' '}
+        <a
+          href={`/case/${data.caseId}/drafts/${data.draftId}/review`}
+          className="text-blue-600 underline"
+        >
+          Review
+        </a>
+      </span>
+    );
+  }
+
+  return (
+    <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+      Drafting {label.toLowerCase()}...
+    </span>
+  );
+};
+
 const registry: Record<string, Renderer> = {
   update_case_result: UpdateCaseResult,
   read_case_result: ReadCaseResult,
@@ -191,6 +221,7 @@ const registry: Record<string, Renderer> = {
   anabin_result: AnabinResult,
   document_upload_request: DocumentUploadRequest,
   document_extraction_status: DocumentExtractionStatus,
+  draft_request_result: DraftRequestResult,
 };
 
 // Dispatch keys on `type` only; `output.version` is intentionally ignored while

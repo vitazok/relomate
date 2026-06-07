@@ -1,0 +1,52 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeDraftCoverLetterTool } from '@/lib/ai/tools/draft_cover_letter';
+
+const send = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/inngest/client', () => ({ inngest: { send: (...args: unknown[]) => send(...args) } }));
+
+describe('draft_cover_letter tool', () => {
+  beforeEach(() => {
+    send.mockClear();
+  });
+
+  it('creates a draft row, dispatches generation, logs request, and returns typed output', async () => {
+    const appendActivity = vi.fn().mockResolvedValue(undefined);
+    const insert = vi.fn().mockResolvedValue('d0000000-0000-4000-8000-000000000000');
+    const tool = makeDraftCoverLetterTool(
+      { appendActivity },
+      { insert },
+      {
+        defaultCaseId: 'c0000000-0000-4000-8000-000000000000',
+        defaultUserId: 'u0000000-0000-4000-8000-000000000000',
+        defaultSourceTurnId: 'm0000000-0000-4000-8000-000000000000',
+      },
+    );
+
+    const result = await tool.execute!({}, { toolCallId: 't', messages: [] });
+
+    expect(insert).toHaveBeenCalledWith({
+      caseId: 'c0000000-0000-4000-8000-000000000000',
+      userId: 'u0000000-0000-4000-8000-000000000000',
+      type: 'cover_letter',
+    });
+    expect(appendActivity).toHaveBeenCalledOnce();
+    expect(send).toHaveBeenCalledWith({
+      name: 'draft.requested',
+      data: {
+        draftId: 'd0000000-0000-4000-8000-000000000000',
+        caseId: 'c0000000-0000-4000-8000-000000000000',
+        userId: 'u0000000-0000-4000-8000-000000000000',
+      },
+    });
+    expect(result).toEqual({
+      type: 'draft_request_result',
+      version: 1,
+      data: {
+        draftId: 'd0000000-0000-4000-8000-000000000000',
+        caseId: 'c0000000-0000-4000-8000-000000000000',
+        draftType: 'cover_letter',
+        status: 'drafting',
+      },
+    });
+  });
+});

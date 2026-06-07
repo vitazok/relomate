@@ -16,6 +16,7 @@ import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
 import type { ExtractedData, Classification } from '@/lib/documents/types';
 import type { ApprovalDecision } from '@/lib/approvals/types';
+import type { DraftContent } from '@/lib/drafting/types';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -161,6 +162,23 @@ export const documents = pgTable('documents', {
   extracted: jsonb('extracted').$type<ExtractedData | null>(),
   classification: jsonb('classification').$type<Classification | null>(),
   error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const drafts = pgTable('drafts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  caseId: uuid('case_id').references(() => cases.id).notNull(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  type: text('type').notNull(),
+  version: integer('version').notNull().default(1),
+  status: text('status').notNull().default('drafting'),
+  content: jsonb('content').$type<DraftContent | null>(),
+  modelVersion: text('model_version'),
+  promptVersion: text('prompt_version'),
+  error: text('error'),
+  approvedBy: uuid('approved_by').references(() => users.id),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

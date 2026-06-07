@@ -46,8 +46,8 @@ phases:
     steps: []
   - id: drafts
     label: Drafts
-    locked: true
-    comingSoon: Cover letter, employer declaration, and CV drafting arrives in a later step.
+    source: drafts
+    comingSoon: Employer declaration and CV drafting arrive in a later step.
     steps: []
   - id: package
     label: VIDEX form + submission package

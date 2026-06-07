@@ -1,6 +1,7 @@
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
 import type { DocumentStatus } from '@/lib/documents/types';
+import type { DraftStatus, DraftType } from '@/lib/drafting/types';
 import type { DocumentCondition, DocumentItem, DocumentRules } from '@/lib/rules/types';
 import { getAtPath } from '@/lib/case/paths';
 import { getJourneyManifest } from './loader';
@@ -24,6 +25,12 @@ export interface JourneyDocument {
   spineItemId: string | null;
   fileName: string;
   status: DocumentStatus;
+}
+
+export interface JourneyDraft {
+  id: string;
+  type: DraftType;
+  status: DraftStatus;
 }
 
 function readLeaf(facts: Record<string, unknown>, path: string): FactLeaf | null {
@@ -84,6 +91,7 @@ function buildEligibilityStep(step: JourneyStep, facts: CaseFacts): StepProgress
     requirementCitation: resolveCitation(step.cite),
     answerProvenance,
     document: null,
+    draft: null,
     action: null,
   };
 }
@@ -129,6 +137,7 @@ function docItemToStep(
           reviewHref,
         }
       : null,
+    draft: null,
     action:
       document?.status === 'uploaded' ||
       document?.status === 'classifying' ||
@@ -138,6 +147,54 @@ function docItemToStep(
         ? null
         : { kind: 'upload', enabled: true, spineItemId: item.id },
   };
+}
+
+function draftStatusLabel(status: DraftStatus): string {
+  switch (status) {
+    case 'approved':
+      return 'approved';
+    case 'ready_for_review':
+      return 'ready for review';
+    case 'failed':
+      return 'could not draft';
+    case 'rejected':
+      return 'rejected';
+    default:
+      return 'drafting';
+  }
+}
+
+function latestDraft(drafts: JourneyDraft[], type: DraftType): JourneyDraft | null {
+  return drafts.find((d) => d.type === type) ?? null;
+}
+
+function buildDraftSteps(drafts: JourneyDraft[], caseId: string | null): StepProgress[] {
+  const coverLetter = latestDraft(drafts, 'cover_letter');
+  const reviewHref =
+    coverLetter?.status === 'ready_for_review' && caseId
+      ? `/case/${caseId}/drafts/${coverLetter.id}/review`
+      : null;
+  return [
+    {
+      id: 'cover_letter',
+      label: 'Cover letter',
+      state: coverLetter?.status === 'approved' ? 'complete' : 'incomplete',
+      value: coverLetter ? draftStatusLabel(coverLetter.status) : 'not started yet',
+      group: null,
+      requirementCitation: null,
+      answerProvenance: null,
+      document: null,
+      draft: coverLetter
+        ? {
+            id: coverLetter.id,
+            type: coverLetter.type,
+            status: coverLetter.status,
+            reviewHref,
+          }
+        : null,
+      action: null,
+    },
+  ];
 }
 
 function documentStatusLabel(status: DocumentStatus): string {
@@ -253,6 +310,7 @@ export function computeJourneyProgress(
   _today: Date,
   uploadedDocuments: JourneyDocument[] = [],
   caseId: string | null = null,
+  drafts: JourneyDraft[] = [],
 ): JourneyProgress {
   const manifest = getJourneyManifest();
   const phases: PhaseProgress[] = manifest.phases.map((phase) => {
@@ -271,6 +329,8 @@ export function computeJourneyProgress(
     let steps: StepProgress[];
     if (phase.source === 'documents') {
       steps = expandDocuments(caseFacts, verdict, documents, uploadedDocuments, caseId);
+    } else if (phase.source === 'drafts') {
+      steps = buildDraftSteps(drafts, caseId);
     } else {
       steps = phase.steps.map((s) => buildEligibilityStep(s, caseFacts));
     }
