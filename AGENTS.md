@@ -1,4 +1,4 @@
-# CLAUDE.md — Project Context for Relomate
+# AGENTS.md — Project Context for Relomate
 
 Persistent context. Read at session start. Update when architectural decisions change.
 
@@ -35,7 +35,7 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 - **Framework:** Next.js 16 (App Router)
 - **UI:** Tailwind 4 + shadcn/ui
 - **AI SDK:** Vercel AI SDK v5+ (provider-agnostic; primary provider Anthropic)
-- **Models:** Claude Sonnet 4.6/4.7 (primary), Claude Haiku 4.5 (judge + simple chat)
+- **Models:** Codex Sonnet 4.6/4.7 (primary), Codex Haiku 4.5 (judge + simple chat)
 - **Workflow engine:** Inngest (durable steps, scheduled jobs, wait-for-event)
 - **Database:** Supabase EU (Postgres) via Drizzle ORM
 - **Object storage:** Cloudflare R2 (S3-compatible, EU jurisdiction, SSE-S3)
@@ -90,7 +90,7 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 - Don't add features outside the PRD. Raise it before implementing.
 - Don't use real personal data in tests. Synthetic personas only.
 - Don't log PII (passport numbers, bank account numbers). Mask in logs.
-- Don't drop a load-bearing detail from CLAUDE.md without checking it's in code or Stack gotchas.
+- Don't drop a load-bearing detail from AGENTS.md without checking it's in code or Stack gotchas.
 
 ---
 
@@ -259,7 +259,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 
 ## Current state (as of 2026-06-07)
 
-**Everything through Phase 3C (Documents tracker loop) is merged to `main`.** Phase 3B approvals & review merged as PR #12; Phase 3C tracker loop merged as PR #13. Phase 0, 1A, 1B-1/2/3, 2A.1, 2A.2, 2B (journey-tracker, PR #3), 2C layers 1+2a (PR #4), 2C-tail L2b (PR #5), codebase-review hardening (PR #7), docs reorg (PR #8), Phase 3A document-ingest (PR #9), Phase 3B approvals & review (PR #12), and Phase 3C Documents tracker loop (PR #13) are done. Current branch `codex/ci-and-agent-docs` adds the first GitHub Actions deterministic CI gate and tracks `AGENTS.md` for Codex alongside this `CLAUDE.md`. Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. ~317 tests green historically (run **serially** — see the `EMAXPOOLSREACHED` gotcha); the 3C local subset + build verification are recorded in `docs/context-history.md`.
+**Everything through Phase 3C (Documents tracker loop) is merged to `main`.** Phase 3B approvals & review merged as PR #12; Phase 3C tracker loop merged as PR #13. Phase 0, 1A, 1B-1/2/3, 2A.1, 2A.2, 2B (journey-tracker, PR #3), 2C layers 1+2a (PR #4), 2C-tail L2b (PR #5), codebase-review hardening (PR #7), docs reorg (PR #8), Phase 3A document-ingest (PR #9), Phase 3B approvals & review (PR #12), and Phase 3C Documents tracker loop (PR #13) are done. Current branch `codex/ci-and-agent-docs` adds the first GitHub Actions deterministic CI gate and tracks `AGENTS.md` for Codex alongside `CLAUDE.md`. Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. ~317 tests green historically (run **serially** — see the `EMAXPOOLSREACHED` gotcha); the 3C local subset + build verification are recorded in `docs/context-history.md`.
 
 **Next up — pick one after CI lands:**
 - **2C layer 3 live LLM (deferred follow-up):** live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand. Scope in the 2C-tail spec's "Follow-up" section; build on the deterministic CI gate rather than mixing it into the first CI slice.
@@ -336,7 +336,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 **Caching / refresh / model / prompt**
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
-- Anthropic model: **`claude-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
+- Anthropic model: **`Codex-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
 - Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'`. **`v0.md` covers the full Phase 2 tool catalog** — all six tools (`update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`lookup_anabin`) registered and un-caveated. Reserve a `PROMPT_VERSION` bump for the next generational rewrite.
 
 **Tools / renderer / layout**
