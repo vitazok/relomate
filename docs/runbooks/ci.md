@@ -5,9 +5,9 @@ pushes to `main`, and manual dispatches.
 
 ## Jobs
 
-- `static`: installs with pnpm 11.5.2, then runs `pnpm exec tsc --noEmit`, `pnpm lint`, and
-  `pnpm build`. Build-time environment values are safe dummies because the production env schema
-  validates during `next build`.
+- `static`: installs with the pnpm version pinned in `package.json`, then runs
+  `pnpm exec tsc --noEmit`, `pnpm lint`, and `pnpm build`. Build-time environment values are safe
+  dummies because the production env schema validates during `next build`.
 - `tests`: runs `pnpm exec vitest run --no-file-parallelism`. The serial flag is intentional:
   parallel DB test files can exhaust Supabase pooler pools when each file uses a distinct
   `search_path`.
