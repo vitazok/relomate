@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { drizzle } from 'drizzle-orm/node-postgres';
 import { db as defaultDb } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
@@ -61,29 +61,42 @@ function toRow(r: typeof schema.drafts.$inferSelect): DraftRow {
   };
 }
 
-function insertValues(input: InsertDraftInput, id?: string) {
+function insertValues(input: InsertDraftInput, version: number, id?: string) {
   return {
     ...(id ? { id } : {}),
     caseId: input.caseId,
     userId: input.userId,
     type: input.type,
+    version,
     status: 'drafting' as const,
   };
+}
+
+async function nextVersion(dbInstance: Db, input: InsertDraftInput): Promise<number> {
+  const rows = await dbInstance
+    .select({ version: schema.drafts.version })
+    .from(schema.drafts)
+    .where(and(eq(schema.drafts.caseId, input.caseId), eq(schema.drafts.type, input.type)))
+    .orderBy(desc(schema.drafts.version))
+    .limit(1);
+  return (rows[0]?.version ?? 0) + 1;
 }
 
 export function makeDraftRepository(db?: Db): DraftRepository {
   const dbInstance = db ?? defaultDb;
   return {
     async insert(input) {
+      const version = await nextVersion(dbInstance, input);
       const [row] = await dbInstance
         .insert(schema.drafts)
-        .values(insertValues(input))
+        .values(insertValues(input, version))
         .returning({ id: schema.drafts.id });
       if (!row) throw new Error('insert draft: no row returned');
       return row.id;
     },
     async insertWithId(id, input) {
-      await dbInstance.insert(schema.drafts).values(insertValues(input, id));
+      const version = await nextVersion(dbInstance, input);
+      await dbInstance.insert(schema.drafts).values(insertValues(input, version, id));
       return id;
     },
     async getById(id) {

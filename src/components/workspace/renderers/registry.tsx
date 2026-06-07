@@ -189,7 +189,14 @@ export const DraftRequestResult: Renderer = ({ output }) => {
     draftType?: string;
     status?: string;
   };
-  const label = data.draftType === 'cover_letter' ? 'Cover letter' : 'Draft';
+  const label =
+    data.draftType === 'cover_letter'
+      ? 'Cover letter'
+      : data.draftType === 'employer_letter'
+        ? 'Employer letter'
+        : data.draftType === 'cv'
+          ? 'CV'
+          : 'Draft';
 
   if (data.status === 'ready_for_review' && data.caseId) {
     return (

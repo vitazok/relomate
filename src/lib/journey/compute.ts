@@ -168,33 +168,39 @@ function latestDraft(drafts: JourneyDraft[], type: DraftType): JourneyDraft | nu
   return drafts.find((d) => d.type === type) ?? null;
 }
 
+const DRAFT_STEP_DEFS: Array<{ type: DraftType; label: string }> = [
+  { type: 'cover_letter', label: 'Cover letter' },
+  { type: 'employer_letter', label: 'Employer letter' },
+  { type: 'cv', label: 'CV' },
+];
+
 function buildDraftSteps(drafts: JourneyDraft[], caseId: string | null): StepProgress[] {
-  const coverLetter = latestDraft(drafts, 'cover_letter');
-  const reviewHref =
-    coverLetter?.status === 'ready_for_review' && caseId
-      ? `/case/${caseId}/drafts/${coverLetter.id}/review`
-      : null;
-  return [
-    {
-      id: 'cover_letter',
-      label: 'Cover letter',
-      state: coverLetter?.status === 'approved' ? 'complete' : 'incomplete',
-      value: coverLetter ? draftStatusLabel(coverLetter.status) : 'not started yet',
+  return DRAFT_STEP_DEFS.map(({ type, label }) => {
+    const draft = latestDraft(drafts, type);
+    const reviewHref =
+      draft?.status === 'ready_for_review' && caseId
+        ? `/case/${caseId}/drafts/${draft.id}/review`
+        : null;
+    return {
+      id: type,
+      label,
+      state: draft?.status === 'approved' ? 'complete' : 'incomplete',
+      value: draft ? draftStatusLabel(draft.status) : 'not started yet',
       group: null,
       requirementCitation: null,
       answerProvenance: null,
       document: null,
-      draft: coverLetter
+      draft: draft
         ? {
-            id: coverLetter.id,
-            type: coverLetter.type,
-            status: coverLetter.status,
+            id: draft.id,
+            type: draft.type,
+            status: draft.status,
             reviewHref,
           }
         : null,
       action: null,
-    },
-  ];
+    };
+  });
 }
 
 function documentStatusLabel(status: DocumentStatus): string {

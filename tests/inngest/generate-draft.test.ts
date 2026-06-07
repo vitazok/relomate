@@ -12,6 +12,69 @@ vi.mock('@/lib/db/client', () => ({ get db() { return handle.db; } }));
 
 const step = { run: <T>(_id: string, fn: () => Promise<T>) => fn() };
 
+function mockGenerator(overrides: Record<string, unknown> = {}) {
+  return {
+    generateCoverLetter: vi.fn().mockResolvedValue({
+      content: {
+        title: 'Cover letter',
+        recipient: 'German Consulate Bengaluru',
+        subject: 'EU Blue Card application',
+        paragraphs: ['One', 'Two', 'Three'],
+        signoff: 'Sincerely',
+      },
+      modelVersion: 'm',
+      promptVersion: 'p',
+    }),
+    generateEmployerLetter: vi.fn().mockResolvedValue({
+      content: {
+        title: 'Employer letter',
+        employerAddress: '[employer letterhead address]',
+        recipient: 'German Consulate Bengaluru',
+        subject: 'Employment confirmation',
+        paragraphs: ['One', 'Two', 'Three'],
+        signatureBlock: '[authorized signatory]',
+        employerInstructions: ['Check all facts before signing.'],
+      },
+      modelVersion: 'm',
+      promptVersion: 'p',
+    }),
+    generateCv: vi.fn().mockResolvedValue({
+      content: {
+        title: 'Curriculum Vitae',
+        personalDetails: ['[full name]'],
+        profile: 'Skilled professional.',
+        sections: [
+          {
+            heading: 'Professional experience',
+            entries: [{
+              label: 'Senior Software Engineer',
+              organization: 'Acme GmbH',
+              location: 'Munich',
+              start: '2026-09',
+              end: null,
+              bullets: ['Works on software systems.'],
+            }],
+          },
+          {
+            heading: 'Education',
+            entries: [{
+              label: 'Computer Science',
+              organization: 'IIT Bombay',
+              location: null,
+              start: null,
+              end: '2016',
+              bullets: ['Degree completed.'],
+            }],
+          },
+        ],
+      },
+      modelVersion: 'm',
+      promptVersion: 'p',
+    }),
+    ...overrides,
+  };
+}
+
 describe('generateDraft handler', () => {
   let caseId: string;
   let userId: string;
@@ -31,19 +94,7 @@ describe('generateDraft handler', () => {
     const { generateDraftHandler } = await import('@/lib/inngest/functions/generate-draft');
     const drafts = makeDraftRepository(handle.db);
     const draftId = await drafts.insert({ caseId, userId, type: 'cover_letter' });
-    const generator = {
-      generateCoverLetter: vi.fn().mockResolvedValue({
-        content: {
-          title: 'Cover letter',
-          recipient: 'German Consulate Bengaluru',
-          subject: 'EU Blue Card application',
-          paragraphs: ['One', 'Two', 'Three'],
-          signoff: 'Sincerely',
-        },
-        modelVersion: 'm',
-        promptVersion: 'p',
-      }),
-    };
+    const generator = mockGenerator();
 
     await generateDraftHandler({
       event: { name: 'draft.requested', data: { draftId, caseId, userId } },
@@ -68,6 +119,27 @@ describe('generateDraft handler', () => {
     expect(serialized).not.toContain('German Consulate Bengaluru');
   });
 
+  it.each([
+    ['employer_letter' as const, 'generateEmployerLetter' as const],
+    ['cv' as const, 'generateCv' as const],
+  ])('generates %s content through the typed dispatcher', async (type, method) => {
+    const { generateDraftHandler } = await import('@/lib/inngest/functions/generate-draft');
+    const drafts = makeDraftRepository(handle.db);
+    const draftId = await drafts.insert({ caseId, userId, type });
+    const generator = mockGenerator();
+
+    await generateDraftHandler({
+      event: { name: 'draft.requested', data: { draftId, caseId, userId } },
+      step,
+      deps: { generator },
+    });
+
+    const draft = await drafts.getById(draftId);
+    expect(generator[method]).toHaveBeenCalledOnce();
+    expect(draft?.status).toBe('ready_for_review');
+    expect(draft?.content?.type).toBe(type);
+  });
+
   it('marks failed when generation throws', async () => {
     const { generateDraftHandler } = await import('@/lib/inngest/functions/generate-draft');
     const drafts = makeDraftRepository(handle.db);
@@ -77,9 +149,9 @@ describe('generateDraft handler', () => {
       event: { name: 'draft.requested', data: { draftId, caseId, userId } },
       step,
       deps: {
-        generator: {
+        generator: mockGenerator({
           generateCoverLetter: vi.fn().mockRejectedValue(new Error('model down')),
-        },
+        }),
       },
     });
 

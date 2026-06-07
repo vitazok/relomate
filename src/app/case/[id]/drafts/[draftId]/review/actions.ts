@@ -11,7 +11,7 @@ import {
   rejectDraftCore,
   type DraftReviewError,
 } from '@/lib/drafting/approval-core';
-import { CoverLetterContentSchema, type CoverLetterContent } from '@/lib/drafting/types';
+import { DraftContentSchema, type DraftContent } from '@/lib/drafting/types';
 
 export interface DraftReviewActionState {
   error?: DraftReviewError;
@@ -26,45 +26,17 @@ function deps() {
   };
 }
 
-function parseParagraphs(raw: string): string[] {
-  return raw
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
-function parseCoverLetterContent(input: {
-  title: string;
-  recipient: string;
-  subject: string;
-  paragraphs: string;
-  signoff: string;
-}): CoverLetterContent | null {
-  const parsed = CoverLetterContentSchema.safeParse({
-    title: input.title.trim(),
-    recipient: input.recipient.trim(),
-    subject: input.subject.trim(),
-    paragraphs: parseParagraphs(input.paragraphs),
-    signoff: input.signoff.trim(),
-  });
-  return parsed.success ? parsed.data : null;
-}
-
 export async function approveDraft(input: {
   draftId: string;
   caseId: string;
-  title: string;
-  recipient: string;
-  subject: string;
-  paragraphs: string;
-  signoff: string;
+  content: DraftContent;
 }): Promise<DraftReviewActionState> {
   const userId = await requireAuthedUserId();
-  const content = parseCoverLetterContent(input);
-  if (!content) {
-    return { error: 'invalid_content', message: 'Please keep at least three non-empty paragraphs.' };
+  const parsed = DraftContentSchema.safeParse(input.content);
+  if (!parsed.success) {
+    return { error: 'invalid_content', message: 'Please complete all required draft sections.' };
   }
-  const res = await approveDraftCore(deps(), { ...input, userId, content });
+  const res = await approveDraftCore(deps(), { ...input, userId, content: parsed.data });
   if (!res.ok) return { error: res.error, message: res.message };
   revalidatePath(`/case/${input.caseId}`);
   redirect(`/case/${input.caseId}`);

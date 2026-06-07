@@ -65,7 +65,12 @@ describe('draft approval core', () => {
   it('approves edited content, resolves approval, and logs keys only', async () => {
     const { draftId, approvalId } = await readyDraft();
     const edited = { ...baseContent.data, paragraphs: ['One', 'Two changed', 'Three'] };
-    const res = await approveDraftCore(deps(), { caseId, userId, draftId, content: edited });
+    const res = await approveDraftCore(deps(), {
+      caseId,
+      userId,
+      draftId,
+      content: { type: 'cover_letter', data: edited },
+    });
     expect(res.ok).toBe(true);
 
     const draft = await makeDraftRepository(handle.db).getById(draftId);

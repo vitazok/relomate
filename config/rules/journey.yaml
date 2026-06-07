@@ -47,7 +47,6 @@ phases:
   - id: drafts
     label: Drafts
     source: drafts
-    comingSoon: Employer declaration and CV drafting arrive in a later step.
     steps: []
   - id: package
     label: VIDEX form + submission package

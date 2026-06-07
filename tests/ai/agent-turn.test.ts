@@ -26,6 +26,14 @@ vi.mock('@/lib/inngest/client', () => ({
   inngest: { send: (...args: unknown[]) => inngestSendSpy(...args) },
 }));
 
+vi.mock('@/lib/ai/provider', () => ({
+  MODEL_ID: 'test-model',
+}));
+
+vi.mock('@/lib/db/client', () => ({
+  db: {},
+}));
+
 import { buildAgentTurn, MAX_AGENT_STEPS } from '@/lib/ai/chat/agent-turn';
 
 const SENTINEL_MODEL = { __sentinel: true } as never;
@@ -57,10 +65,21 @@ describe('buildAgentTurn', () => {
     expect(captured.model).toBe(SENTINEL_MODEL);
   });
 
-  it('registers all eight tools', async () => {
+  it('registers all ten tools', async () => {
     await buildAgentTurn(baseParams());
     expect(Object.keys(captured.tools ?? {}).sort()).toEqual(
-      ['add_case_note', 'check_eligibility', 'draft_cover_letter', 'lookup_anabin', 'out_of_scope', 'read_case', 'request_document_upload', 'update_case'].sort(),
+      [
+        'add_case_note',
+        'check_eligibility',
+        'draft_cover_letter',
+        'draft_cv',
+        'draft_employer_letter',
+        'lookup_anabin',
+        'out_of_scope',
+        'read_case',
+        'request_document_upload',
+        'update_case',
+      ].sort(),
     );
   });
 
