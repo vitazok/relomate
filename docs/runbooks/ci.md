@@ -12,6 +12,9 @@ pushes to `main`, and manual dispatches.
   parallel DB test files can exhaust Supabase pooler pools when each file uses a distinct
   `search_path`.
 
+Both jobs use Node 24 because pnpm 11 requires Node 22.13 or newer; this still satisfies the
+project's Node 20+ runtime floor.
+
 ## Required Secrets
 
 Create these repository secrets in GitHub before treating CI as required:
