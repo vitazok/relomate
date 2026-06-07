@@ -1,11 +1,7 @@
 import type { Repository } from '@/lib/case/repository';
 import type { ApprovalRepository } from '@/lib/approvals/repository';
 import type { DraftRepository } from '@/lib/drafting/repository';
-import {
-  DraftContentSchema,
-  type CoverLetterContent,
-  type DraftContent,
-} from '@/lib/drafting/types';
+import { DraftContentSchema, type DraftContent, type DraftType } from '@/lib/drafting/types';
 
 export type DraftReviewError =
   | 'not_found'
@@ -28,7 +24,7 @@ export interface ApproveDraftInput {
   draftId: string;
   caseId: string;
   userId: string;
-  content: CoverLetterContent;
+  content: DraftContent;
 }
 
 export interface RejectDraftInput {
@@ -40,6 +36,10 @@ export interface RejectDraftInput {
 
 function changed(previous: DraftContent | null, next: DraftContent): boolean {
   return JSON.stringify(previous) !== JSON.stringify(next);
+}
+
+function contentPath(type: DraftType): string {
+  return `draft.${type}.content`;
 }
 
 export async function approveDraftCore(
@@ -62,10 +62,11 @@ export async function approveDraftCore(
     return { ok: false, error: 'missing_approval', message: 'No pending approval was found.' };
   }
 
-  const content = DraftContentSchema.safeParse({
-    type: 'cover_letter',
-    data: input.content,
-  });
+  if (draft.type !== input.content.type) {
+    return { ok: false, error: 'invalid_content', message: 'Draft content type does not match.' };
+  }
+
+  const content = DraftContentSchema.safeParse(input.content);
   if (!content.success) {
     return { ok: false, error: 'invalid_content', message: 'Please complete the draft content.' };
   }
@@ -76,8 +77,8 @@ export async function approveDraftCore(
     status: 'approved',
     resolvedBy: input.userId,
     decision: {
-      confirmedPaths: ['draft.cover_letter.content'],
-      editedPaths: edited ? ['draft.cover_letter.content'] : [],
+      confirmedPaths: [contentPath(draft.type)],
+      editedPaths: edited ? [contentPath(draft.type)] : [],
       rejectedReason: null,
     },
   });
@@ -87,7 +88,7 @@ export async function approveDraftCore(
     kind: 'case.draft.approved',
     payload: {
       draftId: input.draftId,
-      draftType: 'cover_letter',
+      draftType: draft.type,
       edited,
     },
   });
@@ -132,7 +133,7 @@ export async function rejectDraftCore(
     kind: 'case.draft.rejected',
     payload: {
       draftId: input.draftId,
-      draftType: 'cover_letter',
+      draftType: draft.type,
       hasReason: reason != null,
     },
   });

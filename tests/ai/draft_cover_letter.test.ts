@@ -1,18 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeDraftCoverLetterTool } from '@/lib/ai/tools/draft_cover_letter';
+import { makeDraftEmployerLetterTool } from '@/lib/ai/tools/draft_employer_letter';
+import { makeDraftCvTool } from '@/lib/ai/tools/draft_cv';
+import type { DraftType } from '@/lib/drafting/types';
 
 const send = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/inngest/client', () => ({ inngest: { send: (...args: unknown[]) => send(...args) } }));
 
-describe('draft_cover_letter tool', () => {
+describe('draft request tools', () => {
   beforeEach(() => {
     send.mockClear();
   });
 
-  it('creates a draft row, dispatches generation, logs request, and returns typed output', async () => {
+  it.each([
+    ['cover_letter' as const, makeDraftCoverLetterTool],
+    ['employer_letter' as const, makeDraftEmployerLetterTool],
+    ['cv' as const, makeDraftCvTool],
+  ])('creates a %s draft row, dispatches generation, logs request, and returns typed output', async (type: DraftType, factory) => {
     const appendActivity = vi.fn().mockResolvedValue(undefined);
     const insert = vi.fn().mockResolvedValue('d0000000-0000-4000-8000-000000000000');
-    const tool = makeDraftCoverLetterTool(
+    const draftTool = factory(
       { appendActivity },
       { insert },
       {
@@ -22,12 +29,12 @@ describe('draft_cover_letter tool', () => {
       },
     );
 
-    const result = await tool.execute!({}, { toolCallId: 't', messages: [] });
+    const result = await draftTool.execute!({}, { toolCallId: 't', messages: [] });
 
     expect(insert).toHaveBeenCalledWith({
       caseId: 'c0000000-0000-4000-8000-000000000000',
       userId: 'u0000000-0000-4000-8000-000000000000',
-      type: 'cover_letter',
+      type,
     });
     expect(appendActivity).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledWith({
@@ -44,7 +51,7 @@ describe('draft_cover_letter tool', () => {
       data: {
         draftId: 'd0000000-0000-4000-8000-000000000000',
         caseId: 'c0000000-0000-4000-8000-000000000000',
-        draftType: 'cover_letter',
+        draftType: type,
         status: 'drafting',
       },
     });

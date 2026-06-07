@@ -1,10 +1,16 @@
 # Relomate — Context History
 
-Relocated out of `CLAUDE.md` to keep it lean. CLAUDE.md carries the forward-looking
-**directives** (what not to redo, what must hold); this file carries the **why** behind
-them and the record of resolved work — phase write-ups, bug post-mortems, superseded
-decisions. Read the relevant section here when you're about to touch that area; the
-one-liner in CLAUDE.md tells you WHAT not to do, this tells you why it bit us.
+Relocated out of `CLAUDE.md` to keep it lean. `AGENTS.md` and `CLAUDE.md` carry the
+forward-looking **directives** (what not to redo, what must hold); this file carries the
+**why** behind them and the record of resolved work — phase write-ups, bug post-mortems,
+superseded decisions. Read the relevant section here when you're about to touch that area;
+the one-liners in `AGENTS.md` / `CLAUDE.md` tell you WHAT not to do, this tells you why it
+bit us.
+
+Multiple developers and multiple agentic tools work on Relomate. At the end of each coding
+session, review the shared handover docs (`AGENTS.md`, `CLAUDE.md`, and this file) and
+update them when phase state, architectural decisions, gotchas, verification notes, or
+next-up work changed.
 
 > Per-phase commit hashes and test counts also live in git history.
 
@@ -127,7 +133,8 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | 2C layer 3 (live LLM + user-simulator) | designed/deferred, not started | follow-up section in the 2C-tail spec |
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
 | 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
-| 4A cover-letter drafting | in progress on `codex/phase-4a-cover-letter` | `docs/superpowers/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
+| 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/superpowers/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
+| 4B employer-letter + CV drafting | implemented on current branch | this file, below |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
@@ -491,7 +498,7 @@ E2E remain deferred.
 
 ---
 
-### Phase 4A — Cover-letter drafting (2026-06-07, branch `codex/phase-4a-cover-letter`) — full detail
+### Phase 4A — Cover-letter drafting (2026-06-07, merged to main PR #15) — full detail
 
 This slice adds the first drafted-document vertical: cover letter only. It deliberately builds the
 artifact/approval foundation without pulling in employer letter, CV, Anabin justification,
@@ -541,11 +548,75 @@ regeneration, VIDEX, or package completeness.
 
 **Still deferred after 4A:**
 
-- Employer letter, CV, and Anabin justification draft types.
+- Employer letter, CV, and Anabin justification draft types. (Employer letter + CV are implemented in Phase 4B.)
 - `regenerate_draft` and any multi-version draft history semantics.
 - Package completeness gates that require approved drafts.
 - Live generated-content quality eval.
 - A full Drafts workspace route if the tracker row becomes too dense.
+
+---
+
+### Phase 4B — Employer-letter + CV drafting (2026-06-07, current branch) — full detail
+
+This slice extends the Phase 4A draft artifact foundation to the two remaining MVP drafted
+documents that share the same lifecycle: employer letter and CV. It intentionally does not add
+Anabin justification, `regenerate_draft`, VIDEX, package gates, or a full Drafts workspace route.
+
+**What changed:**
+
+- **Typed draft union widened.** `DraftTypeEnum` is now
+  `cover_letter | employer_letter | cv`. `EmployerLetterContentSchema` captures a printable
+  employer template (`employerAddress`, `paragraphs`, `signatureBlock`,
+  `employerInstructions`); `CvContentSchema` captures personal details, profile, and structured
+  sections/entries. `DraftContentSchema` remains the storage/approval validation boundary.
+
+- **Per-type generation.** `makeAiDraftGenerator()` now exposes `generateCoverLetter`,
+  `generateEmployerLetter`, and `generateCv`; each has its own prompt version
+  (`draft_cover_letter/v0`, `draft_employer_letter/v0`, `draft_cv/v0`) and repeats the same
+  non-invention/no-legal-threshold discipline. `generateDraftByType` is the single worker-side
+  dispatcher.
+
+- **Draft request tools.** `draft_cover_letter`, `draft_employer_letter`, and `draft_cv` all use
+  one shared `makeDraftRequestTool` factory. They create a `drafting` row, log
+  `case.draft.requested`, emit `draft.requested`, and return `{type:'draft_request_result',
+  version:1,data}` immediately.
+
+- **One Inngest worker.** `generateDraftHandler` loads the row, reads `draft.type`, dispatches
+  through `generateDraftByType`, stores the typed content, creates the draft approval, and logs
+  only `{draftId,draftType}`. Failures mark the row `failed` and also log only safe metadata.
+
+- **Polymorphic review.** `/case/[id]/drafts/[draftId]/review` now accepts any ready draft whose
+  stored content type matches the row type. Approval posts a full `DraftContent` payload; the
+  server revalidates with `DraftContentSchema`, rejects type mismatches, resolves the approval,
+  and logs paths as `draft.<type>.content`. Activity payloads still never contain draft text.
+
+- **Version increment.** `makeDraftRepository.insert()` assigns `version =
+  max(version for same caseId+type)+1`, so repeated requests are tracked row-by-row. There is no
+  version-history UI and no `regenerate_draft` tool yet.
+
+- **Tracker integration.** `computeJourneyProgress` renders three Drafts steps:
+  `cover_letter`, `employer_letter`, and `cv`. Only `approved` counts complete; `ready_for_review`
+  links to the review route. The stale Drafts `comingSoon` copy was removed from
+  `config/rules/journey.yaml`.
+
+- **Tool order/cache invariant.** The new draft tools are registered before `lookup_anabin`.
+  `lookup_anabin` remains last and still carries the single Anthropic cache-control breakpoint.
+
+- **Verification:** `pnpm exec tsc --noEmit` passed. Focused non-DB tests passed:
+  `pnpm exec vitest run tests/ai/draft_cover_letter.test.ts tests/ai/agent-turn.test.ts
+  tests/components/tracker.test.ts tests/components/renderers.test.ts tests/journey/compute.test.ts
+  tests/journey/loader.test.ts --no-file-parallelism` -> 6 files / 41 tests. DB-backed draft
+  suites were not runnable in this shell because `DIRECT_URL`/`DATABASE_URL` and required test env
+  were absent; run `tests/drafting/*` and `tests/inngest/generate-draft.test.ts` serially with
+  `.env.test.local`/DB env before merging.
+
+**Still deferred after 4B:**
+
+- Anabin justification draft.
+- `regenerate_draft` UX with framing instructions and version-history display.
+- Package completeness gates that require approved drafts.
+- Live generated-content quality eval.
+- Full Drafts workspace route if tracker-row editing becomes too dense.
 
 ---
 
@@ -557,9 +628,8 @@ regeneration, VIDEX, or package completeness.
   Overview's empty-state copy. The stale `#overview` sidebar anchor was fixed to `#tracker` in
   Phase 4A.
 - **`v0-stub` prompt removed** (2A.1). `prompts/agent/v0.md` is the live prompt;
-  `PROMPT_VERSION = 'v0'` covers the current chat tool catalog. Phase 4A added
-  `draft_cover_letter` without a generational prompt bump; the generated cover-letter prompt has
-  its own `draft_cover_letter/v0` version. Reserve a `PROMPT_VERSION` bump for the next
-  generational rewrite.
+  `PROMPT_VERSION = 'v0'` covers the current chat tool catalog. Phase 4A/4B added
+  draft request tools without a generational prompt bump; generated draft prompts have their own
+  per-type versions. Reserve a `PROMPT_VERSION` bump for the next generational rewrite.
 - **Inngest emit location** — pre-2A.1 it lived in `/api/chat`'s `onFinish`; Task 8 moved
   the loop into `buildAgentTurn`'s `onFinish` (best-effort). Repository stays Inngest-free.

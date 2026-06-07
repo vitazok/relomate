@@ -43,6 +43,17 @@ describe('draft repository', () => {
     expect(listed.some((d) => d.id === id)).toBe(true);
   });
 
+  it('increments version per case and draft type', async () => {
+    const drafts = makeDraftRepository(handle.db);
+    const first = await drafts.insert({ caseId, userId, type: 'employer_letter' });
+    const second = await drafts.insert({ caseId, userId, type: 'employer_letter' });
+    const cv = await drafts.insert({ caseId, userId, type: 'cv' });
+
+    expect((await drafts.getById(first))?.version).toBe(1);
+    expect((await drafts.getById(second))?.version).toBe(2);
+    expect((await drafts.getById(cv))?.version).toBe(1);
+  });
+
   it('moves through ready_for_review, approved, rejected, and failed states', async () => {
     const drafts = makeDraftRepository(handle.db);
     const readyId = await drafts.insert({ caseId, userId, type: 'cover_letter' });

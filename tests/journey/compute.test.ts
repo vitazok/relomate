@@ -75,19 +75,18 @@ describe('computeJourneyProgress — eligibility phase', () => {
     expect(salaryStep.value).toContain('48500');
   });
 
-  it('renders the cover-letter draft step and keeps package locked', () => {
+  it('renders the draft steps and keeps package locked', () => {
     const progress = computeJourneyProgress({}, EMPTY_PROFILE, getDocumentRules(), verdictFor({}), TODAY);
     const drafts = progress.phases.find((p) => p.id === 'drafts')!;
     expect(drafts.status).toBe('todo');
-    expect(drafts.comingSoon).toBeTruthy();
-    expect(drafts.steps).toHaveLength(1);
-    expect(drafts.steps[0]?.id).toBe('cover_letter');
-    expect(drafts.steps[0]?.value).toBe('not started yet');
+    expect(drafts.comingSoon).toBeNull();
+    expect(drafts.steps.map((s) => s.id)).toEqual(['cover_letter', 'employer_letter', 'cv']);
+    expect(drafts.steps.every((s) => s.value === 'not started yet')).toBe(true);
     const pkg = progress.phases.find((p) => p.id === 'package')!;
     expect(pkg.status).toBe('locked');
   });
 
-  it('counts an approved cover-letter draft as complete and links ready drafts to review', () => {
+  it('counts approved drafts as complete and links ready drafts to review', () => {
     const ready = computeJourneyProgress(
       {},
       EMPTY_PROFILE,
@@ -110,9 +109,13 @@ describe('computeJourneyProgress — eligibility phase', () => {
       TODAY,
       [],
       'case-1',
-      [{ id: 'draft-approved', type: 'cover_letter', status: 'approved' }],
+      [
+        { id: 'cover-approved', type: 'cover_letter', status: 'approved' },
+        { id: 'employer-approved', type: 'employer_letter', status: 'approved' },
+        { id: 'cv-approved', type: 'cv', status: 'approved' },
+      ],
     ).phases.find((p) => p.id === 'drafts')!;
-    expect(approved.completed).toBe(1);
+    expect(approved.completed).toBe(3);
     expect(approved.status).toBe('done');
   });
 

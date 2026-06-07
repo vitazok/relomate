@@ -60,7 +60,7 @@ export const DocumentProgress = z.object({
 
 export const DraftProgress = z.object({
   id: z.string(),
-  type: z.enum(['cover_letter']),
+  type: z.enum(['cover_letter', 'employer_letter', 'cv']),
   status: z.enum(['drafting', 'ready_for_review', 'approved', 'rejected', 'failed']),
   reviewHref: z.string().nullable(),
 });

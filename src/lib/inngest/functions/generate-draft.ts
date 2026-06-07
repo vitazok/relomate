@@ -2,7 +2,11 @@ import { inngest, type DraftRequestedEvent } from '@/lib/inngest/client';
 import { makeRepository } from '@/lib/case/repository';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { makeDraftRepository } from '@/lib/drafting/repository';
-import { makeAiDraftGenerator, type DraftGenerator } from '@/lib/drafting/generator';
+import {
+  generateDraftByType,
+  makeAiDraftGenerator,
+  type DraftGenerator,
+} from '@/lib/drafting/generator';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 
@@ -29,19 +33,18 @@ export async function generateDraftHandler({
   const approvals = makeApprovalRepository();
   const generator = deps?.generator ?? makeAiDraftGenerator();
 
-  const proceed = await step.run('load-draft', async () => {
+  const draftType = await step.run('load-draft', async () => {
     const draft = await drafts.getById(draftId);
-    if (!draft) return false;
-    if (draft.status !== 'drafting') return false;
-    if (draft.type !== 'cover_letter') throw new Error(`unsupported draft type: ${draft.type}`);
-    return true;
+    if (!draft) return null;
+    if (draft.status !== 'drafting') return null;
+    return draft.type;
   });
-  if (!proceed) return;
+  if (!draftType) return;
 
   try {
-    const generated = await step.run('generate-cover-letter', async () => {
+    const generated = await step.run(`generate-${draftType}`, async () => {
       const loaded = await repo.loadCase(caseId);
-      return generator.generateCoverLetter({
+      return generateDraftByType(generator, draftType, {
         caseId,
         profile: loaded.profile,
         caseFacts: loaded.caseFacts,
@@ -50,7 +53,7 @@ export async function generateDraftHandler({
 
     await step.run('store-draft', () =>
       drafts.setReady(draftId, {
-        content: { type: 'cover_letter', data: generated.content },
+        content: generated.content,
         modelVersion: generated.modelVersion,
         promptVersion: generated.promptVersion,
       }),
@@ -65,7 +68,7 @@ export async function generateDraftHandler({
         caseId,
         userId,
         kind: 'case.draft.ready_for_review',
-        payload: { draftId, draftType: 'cover_letter' },
+        payload: { draftId, draftType },
       });
     });
   } catch (err) {
@@ -76,7 +79,7 @@ export async function generateDraftHandler({
         caseId,
         userId,
         kind: 'case.draft.failed',
-        payload: { draftId, draftType: 'cover_letter' },
+        payload: { draftId, draftType },
       });
     });
   }
