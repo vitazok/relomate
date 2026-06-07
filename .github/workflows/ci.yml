@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Typecheck, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:6543/ci
+      DIRECT_URL: postgres://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-auth-secret-with-at-least-thirty-two-chars
+      AUTH_URL: http://localhost:3000
+      AUTH_RESEND_KEY: re_ci_dummy
+      EMAIL_FROM: noreply@example.com
+      ANTHROPIC_API_KEY: sk-ant-ci-dummy
+      INNGEST_EVENT_KEY: ci-event-key
+      INNGEST_SIGNING_KEY: ci-signing-key
+      R2_ACCOUNT_ID: ci
+      R2_ACCESS_KEY_ID: ci
+      R2_SECRET_ACCESS_KEY: ci
+      R2_BUCKET: relomate-ci
+      R2_ENDPOINT: https://ci.r2.cloudflarestorage.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+  tests:
+    name: Vitest serial
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.CI_DIRECT_URL }}
+      AUTH_SECRET: ci-test-secret-with-at-least-thirty-two-chars
+      ANTHROPIC_API_KEY: sk-ant-ci-dummy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate CI database secrets
+        run: |
+          test -n "$DATABASE_URL" || (echo "Missing CI_DATABASE_URL secret" && exit 1)
+          test -n "$DIRECT_URL" || (echo "Missing CI_DIRECT_URL secret" && exit 1)
+
+      - name: Run full Vitest suite serially
+        run: pnpm exec vitest run --no-file-parallelism
