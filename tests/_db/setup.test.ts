@@ -45,9 +45,14 @@ describe('test schema lifecycle', () => {
     );
     expect((inTest.rows[0] as { n: number }).n).toBe(1);
     // And NOT in public.
-    const inPublic = await handle.db.execute(
-      sql.raw(`SELECT count(*)::int AS n FROM "public".organizations WHERE id = '${organizationId}'`),
+    const publicTable = await handle.db.execute(
+      sql.raw(`SELECT to_regclass('public.organizations') AS name`),
     );
-    expect((inPublic.rows[0] as { n: number }).n).toBe(0);
+    if ((publicTable.rows[0] as { name: string | null }).name) {
+      const inPublic = await handle.db.execute(
+        sql.raw(`SELECT count(*)::int AS n FROM "public".organizations WHERE id = '${organizationId}'`),
+      );
+      expect((inPublic.rows[0] as { n: number }).n).toBe(0);
+    }
   });
 });
