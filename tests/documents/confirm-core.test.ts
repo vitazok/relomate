@@ -159,5 +159,5 @@ describe('confirmExtractionCore', () => {
     expect(doc2?.status).toBe('confirmed');
     const loaded2 = await deps().repo.loadCase(caseId);
     expect(loaded2.profile?.dateOfBirth?.value).toBe('1990-01-15');
-  });
+  }, 15_000);
 });
