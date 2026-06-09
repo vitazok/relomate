@@ -28,16 +28,48 @@ describe('case repository: createCase + loadCase', () => {
     expect(caseId).toMatch(/^[0-9a-f-]{36}$/);
 
     const cases = await handle.db.execute(
-      sql.raw(`SELECT id, status, visa_type, target_country FROM "${handle.schemaName}".cases WHERE id = '${caseId}'`),
+      sql.raw(`SELECT id, user_id, organization_id, primary_applicant_user_id, status, visa_type, target_country, stage, priority FROM "${handle.schemaName}".cases WHERE id = '${caseId}'`),
     );
     expect(cases.rows.length).toBe(1);
-    expect((cases.rows[0] as { status: string }).status).toBe('draft');
+    const inserted = cases.rows[0] as {
+      user_id: string;
+      organization_id: string;
+      primary_applicant_user_id: string;
+      status: string;
+      stage: string;
+      priority: string;
+    };
+    expect(inserted.user_id).toBe(seeded.userId);
+    expect(inserted.organization_id).toBe(seeded.organizationId);
+    expect(inserted.primary_applicant_user_id).toBe(seeded.userId);
+    expect(inserted.status).toBe('draft');
+    expect(inserted.stage).toBe('intake');
+    expect(inserted.priority).toBe('normal');
 
     const facts = await handle.db.execute(
       sql.raw(`SELECT case_id, data FROM "${handle.schemaName}".case_facts WHERE case_id = '${caseId}'`),
     );
     expect(facts.rows.length).toBe(1);
     expect((facts.rows[0] as { data: unknown }).data).toEqual({});
+
+    const participants = await handle.db.execute(
+      sql.raw(`SELECT case_id, organization_id, user_id, role, invitation_status, visibility, relation FROM "${handle.schemaName}".case_participants WHERE case_id = '${caseId}'`),
+    );
+    expect(participants.rows.length).toBe(1);
+    const participant = participants.rows[0] as {
+      organization_id: string;
+      user_id: string;
+      role: string;
+      invitation_status: string;
+      visibility: string;
+      relation: { kind?: string };
+    };
+    expect(participant.organization_id).toBe(seeded.organizationId);
+    expect(participant.user_id).toBe(seeded.userId);
+    expect(participant.role).toBe('applicant');
+    expect(participant.invitation_status).toBe('active');
+    expect(participant.visibility).toBe('shared');
+    expect(participant.relation.kind).toBe('primary_applicant');
   });
 
   it('loadCase returns parsed case + caseFacts (empty profile)', async () => {
@@ -50,6 +82,8 @@ describe('case repository: createCase + loadCase', () => {
     });
     const loaded = await repo.loadCase(caseId);
     expect(loaded.case.id).toBe(caseId);
+    expect(loaded.case.organizationId).toBe(seeded.organizationId);
+    expect(loaded.case.primaryApplicantUserId).toBe(seeded.userId);
     expect(loaded.caseFacts).toEqual({});
     expect(loaded.profile).toBeNull();
   });

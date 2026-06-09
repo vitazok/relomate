@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { makeDraftRepository } from '@/lib/drafting/repository';
+import { db } from '@/lib/db/client';
 import { DraftReviewForm } from './DraftReviewForm';
 import { DRAFT_TYPE_LABELS } from '@/lib/drafting/types';
 
@@ -18,7 +20,7 @@ export default async function DraftReviewPage({
 
   const draft = await makeDraftRepository().getById(draftId);
   if (!draft || draft.caseId !== caseId) notFound();
-  if (draft.userId !== userId) redirect('/');
+  if (!(await canAccessCase(db, { userId, caseId, action: 'review_draft' }))) redirect('/');
   if (draft.status !== 'ready_for_review') redirect(`/case/${caseId}`);
   if (!draft.content || draft.content.type !== draft.type) notFound();
 

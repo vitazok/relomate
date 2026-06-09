@@ -7,6 +7,8 @@ import {
   messages,
   activityLog,
   documents,
+  organizationMembers,
+  caseParticipants,
 } from '@/lib/db/schema';
 
 describe('db schema', () => {
@@ -17,12 +19,59 @@ describe('db schema', () => {
     expect(threads).toBeDefined();
     expect(messages).toBeDefined();
     expect(activityLog).toBeDefined();
+    expect(organizationMembers).toBeDefined();
+    expect(caseParticipants).toBeDefined();
   });
 
   it('cases.eligibilityVerdict is a jsonb column', () => {
     const col = cases.eligibilityVerdict;
     expect(col).toBeDefined();
     expect(String(col.dataType)).toContain('json');
+  });
+});
+
+describe('firm ownership schema', () => {
+  it('cases expose organization ownership and assignment columns', () => {
+    const cols = Object.keys(cases);
+    for (const c of [
+      'organizationId',
+      'primaryApplicantUserId',
+      'assignedConsultantId',
+      'reviewerId',
+      'stage',
+      'priority',
+      'targetSubmissionDate',
+      'submittedAt',
+      'closedAt',
+    ]) {
+      expect(cols).toContain(c);
+    }
+  });
+
+  it('organization_members exposes role and status columns', () => {
+    const cols = Object.keys(organizationMembers);
+    for (const c of ['organizationId', 'userId', 'role', 'status', 'createdAt', 'updatedAt']) {
+      expect(cols).toContain(c);
+    }
+  });
+
+  it('case_participants exposes role, invitation, visibility, and relation columns', () => {
+    const cols = Object.keys(caseParticipants);
+    for (const c of [
+      'id',
+      'caseId',
+      'organizationId',
+      'userId',
+      'invitedEmail',
+      'role',
+      'invitationStatus',
+      'visibility',
+      'relation',
+      'createdAt',
+      'updatedAt',
+    ]) {
+      expect(cols).toContain(c);
+    }
   });
 });
 

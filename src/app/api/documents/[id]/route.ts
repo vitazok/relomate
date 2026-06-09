@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { db } from '@/lib/db/client';
 
@@ -12,7 +13,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const row = await makeDocumentRepository(db).getById(id);
   if (!row) return new NextResponse('not found', { status: 404 });
-  if (row.userId !== userId) return new NextResponse('forbidden', { status: 403 });
+  if (!(await canAccessCase(db, { userId, caseId: row.caseId, action: 'read' }))) {
+    return new NextResponse('forbidden', { status: 403 });
+  }
 
   // Render-safe projection: never leak r2_key or the raw provider blob.
   return NextResponse.json({

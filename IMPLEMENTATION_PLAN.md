@@ -168,6 +168,83 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 ---
 
+## Phase 4C-F — Firm Foundation Pivot
+
+**Goal:** Move the product foundation from applicant-owned cases to firm-operated cases before resuming package automation.
+
+**Decision record:** `docs/strategy/firm-first-pivot.md`. This phase supersedes the old "4C then VIDEX" priority. Resume 4C/VIDEX only after firm ownership, review, task, portal, and Canada/Toronto scaffolding are in place.
+
+### Card 4C-F-1 — RBAC + organization-owned cases
+- **Goal:** Establish organization ownership and central case authorization without breaking the current applicant-compatible flow.
+- **Tasks:**
+  - [x] Add `organization_members` with role/status membership rows.
+  - [x] Add firm ownership and assignment columns on `cases`.
+  - [x] Backfill existing users/cases in a migration.
+  - [x] Keep legacy `cases.user_id` as the profile/applicant compatibility key while making `cases.organization_id` the ownership key.
+  - [x] Add `src/lib/auth/authorization.ts` and route case/chat/document access through it.
+  - [x] Update auth/session/test seeds to create membership rows.
+  - [x] Update handover docs.
+- **Verify:** `pnpm exec tsc --noEmit` + `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/db-schema.test.ts tests/case/repository.test.ts tests/auth/authorization.test.ts tests/api/chat.test.ts tests/api/documents-upload-url.test.ts tests/api/documents-get.test.ts tests/api/documents-finalize.test.ts`.
+- **Deferred:** participant table, role-aware approval actions, real task table, firm console, applicant portal split.
+
+### Card 4C-F-2 — Case participants + visibility primitives
+- **Goal:** Add per-case participants and visibility values so applicant, employer, consultant, reviewer, and ops access can diverge from organization membership.
+- **Tasks:**
+  - [x] Add `case_participants` with participant role, user link or invited email, invitation status, visibility, relation metadata, timestamps.
+  - [x] Add shared visibility enum/constants (`internal`, `client_visible`, `shared`) in a typed module.
+  - [x] Seed primary applicant participant on case creation.
+  - [x] Add repository helpers for listing/upserting participants.
+  - [x] Update authorization to account for case participants where appropriate.
+  - [x] Tests for consultant/reviewer/applicant/employer participant access boundaries.
+- **Verify:** `pnpm exec tsc --noEmit` + `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/db-schema.test.ts tests/case/repository.test.ts tests/case/participants.test.ts tests/auth/authorization.test.ts tests/auth/merge.test.ts tests/api/chat.test.ts tests/api/documents-upload-url.test.ts tests/api/documents-get.test.ts tests/api/documents-finalize.test.ts`.
+- **Deferred:** full applicant portal UI; review inbox.
+
+### Card 4C-F-3 — Review inbox + role-aware approvals
+- **Goal:** Turn approvals into firm review work items with assignee, required role, due date, and escalation status.
+- **Tasks:**
+  - [ ] Extend `approvals` with required role, assignee, due date, escalation status, and visibility.
+  - [ ] Preserve applicant confirmation vs. consultant/reviewer approval as distinct semantics.
+  - [ ] Update document/draft review action cores to use role-aware case authorization.
+  - [ ] Add review inbox repository queries.
+  - [ ] Add tests for applicant cannot approve firm-ready drafts; consultant/reviewer can.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/approvals tests/documents tests/drafting tests/api`.
+- **Deferred:** full firm console UI; SLA workflows.
+
+### Card 4C-F-4 — Real tasks foundation
+- **Goal:** Replace tracker-only implied work with mutable task records that can be assigned, due, visible, and blocking.
+- **Tasks:**
+  - [ ] Add `tasks` and task change/audit support.
+  - [ ] Task fields: assignee, due date, status, source, visibility, blocking, related subject.
+  - [ ] Repository helpers and pure view model for top tasks.
+  - [ ] Generate tasks from document/draft/review states without duplicating on repeated reads.
+  - [ ] Tests for visibility and blocking behavior.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/tasks tests/journey tests/api`.
+- **Deferred:** SLA escalation worker; firm console charts.
+
+### Card 4C-F-5 — Firm console + applicant portal split
+- **Goal:** Separate the consultant-first workspace from applicant-safe intake/upload/review surfaces.
+- **Tasks:**
+  - [ ] Firm console route with assigned cases, unassigned cases, review inbox, blocked/overdue cases.
+  - [ ] Consultant case workspace keeps chat and internal views.
+  - [ ] Applicant portal exposes only applicant-safe tasks/uploads/confirmations/messages.
+  - [ ] Add route tests for applicant cannot access internal console/workspace surfaces.
+  - [ ] Keep existing case page usable while the split lands.
+- **Verify:** `tsc --noEmit` + focused component/route vitest; manual local smoke if UI changes are significant.
+- **Deferred:** ops analytics charts beyond basic counts.
+
+### Card 4C-F-6 — Firm knowledge + Canada/Toronto scaffolding
+- **Goal:** Add firm knowledge placeholders and Canada/Toronto config/personas without treating unverified checklist details as production truth.
+- **Tasks:**
+  - [ ] Firm knowledge tables/config scaffolding with source metadata and staleness.
+  - [ ] Canada/Toronto consulate/source scaffolding from official `canada.diplo.de` sources.
+  - [ ] Mark Canada checklist/rule details `verifiedByUser: false` until user verifies.
+  - [ ] Add four synthetic Toronto personas plus firm role/assignment metadata for existing personas.
+  - [ ] Update persona tests to load role metadata.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/personas tests/rules tests/journey`.
+- **Deferred:** retrieval over firm playbooks; production Canada checklist until user verification.
+
+---
+
 ## Phase 4 — Drafted Documents
 
 **Goal:** System drafts cover letter, employer letter, CV, Anabin justification. User reviews, regenerates with framing changes, approves.

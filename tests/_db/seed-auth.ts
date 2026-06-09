@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import * as schema from '@/lib/db/schema';
 import type { TestDbHandle } from './setup';
 
@@ -24,6 +25,11 @@ export async function seedAnonUser(handle: TestDbHandle): Promise<SeededAnon> {
     .values({ organizationId: org.id, isAnonymous: true })
     .returning({ id: schema.users.id });
   if (!user) throw new Error('failed to insert user');
+  await db.insert(schema.organizationMembers).values({
+    organizationId: org.id,
+    userId: user.id,
+    role: 'firm_admin',
+  });
   return { organizationId: org.id, userId: user.id };
 }
 
@@ -42,6 +48,11 @@ export async function seedAuthedUser(
     .values({ organizationId: org.id, isAnonymous: false })
     .returning({ id: schema.users.id });
   if (!user) throw new Error('failed to insert user');
+  await db.insert(schema.organizationMembers).values({
+    organizationId: org.id,
+    userId: user.id,
+    role: 'firm_admin',
+  });
   await db.insert(schema.userIdentities).values({
     userId: user.id,
     provider: 'email_magiclink',
@@ -56,10 +67,17 @@ export async function seedCaseFor(
   userId: string,
 ): Promise<{ caseId: string }> {
   const { db } = handle;
+  const [user] = await db
+    .select({ organizationId: schema.users.organizationId })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId));
+  if (!user) throw new Error('failed to find user');
   const [c] = await db
     .insert(schema.cases)
     .values({
       userId,
+      organizationId: user.organizationId,
+      primaryApplicantUserId: userId,
       status: 'active',
       visaType: 'eu_blue_card',
       targetCountry: 'DE',
@@ -67,6 +85,15 @@ export async function seedCaseFor(
     .returning({ id: schema.cases.id });
   if (!c) throw new Error('failed to insert case');
   await db.insert(schema.caseFacts).values({ caseId: c.id, data: { schemaVersion: 1 } as never });
+  await db.insert(schema.caseParticipants).values({
+    caseId: c.id,
+    organizationId: user.organizationId,
+    userId,
+    role: 'applicant',
+    invitationStatus: 'active',
+    visibility: 'shared',
+    relation: { kind: 'primary_applicant' },
+  });
   return { caseId: c.id };
 }
 

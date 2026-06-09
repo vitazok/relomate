@@ -2,7 +2,7 @@
 
 **Status:** Draft v1
 **Owner:** Vitalii Kashin
-**Last updated:** 2026-05-27
+**Last updated:** 2026-06-09
 **Target:** MVP build over ~8–10 weeks
 
 This document is the source of truth for building Relomate. It is structured for Claude Code consumption — sections are numbered so they can be referenced as "implement §X.Y."
@@ -17,25 +17,25 @@ Companion files:
 
 ### 1.1 What Relomate Is
 
-Relomate is an AI-native case-management platform for skilled workers applying for the **EU Blue Card to Germany**. Users describe their situation in chat; the system builds a structured case file, runs deterministic eligibility checks, drafts the documents the user needs (cover letter, employer letter, CV, VIDEX visa application), and produces a complete, ready-to-submit application package.
+Relomate is an AI-native immigration operating system for firms handling **EU Blue Card to Germany** cases. Consultants, reviewers, operations managers, applicants, and employer contacts work around one durable case file. The system builds structured facts, runs deterministic eligibility checks, drafts artifacts (cover letter, employer letter, CV, VIDEX visa application), prepares the submission package, and routes consequential outputs through human review.
 
-The product is the **case**, not the chat. Chat is one interaction surface — always visible — but the system is built around a durable case file that lives beyond any single session, with background work happening on the user's behalf.
+The product is the **firm-operated case**, not the chat. Chat is one interaction surface in the consultant workspace, but the case file, review queue, task list, audit trail, and firm console are the spine.
 
 ### 1.2 What Relomate Is NOT
 
 - A chatbot. The product is a workspace where the chat is one panel.
 - A legal advice engine. The system prepares documents and provides information; it does not give legal opinions.
-- An autonomous AI that submits applications. Every consequential write is reviewed by the user.
+- An autonomous AI that submits applications. Every consequential output is reviewed by the responsible human role.
 - A workflow tool with hardcoded state machines. The user is not forced through wizards or "next step" buttons. They describe what they want; the agent makes it happen.
 
 ### 1.3 Core Design Principle
 
-> **Deterministic systems own legal/business truth. The agent owns reasoning, drafting, and orchestration. The user owns approval.**
+> **Deterministic systems own legal/business truth. The agent owns reasoning, drafting, and orchestration. Responsible humans own approval.**
 
 Concretely:
 - **Rules engine** (deterministic) owns eligibility, document requirements, deadlines, validation, salary thresholds, ISCO codes.
 - **Agent** (LLM-driven) owns conversation, gap-finding, document drafting, explanation, tool selection.
-- **User** (always) owns approval of any extracted data, drafted document, or generated form.
+- **Applicant/firm roles** own explicit confirmation and approval of any extracted data, drafted document, generated form, applicant-facing message, or package gate. Applicant confirmation is distinct from consultant/reviewer approval.
 
 ### 1.4 Long-Term Vision
 
@@ -50,18 +50,18 @@ A multi-country, multi-visa case-management platform that handles the full lifec
 | Parameter | Value |
 |---|---|
 | Visa | EU Blue Card (Germany) |
-| Source country | India (rules + document chain) |
-| Consulate | Bengaluru (German Consulate General, jurisdiction Karnataka + Kerala) |
+| Source/residence flow | India/Bengaluru + Canada/Toronto |
+| Consulate | Bengaluru and Toronto |
 | User language | English only |
 | Form variant | German VIDEX-Visa long-stay form |
-| Channels | Web only (architected for WhatsApp/mobile later) |
-| Personas | Multi-persona test library (10+ personas; user can switch) |
+| Channels | Firm-first web app + applicant portal (architected for WhatsApp/mobile later) |
+| Personas | Multi-persona test library with firm roles and India/Canada scenarios |
 
 ### 2.2 Out of Scope for MVP
 
 - Other German visas (Skilled Worker, Job Seeker, Opportunity Card)
-- Other source countries
-- Other German consulates
+- Other source/residence countries beyond India and Canada
+- Other German consulates beyond Bengaluru and Toronto
 - Other destination countries
 - Multi-language UI (English only at launch)
 - Payment processing (architecture-ready, not built)
@@ -70,7 +70,7 @@ A multi-country, multi-visa case-management platform that handles the full lifec
 - Appointment booking automation (legal/operational risk; deferred indefinitely)
 - Appointment monitoring (deferred to v2 at earliest)
 - Real-time collaborative editing
-- B2B / employer dashboards
+- Automatic sending of applicant/employer communications without firm-configured approval policy
 
 ### 2.3 Deferred-But-Architecturally-Aware
 

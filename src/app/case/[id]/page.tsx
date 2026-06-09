@@ -3,6 +3,7 @@ import { eq, asc } from 'drizzle-orm';
 import { Layout } from '@/components/workspace/Layout';
 import { makeRepository } from '@/lib/case/repository';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { hydrateMessages } from '@/components/workspace/hydrate-messages';
@@ -29,7 +30,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     notFound();
   }
 
-  if (loaded.case.userId !== userId) redirect('/');
+  if (!(await canAccessCase(db, { userId, caseId: loaded.case.id, action: 'read' }))) redirect('/');
 
   const recent = await db
     .select()

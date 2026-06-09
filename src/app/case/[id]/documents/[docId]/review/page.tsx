@@ -1,10 +1,12 @@
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeR2StorageAdapter } from '@/lib/storage/r2';
 import { getExtractionSchema } from '@/lib/extraction/schema';
 import { getConfidenceBands } from '@/lib/documents/review-config';
 import { buildReviewRows } from '@/lib/documents/review-view-model';
+import { db } from '@/lib/db/client';
 import { ReviewForm } from './ReviewForm';
 
 export const runtime = 'nodejs';
@@ -22,7 +24,7 @@ export default async function ReviewPage({
   const docs = makeDocumentRepository();
   const doc = await docs.getById(docId);
   if (!doc || doc.caseId !== caseId) notFound();
-  if (doc.userId !== userId) redirect('/');
+  if (!(await canAccessCase(db, { userId, caseId, action: 'review_document' }))) redirect('/');
   if (doc.status !== 'awaiting_confirmation') redirect(`/case/${caseId}`);
 
   const sourceUrl = await makeR2StorageAdapter().presignDownload(doc.r2Key);

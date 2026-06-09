@@ -29,19 +29,19 @@ should show ONLY the line-1 title difference.
 
 ## What is Relomate?
 
-AI-native case-management platform for skilled workers applying for the **EU Blue Card to Germany**. Users describe their situation in chat; the system builds a structured case file, runs deterministic eligibility, drafts the documents (cover letter, employer letter, CV, VIDEX visa form), and produces a complete submission package.
+AI-native immigration operating system for firms handling **EU Blue Card to Germany** cases. Consultants, reviewers, operations managers, applicants, and employer contacts work around one durable case file. The system builds structured facts, runs deterministic eligibility, collects and validates documents, drafts artifacts (cover letter, employer letter, CV, VIDEX visa form), prepares the submission package, and routes consequential outputs through human review.
 
-The product is the **case**, not the chat. Chat is one panel — always visible — but the case file is the spine.
+The product is the **firm-operated case**, not the chat. Chat is one panel in the consultant workspace, but the case file, review queue, task list, audit trail, and firm console are the spine.
 
-MVP scope: **Germany Blue Card · India source · Bengaluru consulate · web only · multi-persona testing**.
+MVP scope: **Germany Blue Card · India/Bengaluru + Canada/Toronto source/residence flows · firm-first web app · applicant portal · multi-persona testing**.
 
-Not in MVP: appointment booking, native mobile, payments, multi-language UI, multi-channel notifications. Architecture supports these as contained later projects.
+Not in MVP: appointment booking/monitoring, native mobile, payments, multi-language UI, multi-channel notifications beyond email. Architecture supports these as contained later projects.
 
 ---
 
 ## North Star
 
-> A user spends time in the workspace and walks away with a complete, sourced, ready-to-submit Blue Card application package. Background work happens on their behalf. Every consequential write is reviewed by them.
+> A firm can operate many Germany Blue Card cases with AI doing routine case work, applicants supplying inputs through a portal, and consultants/reviewers approving consequential outputs before anything is treated as ready to submit.
 
 If a feature doesn't directly serve that journey, it's out of scope. Raise it before implementing.
 
@@ -78,18 +78,19 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 2. **Zod is source of truth.** Drizzle column types derive from Zod, not vice versa.
 3. **Server is authoritative.** Never trust client state for case facts, eligibility, or entitlements.
 4. **Single agent, many tools.** No multi-agent orchestration. No sub-agents.
-5. **Single-threaded writes.** Only the agent writes case state, only via the `update_case` tool. Other tools fetch/draft/dispatch — they don't mutate.
+5. **Single-threaded case-fact writes.** Only the agent writes case facts via the `update_case` tool. Other tools fetch/draft/dispatch/create operational artifacts only through typed server-side paths. Deterministic review actions may call `repo.applyUpdate` where already established, but do not add new LLM-controlled write paths.
 6. **No string concatenation for user-visible text.** Use i18n keys even though MVP is English-only.
 7. **No hardcoded numbers/thresholds in code or prompts.** All in `config/rules/*.yaml`. The LLM never quotes a number — it calls a tool.
 8. **Tool outputs are typed `{type, version, data}` discriminated unions.** Frontend dispatches via a renderer registry. Versioned for backward compat.
 9. **All facts have provenance.** Every leaf on Profile / CaseFacts has `value`, `source`, `confidence`, `sourceTurnId`, `updatedAt`. Reuse the user-message uuid as `sourceTurnId` — don't mint a fresh one.
 10. **Messages are append-only.** No UPDATE on `messages` / `activity_log` / `*_changes` tables.
 11. **System prompt versioning.** Prompts in `prompts/`, version-controlled. Every assistant message logs `prompt_version`.
-12. **Approvals are explicit.** Extracted data, drafts, generated forms are drafts until the user approves. Workflow engine pauses on approval gates.
+12. **Approvals are explicit and role-aware.** Extracted data, drafts, generated forms, applicant-facing messages, and package gates are drafts until the responsible role approves. Applicant confirmation and consultant/reviewer approval are distinct.
 13. **Long-running work goes through Inngest.** Anything > ~1s. Tools that dispatch to workers return immediately with a job id.
 14. **Background work checkpoints.** Inngest steps. Failures resume from checkpoints, not from scratch.
 15. **No comments narrating what code does.** Only non-obvious intent or constraints.
 16. **Conventional commits:** `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`.
+17. **Firm ownership and RBAC.** The pivot target is organization-owned cases. Do not add new `case.userId === userId` guards; use `src/lib/auth/authorization.ts`. Applicants must never see internal notes, firm playbooks, risk flags, workload/SLA data, or other cases.
 
 ---
 
@@ -107,7 +108,10 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 - Don't scrape consulate / VFS / VIDEX sites — out of scope.
 - Don't add features outside the PRD. Raise it before implementing.
 - Don't use real personal data in tests. Synthetic personas only.
+- Don't use real friends' data in Canada/Toronto testing. Create synthetic personas derived from observed flows.
 - Don't log PII (passport numbers, bank account numbers). Mask in logs.
+- Don't treat applicant confirmation as professional approval. Firm-ready outputs require consultant/reviewer approval.
+- Don't replace deterministic rules with retrieval or firm playbooks. Retrieval can support internal playbook search; rules/thresholds/checklists stay in YAML/config.
 - Don't drop a load-bearing detail from CLAUDE.md without checking it's in code or Stack gotchas.
 
 ---
@@ -127,6 +131,16 @@ See PRD §3.3 for the full layout. Key locations:
 - `src/lib/drafting/` — cover letter, employer letter, CV, VIDEX
 - `src/lib/workflows/` — Inngest functions
 - `src/lib/eval/` — LLM-as-judge
+
+---
+
+## Firm-first pivot directives
+
+Read `docs/strategy/firm-first-pivot.md` before changing ownership, auth, approvals, tasks, dashboards, or persona scope.
+
+The next build phase is **Phase 4C-F — Firm Foundation Pivot** in `IMPLEMENTATION_PLAN.md`, not Phase 5. Finish RBAC, firm-owned cases, participants, real tasks, review inbox, firm console, applicant portal split, internal notes, firm knowledge scaffolding, and Canada/Toronto config/personas before resuming VIDEX/package automation.
+
+Canada/Toronto is in MVP scope, but Canada-specific checklist/rule content is not yet user-verified. Use official `canada.diplo.de` sources and mark config `verifiedByUser: false` until the user verifies. Do not hardcode Toronto facts in prompts.
 
 ---
 
@@ -253,7 +267,7 @@ The user values predictability and explicit decisions over surprise improvements
 
 Personas are in `data/personas/*.json`. Load via `?persona=<id>` URL parameter on case creation.
 
-**MVP scope is trimmed from PRD §11.** Ship 4 archetype personas now (each a distinct rules-engine branch); 6 deferred to Phase 2. Reasoning, schema, per-persona content in `docs/archive/specs/2026-05-27-persona-library-design.md`.
+**Current shipped persona scope is pre-pivot.** Four archetype personas exist now. Phase 4C-F must add firm roles/assignment metadata and Canada/Toronto personas before relying on persona E2E as the firm-first gate. Reasoning, schema, per-persona content in `docs/archive/specs/2026-05-27-persona-library-design.md` predates the firm-first pivot and should be updated when personas change.
 
 Currently shipped (Phase 0):
 - `priya-strong` (shortage route, happy path)
@@ -261,7 +275,7 @@ Currently shipped (Phase 0):
 - `vikram-edge-anabin` (Anabin-unknown refusal-to-conclude)
 - `out-of-scope-asylum` (off-scope refusal)
 
-Deferred to Phase 2: `meera-strong-clean`, `rahul-recent-grad`, `kavya-distance-learning`, `out-of-scope-eu-citizen`, `out-of-scope-criminal`, `renewal-priya-y2`.
+Firm-first additions required in Phase 4C-F: `toronto-strong-pretravel`, `toronto-canadian-visa-free-option`, `toronto-non-canadian-resident`, `toronto-edge-anabin`, plus role/assignment metadata for existing India/Bengaluru personas. Deferred India personas remain `meera-strong-clean`, `rahul-recent-grad`, `kavya-distance-learning`, `out-of-scope-eu-citizen`, `out-of-scope-criminal`, `renewal-priya-y2`.
 
 Every PR runs the persona test suite. Don't skip — strongest E2E signal we have.
 
@@ -277,8 +291,11 @@ Every PR runs the persona test suite. Don't skip — strongest E2E signal we hav
 
 **Through Phase 4B (employer-letter + CV drafting) is merged to `main` (PR #16).** All drafted-document verticals on the shared `drafts`/approval foundation are live: cover letter, employer letter, CV. The phase status table, per-phase write-ups, and PR map: `docs/context-history.md`. Run DB suites **serially** — see the `EMAXPOOLSREACHED` gotcha.
 
+**Product direction changed on 2026-06-08:** Relomate is now firm-first. The existing automation core carries forward, but cases are moving from applicant-owned to organization-owned. **4C-F-1 and 4C-F-2 are implemented on the current branch:** `organization_members`, firm ownership columns on `cases`, `case_participants`, visibility constants, primary-applicant participant seeding, and central `src/lib/auth/authorization.ts` used by case/chat/document route guards. Legacy `cases.user_id` remains for profile/applicant compatibility while `cases.organization_id` is now the ownership key.
+
 **Next up** (sliced into session cards in `IMPLEMENTATION_PLAN.md`):
-- **4C** — Anabin justification draft, `regenerate_draft` with framing, drafts completeness signal.
+- **4C-F** — continue the firm foundation pivot: review inbox/role-aware approvals, real tasks, firm console, applicant portal split, internal notes, firm knowledge scaffolding, Canada/Toronto config/personas.
+- **Then 4C** — Anabin justification draft, `regenerate_draft` with framing, drafts completeness signal.
 - **5 (VIDEX)** — field map → PDF pipeline → Forms section → conversational gap-filling (4 cards).
 - **6 (QA)** — quality engine + submission package (2 cards). **7 (prod)** — eval, observability, GDPR, hardening (4 cards).
 - Standing follow-ups: 2C-layer-3 live LLM + user-simulator; richer in-chat renderers (2B); apostille tracker + Resend emails + drag-drop-anywhere (3D); full 3-group Documents section if the tracker gets too dense.
@@ -304,6 +321,7 @@ These are LOCKED. The full record (every "why", schema, PII discipline, follow-u
 | **Documents: upload, extraction, review** | §Phase 3A / §3B / §3C | `documents`/`approvals` tables MUTABLE (audit = `activity_log`); presigned direct-to-R2; extraction on the finalize ROUTE not a tool; confirm via server action → `applyUpdate` at confidence 1.0, NOT an agent tool; field→leaf mapping config-driven in `documents.yaml`; tracker IS the live Documents dashboard; PII = keys/confidences only, never values |
 | **Drafts (cover/employer/CV)** | §Phase 4A / §4B | `drafts` table MUTABLE; tools create a `drafting` row + dispatch Inngest (no inline generation); one worker dispatches by `draft.type`; polymorphic review route; row-level versioning; activity payloads never contain draft text |
 | **Auth, anon→authed merge** | §Anon→authed merge post-mortem + Stack gotchas | Merge tombstones (never deletes) the anon user; `getCurrentUserId` hits DB (null if `merged_into` set); `users.merged_into` migration `0002` |
+| **Firm ownership, RBAC, participants, tasks, review inbox, portal split** | §Firm-first pivot decision + §4C-F firm foundation pivot | `cases.organization_id` is the ownership key; `cases.user_id` remains the profile/applicant compatibility key; primary applicants are seeded into `case_participants`; use `src/lib/auth/authorization.ts`, not direct `case.userId` route guards |
 
 ---
 
