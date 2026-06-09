@@ -120,20 +120,20 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | Phase | Status | Spec / plan |
 |---|---|---|
 | 0 | complete | — |
-| 1A foundation | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
-| 1B-1 persistence + `update_case` | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md` |
-| 1B-2 auth + anon→authed merge | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md` |
-| 1B-3 chat + workspace + Inngest | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
-| 2A.1 agent brain | complete, merged to main | `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md` |
-| 2A.2 eligibility + knowledge | complete, merged to main | `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
-| 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md` |
-| 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
-| 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
+| 1A foundation | complete, pushed | `docs/archive/plans/2026-05-27-phase-1a-foundation.md` |
+| 1B-1 persistence + `update_case` | complete, pushed | `docs/archive/plans/2026-05-27-phase-1b-1-persistence.md` |
+| 1B-2 auth + anon→authed merge | complete, pushed | `docs/archive/specs/2026-05-28-phase-1b-2-auth-design.md` |
+| 1B-3 chat + workspace + Inngest | complete, pushed | `docs/archive/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
+| 2A.1 agent brain | complete, merged to main | `docs/archive/plans/2026-05-29-phase-2a-1-agent-brain.md` |
+| 2A.2 eligibility + knowledge | complete, merged to main | `docs/archive/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
+| 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/archive/plans/2026-06-01-journey-tracker-dashboard.md` |
+| 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/archive/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
+| 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/archive/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
 | deterministic CI + AGENTS.md | complete, merged to main (PR #14) | `docs/runbooks/ci.md` |
 | 2C layer 3 (live LLM + user-simulator) | designed/deferred, not started | follow-up section in the 2C-tail spec |
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
-| 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
-| 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/superpowers/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
+| 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/archive/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
+| 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/archive/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
 | 4B employer-letter + CV drafting | implemented on current branch | this file, below |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
@@ -204,8 +204,8 @@ schema change rippled through tests. All `tsc`/`eslint` clean; full suite green 
 
 ### Journey-tracker dashboard (2B centerpiece — SHIPPED, merged to main PR #3) — full record
 
-Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`
-(`4db6846`); plan: `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md`.
+Full spec: `docs/archive/specs/2026-05-31-journey-tracker-dashboard-design.md`
+(`4db6846`); plan: `docs/archive/plans/2026-06-01-journey-tracker-dashboard.md`.
 Shipped `config/rules/journey.yaml` + `src/lib/journey/`
 (`loader`/`types`/`citations`/`provenance`/`compute`) +
 `src/components/workspace/Tracker.tsx` (replaced `Overview.tsx`, preserving its empty-state
@@ -235,8 +235,8 @@ fields with per-field confidence, parking the result on a new `documents` row in
 `awaiting_confirmation`. Built TDD, subagent-reviewed per task (implementer → spec → quality).
 All `tsc`/`eslint` clean; 91 tests green across the 3A surface (run **serially** —
 `EMAXPOOLSREACHED` is the documented pooler infra limit on full-suite re-runs, not a regression;
-batch DB files). Design: `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md`;
-plan: `docs/superpowers/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
+batch DB files). Design: `docs/archive/specs/2026-06-03-phase-3a-document-ingest-design.md`;
+plan: `docs/archive/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
 `docs/runbooks/r2-reducto-setup.md`.
 
 **Why these decisions:**
@@ -332,8 +332,8 @@ via the single `applyUpdate` write path, gated by a generic `approvals` primitiv
 drafts). Built subagent-driven (implementer → spec review → quality review per task), TDD throughout.
 `tsc`/`eslint` clean; ~317 tests green (run **serially** — `EMAXPOOLSREACHED` is the documented
 pooler infra limit, not a regression). Spec:
-`docs/superpowers/specs/2026-06-04-phase-3b-approvals-review-design.md`; plan:
-`docs/superpowers/plans/2026-06-04-phase-3b-approvals-review.md`. 13 commits (`e454c06`..`095d63e`).
+`docs/archive/specs/2026-06-04-phase-3b-approvals-review-design.md`; plan:
+`docs/archive/plans/2026-06-04-phase-3b-approvals-review.md`. 13 commits (`e454c06`..`095d63e`).
 
 **Why these decisions:**
 

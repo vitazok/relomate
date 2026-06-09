@@ -7,11 +7,23 @@ Companion files:
 - `IMPLEMENTATION_PLAN.md` — phase-by-phase build plan with verification gates
 - `docs/context-history.md` — resolved-bug post-mortems, phase write-ups, superseded decisions. The "why" behind the terse directives here. Read the relevant section before touching that area.
 
-Multiple developers and multiple agentic tools work on this repository. Treat `AGENTS.md`,
-`CLAUDE.md`, and `docs/context-history.md` as shared handover docs, not single-agent memory.
-At the end of each coding session, review these handover docs and update them when phase state,
-architectural decisions, gotchas, verification notes, or next-up work changed. Keep equivalent
-load-bearing directives in `AGENTS.md` and `CLAUDE.md` in sync.
+Multiple developers and multiple agentic tools (Claude, Codex) work on this repository. Treat
+`AGENTS.md`, `CLAUDE.md`, and `docs/context-history.md` as shared handover docs, not single-agent
+memory. At the end of each coding session, review these and update them when phase state,
+architectural decisions, gotchas, verification notes, or next-up work changed.
+
+**On conflict, this is the authority order:** running code > `CLAUDE.md`/`AGENTS.md` > `PRD.md` >
+`IMPLEMENTATION_PLAN.md` > everything in `docs/archive/`. `CLAUDE.md` is the only doc you must
+read every session; everything else is read on demand. Live phase status lives in the
+"Current state" section below — not in `IMPLEMENTATION_PLAN.md` (which is the slicing) or
+`PRD.md` (which is the product spec).
+
+**`AGENTS.md` and `CLAUDE.md` are the SAME content, byte-for-byte**, except line 1 (the title:
+`# CLAUDE.md` vs `# AGENTS.md`). One is for Claude Code, the other for Codex; the rules are
+tool-agnostic. When you edit one, copy the change verbatim to the other — do NOT find-replace
+"Claude"↔"Codex" (that corrupts model IDs like `claude-sonnet-4-6` and product facts; the stack
+is Anthropic models regardless of which tool edits the file). Verify after: `diff` the two files
+should show ONLY the line-1 title difference.
 
 ---
 
@@ -41,7 +53,7 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 - **Framework:** Next.js 16 (App Router)
 - **UI:** Tailwind 4 + shadcn/ui
 - **AI SDK:** Vercel AI SDK v5+ (provider-agnostic; primary provider Anthropic)
-- **Models:** Codex Sonnet 4.6/4.7 (primary), Codex Haiku 4.5 (judge + simple chat)
+- **Models:** Claude Sonnet 4.6/4.7 (primary), Claude Haiku 4.5 (judge + simple chat)
 - **Workflow engine:** Inngest (durable steps, scheduled jobs, wait-for-event)
 - **Database:** Supabase EU (Postgres) via Drizzle ORM
 - **Object storage:** Cloudflare R2 (S3-compatible, EU jurisdiction, SSE-S3)
@@ -96,7 +108,7 @@ If a feature doesn't directly serve that journey, it's out of scope. Raise it be
 - Don't add features outside the PRD. Raise it before implementing.
 - Don't use real personal data in tests. Synthetic personas only.
 - Don't log PII (passport numbers, bank account numbers). Mask in logs.
-- Don't drop a load-bearing detail from AGENTS.md without checking it's in code or Stack gotchas.
+- Don't drop a load-bearing detail from CLAUDE.md without checking it's in code or Stack gotchas.
 
 ---
 
@@ -241,7 +253,7 @@ The user values predictability and explicit decisions over surprise improvements
 
 Personas are in `data/personas/*.json`. Load via `?persona=<id>` URL parameter on case creation.
 
-**MVP scope is trimmed from PRD §11.** Ship 4 archetype personas now (each a distinct rules-engine branch); 6 deferred to Phase 2. Reasoning, schema, per-persona content in `docs/superpowers/specs/2026-05-27-persona-library-design.md`.
+**MVP scope is trimmed from PRD §11.** Ship 4 archetype personas now (each a distinct rules-engine branch); 6 deferred to Phase 2. Reasoning, schema, per-persona content in `docs/archive/specs/2026-05-27-persona-library-design.md`.
 
 Currently shipped (Phase 0):
 - `priya-strong` (shortage route, happy path)
@@ -301,7 +313,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
   - **`request_document_upload` is registered BEFORE `lookup_anabin`** (which MUST stay last — single cache_control breakpoint). `ALLOWED_UPLOAD_TYPES`/`ALLOWED_UPLOAD_ACCEPT` in `src/lib/documents/types.ts` is the single source of truth for the mime allow-list.
   - **NEW deps** `@aws-sdk/client-s3` + `s3-request-presigner`; **NEW env** `R2_*` (prod-required) + `REDUCTO_API_KEY` (NOT required — vision fallback). Migration `drizzle/0003_dear_grandmaster.sql`. Reducto request/response shape in `reducto.ts` is a **best-effort guess — reconcile against the live API** when provisioned (runbook `docs/runbooks/r2-reducto-setup.md`).
   - **Non-blocking follow-ups** (for 3B/3D): race-safe load-document guard (conditional `setStatus ... WHERE status='uploaded'`); AbortController on the DocumentUpload poll loop; orphaned-`pending_upload` sweep; in-bubble upload card no-ops without `caseId` (composer uploader is the working path).
-- **Phase 3B (approvals & review, merged PR #12) decisions — do NOT redebate** (full write-up: context-history.md; spec/plan: `docs/superpowers/{specs,plans}/2026-06-04-phase-3b-approvals-review*.md`):
+- **Phase 3B (approvals & review, merged PR #12) decisions — do NOT redebate** (full write-up: context-history.md; spec/plan: `docs/archive/{specs,plans}/2026-06-04-phase-3b-approvals-review*.md`):
   - **Confirm writes via `repo.applyUpdate` directly from a server action — NOT an agent `confirm_extraction` tool.** Rule 5's intent is "one write path"; the tool was just the agent's manifestation of `applyUpdate`. No LLM in the confirm loop (deterministic, fast). The `confirm_extraction` tool from the IMPLEMENTATION_PLAN was intentionally dropped for this slice. Actions live in `src/app/case/[id]/documents/[docId]/review/actions.ts`; the node-testable core is `src/lib/documents/confirm-core.ts`.
   - **Generic polymorphic `approvals` table** (`{subjectType,subjectId,status,decision,...}`, migration `0004_zippy_kinsey_walden.sql`) — `subjectType:'document'` now, `'draft'` in Phase 4 with zero schema change. MUTABLE like `documents` (audit trail = `activity_log`). Partial unique index `approvals_pending_subject_unique` = at most one PENDING approval per subject (resolved rows don't conflict → re-review after reject works). `makeApprovalRepository`'s `createPending` is idempotent (returns existing pending). The workflow opens the pending approval in a new `create-approval` step (the only touch to 3A's `extract-document.ts`).
   - **Confirm semantics:** writes at **confidence 1.0**, `sourceTurnId: null`, per-field `source` = `'document'` (as-extracted) or `'user_corrected'` (edited). Because `applyUpdate` takes ONE source per call, confirm splits into **≤2 `applyUpdate` calls** (one per source group) — zero change to the load-bearing `applyUpdate`. Ordering: applyUpdate(s) → resolve approval → setStatus('confirmed') → appendActivity.
@@ -316,7 +328,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
   - **Checklist-specific uploads:** `DocumentUpload.uploadDocument(caseId,file,spineItemId?)` sends `spineItemId`; `/api/documents/upload-url` persists it; tracker-row upload controls pass the checklist item id. Chat composer upload still passes `null`.
   - **Refresh:** `DocumentUpload` calls `router.refresh()` when polling reaches terminal dashboard states (`awaiting_confirmation`/`failed`) or errors, so RSC tracker state catches up.
   - **Known limitation:** document rows match tracker requirements by `spineItemId` only. Multiple children with the same required doc consume rows in repository order; add a stable member key before relying on exact per-child matching.
-- **Phase 4A (cover-letter drafting, merged PR #15) decisions — do NOT redebate** (spec/plan: `docs/superpowers/{specs,plans}/2026-06-07-phase-4a-cover-letter-drafting*.md`; full write-up: context-history.md):
+- **Phase 4A (cover-letter drafting, merged PR #15) decisions — do NOT redebate** (spec/plan: `docs/archive/{specs,plans}/2026-06-07-phase-4a-cover-letter-drafting*.md`; full write-up: context-history.md):
   - **`drafts` table is MUTABLE** like `documents`: a WIP artifact row, not append-only case state. Audit trail = `activity_log`. Migration `0005_real_young_avengers.sql`.
   - **`draft_cover_letter` does not generate inline in chat.** It creates a `drafting` row, logs `case.draft.requested`, dispatches `draft.requested`, and returns `{type:'draft_request_result',version:1,data}` immediately.
   - **Generation runs in Inngest** (`generateDraftHandler`) and validates output with `CoverLetterContentSchema`. Success stores content, sets `ready_for_review`, creates `approvals.subjectType:'draft'`, and logs only safe metadata. Failure sets `failed`.
@@ -356,7 +368,7 @@ Phase 0 (validation per PRD §21) precedes Phase 1.
 **Caching / refresh / model / prompt**
 - Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
 - `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
-- Anthropic model: **`Codex-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
+- Anthropic model: **`claude-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
 - Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'`. **`v0.md` covers the current chat tool catalog** — `update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`request_document_upload`/`draft_cover_letter`/`draft_employer_letter`/`draft_cv`/`lookup_anabin`. Reserve a `PROMPT_VERSION` bump for the next generational rewrite; generated draft prompts have their own per-type versions.
 
 **Tools / renderer / layout**

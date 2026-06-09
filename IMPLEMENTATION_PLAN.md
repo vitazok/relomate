@@ -1,10 +1,14 @@
 # Relomate — Implementation Plan
 
-Companion to `PRD.md`. Read PRD §1–§4 before starting Phase 0.
+Companion to `PRD.md`. **This file is the work SLICING — how the build is cut into agent
+sessions.** It is not the live status (that's `CLAUDE.md`'s "Current state"), not the rules
+(also `CLAUDE.md`), and not the product spec (`PRD.md`). On conflict, `CLAUDE.md`/`AGENTS.md`
+win — see the authority order at the top of `CLAUDE.md`.
 
-This plan is **phase-based, not time-boxed.** Each phase has clear deliverables, verification criteria, and a stop-gate before the next phase. Do not skip the verification gate. Hold yourself (and Claude Code) to it.
-
-Estimated calendar time: **8–10 weeks** of focused build, assuming Claude Code does the typing and you do review + decisions.
+Phases 1–3 are historical (deliverable lists, kept for reference); **Phase 4 onward is sliced
+into session cards** — one card ≈ one agent session. The current process and the card template
+are in "Driving Claude Code through this plan" → "Session-card model" near the bottom. Don't skip
+a card's verification gate.
 
 ---
 
@@ -35,7 +39,7 @@ Estimated calendar time: **8–10 weeks** of focused build, assuming Claude Code
 - [ ] Provenance wrapper (Zod) implemented in `src/lib/case/schema.ts`
 - [ ] **Persona library follow-ups** (carried over from Phase 0 persona-library v1):
   - Create `data/personas/schema.ts` exporting `PersonaSchema` covering the structure used by the 4 existing JSONs at `data/personas/`. Wire it into a CI step that parses every persona at build time.
-  - Create `tests/personas/eligibility.test.ts` with a `describe.each(loadPersonas())` skeleton (initially `describe.skip` until `evaluateEligibility` is ported). See `docs/superpowers/specs/2026-05-27-persona-library-design.md` §6.2 for the exact shape.
+  - Create `tests/personas/eligibility.test.ts` with a `describe.each(loadPersonas())` skeleton (initially `describe.skip` until `evaluateEligibility` is ported). See `docs/archive/specs/2026-05-27-persona-library-design.md` §6.2 for the exact shape.
   - After porting Nomad's `evaluateEligibility`, unskip the test. Reconcile the open string codes from spec §8 (`anabin_status_unknown` blocker; `zab_statement_required`, `consulate_clarification_recommended`, `proof_of_experience_required` warnings) against the engine's actual output strings; update affected `expected` blocks if codes differ.
 - [ ] 3-column workspace shell at `/case/[id]`:
   - Left: nav with section list (placeholder content)
@@ -98,7 +102,7 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
   - Includes recent messages, top tasks, recent activity
   - Token-budgeted
 - [ ] Workspace sections live (read-only display):
-  - Overview (eligibility verdict, status, top action items) — **superseded by the 2B journey-tracker dashboard** (`docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`): the center column becomes a phased journey tracker (read-only projection over case state). Profile folds into the tracker's Documents phase; identity comes from the passport upload, not a standalone section. Activity log + section drill-downs survive in the left sidebar. Build the tracker as the 2B centerpiece — **this is the NEXT build; 2A.1 + 2A.2 are complete and on `origin/main`.**
+  - Overview (eligibility verdict, status, top action items) — **superseded by the 2B journey-tracker dashboard** (`docs/archive/specs/2026-05-31-journey-tracker-dashboard-design.md`): the center column becomes a phased journey tracker (read-only projection over case state). Profile folds into the tracker's Documents phase; identity comes from the passport upload, not a standalone section. Activity log + section drill-downs survive in the left sidebar. Build the tracker as the 2B centerpiece — **this is the NEXT build; 2A.1 + 2A.2 are complete and on `origin/main`.**
   - Profile (identity facts with provenance hover) — *(folds into Documents; see above)*
   - Activity log
 - [ ] Persona library v1 in `data/personas/`:
