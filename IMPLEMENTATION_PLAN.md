@@ -1,10 +1,14 @@
 # Relomate — Implementation Plan
 
-Companion to `PRD.md`. Read PRD §1–§4 before starting Phase 0.
+Companion to `PRD.md`. **This file is the work SLICING — how the build is cut into agent
+sessions.** It is not the live status (that's `CLAUDE.md`'s "Current state"), not the rules
+(also `CLAUDE.md`), and not the product spec (`PRD.md`). On conflict, `CLAUDE.md`/`AGENTS.md`
+win — see the authority order at the top of `CLAUDE.md`.
 
-This plan is **phase-based, not time-boxed.** Each phase has clear deliverables, verification criteria, and a stop-gate before the next phase. Do not skip the verification gate. Hold yourself (and Claude Code) to it.
-
-Estimated calendar time: **8–10 weeks** of focused build, assuming Claude Code does the typing and you do review + decisions.
+Phases 1–3 are historical (deliverable lists, kept for reference); **Phase 4 onward is sliced
+into session cards** — one card ≈ one agent session. The current process and the card template
+are in "Driving Claude Code through this plan" → "Session-card model" near the bottom. Don't skip
+a card's verification gate.
 
 ---
 
@@ -35,7 +39,7 @@ Estimated calendar time: **8–10 weeks** of focused build, assuming Claude Code
 - [ ] Provenance wrapper (Zod) implemented in `src/lib/case/schema.ts`
 - [ ] **Persona library follow-ups** (carried over from Phase 0 persona-library v1):
   - Create `data/personas/schema.ts` exporting `PersonaSchema` covering the structure used by the 4 existing JSONs at `data/personas/`. Wire it into a CI step that parses every persona at build time.
-  - Create `tests/personas/eligibility.test.ts` with a `describe.each(loadPersonas())` skeleton (initially `describe.skip` until `evaluateEligibility` is ported). See `docs/superpowers/specs/2026-05-27-persona-library-design.md` §6.2 for the exact shape.
+  - Create `tests/personas/eligibility.test.ts` with a `describe.each(loadPersonas())` skeleton (initially `describe.skip` until `evaluateEligibility` is ported). See `docs/archive/specs/2026-05-27-persona-library-design.md` §6.2 for the exact shape.
   - After porting Nomad's `evaluateEligibility`, unskip the test. Reconcile the open string codes from spec §8 (`anabin_status_unknown` blocker; `zab_statement_required`, `consulate_clarification_recommended`, `proof_of_experience_required` warnings) against the engine's actual output strings; update affected `expected` blocks if codes differ.
 - [ ] 3-column workspace shell at `/case/[id]`:
   - Left: nav with section list (placeholder content)
@@ -98,7 +102,7 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
   - Includes recent messages, top tasks, recent activity
   - Token-budgeted
 - [ ] Workspace sections live (read-only display):
-  - Overview (eligibility verdict, status, top action items) — **superseded by the 2B journey-tracker dashboard** (`docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`): the center column becomes a phased journey tracker (read-only projection over case state). Profile folds into the tracker's Documents phase; identity comes from the passport upload, not a standalone section. Activity log + section drill-downs survive in the left sidebar. Build the tracker as the 2B centerpiece — **this is the NEXT build; 2A.1 + 2A.2 are complete and on `origin/main`.**
+  - Overview (eligibility verdict, status, top action items) — **superseded by the 2B journey-tracker dashboard** (`docs/archive/specs/2026-05-31-journey-tracker-dashboard-design.md`): the center column becomes a phased journey tracker (read-only projection over case state). Profile folds into the tracker's Documents phase; identity comes from the passport upload, not a standalone section. Activity log + section drill-downs survive in the left sidebar. Build the tracker as the 2B centerpiece — **this is the NEXT build; 2A.1 + 2A.2 are complete and on `origin/main`.**
   - Profile (identity facts with provenance hover) — *(folds into Documents; see above)*
   - Activity log
 - [ ] Persona library v1 in `data/personas/`:
@@ -166,35 +170,41 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 ## Phase 4 — Drafted Documents
 
-**Goal:** System drafts cover letter, employer letter, CV. User reviews, regenerates with framing changes, approves.
+**Goal:** System drafts cover letter, employer letter, CV, Anabin justification. User reviews, regenerates with framing changes, approves.
 
-### Deliverables
+**Done:** 4A cover letter (PR #15), 4B employer letter + CV (PR #16). Drafts foundation (`drafts` table, `makeDraftRepository`, `generateDraftHandler`, polymorphic review route, `approvals` `subjectType:'draft'`, per-type versioning) is settled — 4C cards reuse it.
 
-- [ ] Tools added:
-  - `draft_cover_letter`
-  - `draft_employer_letter`
-  - `draft_cv`
-  - `draft_anabin_justification`
-  - `regenerate_draft`
-- [ ] Prompt templates in `src/lib/drafting/`:
-  - Each draft tool has a structured prompt with case context
-  - Output validated by Zod (structural lint)
-- [ ] Drafts workspace section:
-  - List of drafts with status (drafting / ready / approved)
-  - Click to read inline
-  - Edit-in-place
-  - "Regenerate with..." options (more formal, emphasize return intent, etc.)
-  - Approve action
-- [ ] Approval workflow for drafts (reuses Phase 3 approval primitive)
-- [ ] Multi-language drafts (English primary, German for forms — covered in Phase 5)
+### Card 4C-1 — Anabin justification draft
+- **Goal:** Add `draft_anabin_justification` as a fourth draft type for Anabin-`unknown`/ZAB cases.
+- **Tasks:**
+  - [ ] Add `anabin_justification` to the draft type union + a Zod content schema in `src/lib/drafting/types.ts`.
+  - [ ] Add `draft_anabin_justification/v0` prompt; wire into `generateDraftByType`.
+  - [ ] Register `draft_anabin_justification` tool BEFORE `lookup_anabin` (single cache-control breakpoint stays last).
+  - [ ] Add the fourth Drafts tracker row; only `approved` counts complete.
+  - [ ] Update agent prompt/tool catalog + handover docs.
+- **Verify:** `pnpm exec tsc --noEmit` + serial vitest on `tests/drafting tests/ai/draft_* tests/ai/agent-turn.test.ts tests/journey/compute.test.ts`.
+- **Deferred:** regeneration; package gate.
 
-### Verification gate
+### Card 4C-2 — `regenerate_draft` with framing
+- **Goal:** Let the user regenerate any existing draft with framing instructions (more formal, emphasize return intent, etc.).
+- **Tasks:**
+  - [ ] `regenerate_draft` tool: takes `draftId` + framing instruction, dispatches `draft.requested` with the instruction, bumps version.
+  - [ ] Thread framing instruction through `generateDraftByType` into each prompt.
+  - [ ] Review route surfaces version history (read-only list; latest is reviewable).
+  - [ ] "Regenerate with…" affordance in the draft review UI.
+  - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting tests/ai/agent-turn.test.ts tests/inngest/generate-draft.test.ts`.
+- **Deferred:** package gate; live content-quality eval (Phase 7).
+- **Decisions:** version-history UX — list vs. diff vs. latest-only. Resolve in-session from the existing review-route shape; brainstorm only if a real fork appears.
 
-- [ ] Generate cover letter for priya-strong; manual review confirms acceptable tone, no hallucinated facts
-- [ ] Generate employer letter; produces a printable template with case data filled in
-- [ ] Generate CV in German consulate format; structural lint passes
-- [ ] Regeneration produces meaningfully different output
-- [ ] Approval round-trips: draft → review → approve → status updates
+### Card 4C-3 — Drafts completeness signal
+- **Goal:** Expose "all required drafts approved" as a tracker signal (consumed by the Phase 6 package gate).
+- **Tasks:**
+  - [ ] `computeJourneyProgress` Drafts phase reports approved-count vs. required-by-route.
+  - [ ] Pure helper `requiredDraftsForRoute(verdict)` (config-driven; no hardcoded list).
+  - [ ] Update journey tests for the live count.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/journey tests/drafting`.
+- **Deferred:** the actual blocking gate lives in Phase 6 (`quality_check`); this card only surfaces the signal.
 
 ---
 
@@ -202,34 +212,49 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 **Goal:** System fills VIDEX in the background. User never touches the source form. Missing fields surfaced as Tasks.
 
-### Deliverables
+**Sliced into 4 cards** — the field-map port + PDF pipeline + Forms UI + gap-filling are distinct file sets and each is a session on its own. 5-1 is the foundation the rest build on.
 
-- [ ] VIDEX field map in `src/lib/drafting/videx.ts`:
-  - 37 fields × AcroForm names + transforms
-  - Port AcroForm IDs from `immigration/` repo
-- [ ] Tools added:
-  - `fill_videx_form` — returns completeness report
-  - `request_missing_field`
-  - `generate_filled_pdf` — dispatches Inngest worker
-  - `generate_submission_package`
-- [ ] PDF filling pipeline (port + adapt from `formular/` and `immigration/`):
-  - Load blank PDF
-  - AcroForm fill via pdf-lib
-  - Coordinate-overlay fallback for non-AcroForm
-  - Cover page generated with summary
-  - Flatten on user approval
-- [ ] Forms workspace section:
-  - Completeness gauge ("28 of 37 fields filled")
-  - Missing-fields list with "Provide" buttons
-  - Side-by-side preview when complete
-  - Approve action triggers final flattened PDF
-- [ ] Conversational gap-filling:
-  - Agent surfaces missing fields as structured questions
-  - User answers in chat or in form widget
-  - Case updates; form re-checked
+### Card 5-1 — VIDEX field map + completeness engine
+- **Goal:** Port the 37-field VIDEX map and a pure completeness report (no PDF, no UI yet).
+- **Tasks:**
+  - [ ] `src/lib/drafting/videx.ts`: 37 fields × AcroForm names + transforms; port AcroForm IDs from `immigration/` repo.
+  - [ ] Each field maps to a CaseFacts/Profile leaf path (validated via `validateLeafPath`).
+  - [ ] Pure `assessVidexCompleteness(case) → { filled, missing[], total }`.
+  - [ ] `fill_videx_form` tool returns the completeness report (no PDF dispatch).
+  - [ ] Unit tests: priya-strong completeness, each transform, missing-field detection.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting/videx*`.
+- **Deferred:** PDF generation (5-2), Forms UI (5-3), gap-filling (5-4).
+- **Decisions:** confirm the source repo (`immigration/` vs `formular/`) actually holds current AcroForm IDs before porting — lookup, not brainstorm.
 
-### Verification gate
+### Card 5-2 — PDF filling pipeline (Inngest)
+- **Goal:** Generate a filled, previewable PDF from the completeness map.
+- **Tasks:**
+  - [ ] PDF pipeline (port + adapt `formular/`/`immigration/`): load blank → AcroForm fill via pdf-lib → coordinate-overlay fallback → cover page with summary.
+  - [ ] `generate_filled_pdf` tool dispatches an Inngest worker (returns job id; agent doesn't await — rule 13).
+  - [ ] Worker stores draft PDF in R2; flatten only on approval.
+  - [ ] Reuse the `drafts`/`approvals` foundation (`subjectType:'draft'`, type `videx`).
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting/videx-pdf* tests/inngest`; manual: generated PDF opens, values in correct fields.
+- **Deferred:** Forms UI (5-3); gap-filling (5-4).
 
+### Card 5-3 — Forms workspace section
+- **Goal:** Surface VIDEX completeness + preview + approval in the workspace.
+- **Tasks:**
+  - [ ] Forms section: completeness gauge ("28 of 37"), missing-fields list with "Provide" buttons, side-by-side preview when complete.
+  - [ ] Approve action triggers the final flattened PDF (5-2 worker).
+  - [ ] Nav wiring (follow the settled section-host pattern).
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/components` (forms section, gauge).
+- **Deferred:** conversational gap-filling (5-4).
+
+### Card 5-4 — Conversational gap-filling
+- **Goal:** Agent surfaces missing VIDEX fields as structured questions; answers update the case and re-check the form.
+- **Tasks:**
+  - [ ] `request_missing_field` tool surfaces missing fields as structured questions.
+  - [ ] User answers in chat (or the form widget from 5-3) → `update_case` → form re-checked.
+  - [ ] Renderer for the structured missing-field prompt.
+  - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/ai tests/drafting/videx*`; persona E2E: priya-strong reaches 100% via chat + uploads; remove a field → task created.
+
+### Phase 5 verification gate (after all 4 cards)
 - [ ] priya-strong reaches 100% VIDEX completeness through chat + uploads
 - [ ] Generated PDF opens in standard PDF viewer; values in correct fields
 - [ ] Missing-field flow works end-to-end (intentionally remove a field; verify task created)
@@ -241,27 +266,28 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 **Goal:** Pre-submission review catches inconsistencies. Submission package ZIP generated.
 
-### Deliverables
+**Sliced into 2 cards** — the quality engine (pure logic + renderer) and the package generation (ZIP + R2 + email worker) are separate file sets. 6-1 is the completeness gate that 6-2 requires.
 
-- [ ] Tools added:
-  - `quality_check` — runs cross-document consistency, completeness, risk flags
-  - `generate_submission_package`
-- [ ] Quality engine in `src/lib/case/quality.ts`:
-  - Cross-document consistency (e.g., name match across passport + employer letter)
-  - Completeness (every required document confirmed; every required draft approved; VIDEX 100% filled)
-  - Risk flags (employment gaps, weak ties, financial inconsistencies)
-- [ ] Quality result rendered as structured output:
-  - Blockers (will likely cause refusal)
-  - Warnings (may trigger additional doc requests)
-  - Recommendations (optional improvements)
-- [ ] Submission package generation:
-  - ZIP with documents in correct consulate-specified order
-  - Cover page with case summary
-  - Pre-appointment checklist
-  - Stored in R2; download link emailed
+### Card 6-1 — Quality engine + `quality_check`
+- **Goal:** Pure pre-submission review: consistency, completeness, risk flags, rendered as structured output.
+- **Tasks:**
+  - [ ] `src/lib/case/quality.ts` (pure, like the eligibility engine): cross-document consistency (name match across passport + employer letter), completeness (every required doc confirmed, every required draft approved per 4C-3, VIDEX 100%), risk flags (employment gaps, weak ties, financial inconsistencies — config-driven, rule 7).
+  - [ ] `quality_check` tool → `{type:'quality_result',version:1,data}` with Blockers / Warnings / Recommendations.
+  - [ ] Renderer for `quality_result`.
+  - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/case/quality* tests/ai tests/components/renderers.test.ts`; inject mismatched name → flagged.
+- **Deferred:** package ZIP (6-2).
 
-### Verification gate
+### Card 6-2 — Submission package generation
+- **Goal:** Generate the downloadable submission package once quality passes.
+- **Tasks:**
+  - [ ] `generate_submission_package` tool dispatches an Inngest worker (gated on 6-1 quality clear; rule 13).
+  - [ ] Worker builds ZIP: documents in consulate-specified order (config-driven) + cover page (case summary) + pre-appointment checklist.
+  - [ ] Store in R2; email download link via Resend.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/inngest tests/case/package*`; manual: ZIP order correct, download link works, email arrives.
+- **Decisions:** consulate document order source — confirm it's in `config/rules/` (consulates/documents YAML) before coding; add if missing.
 
+### Phase 6 verification gate (after both cards)
 - [ ] Full happy path for priya-strong: intake → docs → drafts → forms → quality check → package
 - [ ] Inject inconsistency (mismatched name) — quality check flags it
 - [ ] Package ZIP contents match expected order
@@ -273,42 +299,47 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 **Goal:** Eval, observability, compliance, polish.
 
-### Deliverables
+**Sliced into 4 cards** by coherence — these are independent file sets that share almost nothing, so one session each. 7-1 (eval) and the 2C-layer-3 live-LLM follow-up overlap; do 7-1 on top of the existing deterministic CI gate (PR #14), not mixed into it.
 
-- [ ] LLM-as-judge eval workflow (Inngest):
-  - Triggers on `messages/created` event
-  - Scores accuracy, citation, hallucination, tone, tool-use
-  - Stores scores; flags low-confidence
-- [ ] Sentry integration (frontend + backend + workers)
-- [ ] Langfuse self-hosted or hosted; trace every LLM call
-- [ ] GDPR endpoints:
-  - `DELETE /api/user/me` (hard-delete user + all data)
-  - `GET /api/user/me/export` (JSON + ZIP of all data)
-  - Tested end-to-end
-- [ ] Auto-retention workflow:
-  - Daily Inngest job: delete documents > 90d post-completion (unless opted in)
-- [ ] Privacy policy + Terms of Service drafted (lawyer-reviewed before launch)
-- [ ] Disclaimers embedded in all generated outputs
-- [ ] PII masking in logs verified
-- [ ] Rate limiting on chat + uploads
-- [ ] Persona test suite expanded:
-  - Edge cases: contradiction handling, fact-changes-mid-flow, off-scope drift, unsupported scenarios
-- [ ] Error handling polished per PRD §15
-- [ ] Performance targets met per PRD §16
-- [ ] Production deployment to Vercel (fra1)
-- [ ] Production Supabase EU
-- [ ] Smoke test in production with priya-strong persona
+### Card 7-1 — LLM-as-judge eval workflow
+- **Goal:** Score every assistant turn for quality; flag low-confidence.
+- **Tasks:**
+  - [ ] Inngest function triggered on `messages/created` (or the existing turn event).
+  - [ ] Judge prompt (`prompts/eval/v0.md`) scores accuracy, citation, hallucination, tone, tool-use (Haiku judge per stack).
+  - [ ] Store scores (new table or column); flag low-confidence.
+  - [ ] Wire into CI nightly (build on the deterministic gate; the 2C-layer-3 follow-up rides here).
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/eval tests/inngest`; judge avg > 0.9 across persona runs.
 
-### Verification gate
+### Card 7-2 — Observability (Sentry + Langfuse)
+- **Goal:** Errors and LLM traces visible in prod.
+- **Tasks:**
+  - [ ] Sentry: frontend + backend + workers.
+  - [ ] Langfuse: trace every LLM call (self-hosted per stack).
+  - [ ] Verify PII masking holds in both (no passport/bank numbers in traces or events).
+- **Verify:** `tsc --noEmit`; manual: Sentry receiving events, Langfuse showing traces, masking confirmed.
 
-- [ ] All persona tests passing in CI
-- [ ] LLM-as-judge avg score > 0.9 across persona test runs
-- [ ] Sentry receiving events
-- [ ] Langfuse showing prompt traces
-- [ ] GDPR delete + export verified manually
-- [ ] Disclaimers present on every output
-- [ ] Lawyer sign-off on legal positioning + ToS + privacy policy
-- [ ] Production smoke test passes
+### Card 7-3 — GDPR + retention compliance
+- **Goal:** Data-rights endpoints + auto-retention.
+- **Tasks:**
+  - [ ] `DELETE /api/user/me` — hard-delete user + all data (mind the anon→authed merge tombstones; FK `ON DELETE no action` on audit rows — see auth gotchas).
+  - [ ] `GET /api/user/me/export` — JSON + ZIP of all data.
+  - [ ] Daily Inngest retention job: delete documents > 90d post-completion unless opted in.
+  - [ ] Disclaimers embedded in all generated outputs.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/api/user* tests/inngest`; manual: delete + export round-trip.
+- **Decisions:** hard-delete vs. tombstone for the authed user given the merge FK constraints — resolve against `promoteToAuthed`'s existing tombstone logic; brainstorm only if a real conflict surfaces.
+
+### Card 7-4 — Hardening + deploy
+- **Goal:** Rate limiting, perf, expanded personas, production deploy + smoke.
+- **Tasks:**
+  - [ ] Rate limiting on chat + uploads.
+  - [ ] Persona suite expanded: contradiction handling, fact-changes-mid-flow, off-scope drift, unsupported scenarios.
+  - [ ] Error handling per PRD §15; performance targets per PRD §16.
+  - [ ] Production deploy: Vercel `fra1`, Supabase EU; smoke test with priya-strong.
+- **Verify:** full persona suite green in CI (serial); production smoke passes.
+
+### Phase 7 verification gate (after all cards) — non-code items
+- [ ] Privacy policy + ToS drafted and **lawyer-reviewed** (legal sign-off on positioning + ToS + privacy policy) — owner task, not an agent card.
+- [ ] All persona tests passing in CI; LLM-as-judge avg > 0.9; Sentry + Langfuse live; GDPR delete/export verified; disclaimers on every output; production smoke passes.
 
 ---
 
@@ -336,17 +367,31 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 A few practical rules. These matter more than they look.
 
-### Per-phase workflow
+### Session-card model (current process)
 
-1. **Plan first, then execute.** At the start of each phase, ask Claude Code to write a plan (use `superpowers:writing-plans` skill or the Plan subagent). Review the plan. Adjust. Then execute.
+Phases 4C onward are pre-sliced into **session cards**. Each card is sized for one agent session (target ≤250k tokens) and is self-contained: an agent reads the auto-loaded `CLAUDE.md`/`AGENTS.md` plus its card, and executes — **no per-phase brainstorm, no separate spec or plan doc.** The architecture is already pinned in the handover docs; a card carries only what's specific to the slice. (Early phases 1–3 used brainstorm → spec → heavy plan because the architecture was unsettled; it's now codified, so that overhead no longer pays off. 4A shipped on a 34-line card — that's the target weight.)
 
-2. **Verification before completion.** At the end of each phase, run the verification gate. Use `superpowers:verification-before-completion`. Don't accept "I think it works" — require evidence.
+**Thin by default, brainstorm by exception.** Run `superpowers:brainstorming` or write a spec ONLY when a card's `Decisions:` line names a genuinely unresolved *architectural* fork. A `Decisions:` line that just says "check current code state" is an in-session lookup, not a brainstorm. A card with no `Decisions:` line is settled — go straight to TDD.
 
-3. **One phase at a time.** Don't dump the whole plan into Claude Code. Hand off one phase. Review thoroughly. Move on.
+**Per-card loop:**
+1. Read the card + handover docs. If `Decisions:` names an unresolved fork, resolve it first; otherwise skip planning entirely.
+2. TDD the tasks (`superpowers:test-driven-development`). Commit per working chunk (conventional commits).
+3. Run the card's `Verify` command. Evidence before "done" (`superpowers:verification-before-completion`).
+4. Update `CLAUDE.md` + `AGENTS.md` (keep load-bearing directives in sync) + `docs/context-history.md` with any new gotcha/decision; tick the card.
 
-4. **Commit after every working chunk.** Don't let Claude Code work for hours on uncommitted changes. Use git aggressively. Use worktrees for parallel experiments.
+**Card template:**
+```
+### Card <id> — <title>
+- **Goal:** one sentence.
+- **Tasks:** 5–10 checkboxes, each a concrete deliverable.
+- **Verify:** exact `tsc --noEmit` + serial vitest command (scoped paths).
+- **Deferred:** what this card explicitly does NOT do.
+- **Decisions:** unresolved forks — OMIT the line entirely if none.
+```
 
-5. **Update CLAUDE.md as you go.** Each new pattern, gotcha, or architectural rule discovered → into CLAUDE.md. Future sessions are dramatically more reliable when the rules are codified.
+Cards that touch disjoint files may run in parallel (`superpowers:dispatching-parallel-agents` + worktrees). **Live phase status is in `CLAUDE.md`'s current-state section, not here** — this file is the slicing, CLAUDE.md is the "where we are."
+
+**Sizing rule (≤250k per card).** Token count of a future session can't be measured up front, so size by proxy: a card should be **one coherent capability, touch ~5–10 files, and rest on settled architecture.** That fits ≤250k with room for TDD iteration and test output. Split a card if it (a) ports a large external artifact (e.g. the 37-field VIDEX map), (b) bundles two capabilities that don't share files, or (c) needs to read a wide swath of existing code before writing. The phase cards below are already split to this rule — if a card still feels heavy in-session, split it again and note the new slice here.
 
 ### When to spawn a subagent
 

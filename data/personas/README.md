@@ -5,7 +5,7 @@ profile + case facts + expected eligibility verdict.
 
 ## File shape
 
-Per `docs/superpowers/specs/2026-05-27-persona-library-design.md` §4:
+Per `docs/archive/specs/2026-05-27-persona-library-design.md` §4:
 
 - `id` — kebab-case identifier matching the filename (without `.json`).
 - `description` — one-line human-readable purpose.

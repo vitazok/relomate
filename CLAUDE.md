@@ -7,11 +7,23 @@ Companion files:
 - `IMPLEMENTATION_PLAN.md` — phase-by-phase build plan with verification gates
 - `docs/context-history.md` — resolved-bug post-mortems, phase write-ups, superseded decisions. The "why" behind the terse directives here. Read the relevant section before touching that area.
 
-Multiple developers and multiple agentic tools work on this repository. Treat `AGENTS.md`,
-`CLAUDE.md`, and `docs/context-history.md` as shared handover docs, not single-agent memory.
-At the end of each coding session, review these handover docs and update them when phase state,
-architectural decisions, gotchas, verification notes, or next-up work changed. Keep equivalent
-load-bearing directives in `AGENTS.md` and `CLAUDE.md` in sync.
+Multiple developers and multiple agentic tools (Claude, Codex) work on this repository. Treat
+`AGENTS.md`, `CLAUDE.md`, and `docs/context-history.md` as shared handover docs, not single-agent
+memory. At the end of each coding session, review these and update them when phase state,
+architectural decisions, gotchas, verification notes, or next-up work changed.
+
+**On conflict, this is the authority order:** running code > `CLAUDE.md`/`AGENTS.md` > `PRD.md` >
+`IMPLEMENTATION_PLAN.md` > everything in `docs/archive/`. `CLAUDE.md` is the only doc you must
+read every session; everything else is read on demand. Live phase status lives in the
+"Current state" section below — not in `IMPLEMENTATION_PLAN.md` (which is the slicing) or
+`PRD.md` (which is the product spec).
+
+**`AGENTS.md` and `CLAUDE.md` are the SAME content, byte-for-byte**, except line 1 (the title:
+`# CLAUDE.md` vs `# AGENTS.md`). One is for Claude Code, the other for Codex; the rules are
+tool-agnostic. When you edit one, copy the change verbatim to the other — do NOT find-replace
+"Claude"↔"Codex" (that corrupts model IDs like `claude-sonnet-4-6` and product facts; the stack
+is Anthropic models regardless of which tool edits the file). Verify after: `diff` the two files
+should show ONLY the line-1 title difference.
 
 ---
 
@@ -241,7 +253,7 @@ The user values predictability and explicit decisions over surprise improvements
 
 Personas are in `data/personas/*.json`. Load via `?persona=<id>` URL parameter on case creation.
 
-**MVP scope is trimmed from PRD §11.** Ship 4 archetype personas now (each a distinct rules-engine branch); 6 deferred to Phase 2. Reasoning, schema, per-persona content in `docs/superpowers/specs/2026-05-27-persona-library-design.md`.
+**MVP scope is trimmed from PRD §11.** Ship 4 archetype personas now (each a distinct rules-engine branch); 6 deferred to Phase 2. Reasoning, schema, per-persona content in `docs/archive/specs/2026-05-27-persona-library-design.md`.
 
 Currently shipped (Phase 0):
 - `priya-strong` (shortage route, happy path)
@@ -257,118 +269,41 @@ Every PR runs the persona test suite. Don't skip — strongest E2E signal we hav
 
 ## Build plan
 
-`IMPLEMENTATION_PLAN.md` is the day-by-day plan. Reference by phase number. Don't skip phases. Verify each phase end-to-end.
-
-Phase 0 (validation per PRD §21) precedes Phase 1.
+`IMPLEMENTATION_PLAN.md` is the work slicing. Phases 1–3 are historical; **Phase 4 onward is sliced into session cards** — one card ≈ one agent session (≤250k tokens), self-contained (Goal / Tasks / Verify / Deferred / optional Decisions). Thin by default; brainstorm only when a card's `Decisions:` line names a real architectural fork. Don't skip a card's verification gate. Process detail: that file's "Session-card model" section.
 
 ---
 
-## Current state (as of 2026-06-07)
+## Current state (as of 2026-06-09)
 
-**Everything through Phase 4A cover-letter drafting is merged to `main` (PR #15).** Current branch implements Phase 4B employer-letter + CV drafting on the same `drafts`/approval foundation: `draft_employer_letter`, `draft_cv`, typed employer/CV content, generic draft generation/review, three Drafts tracker rows, and per-type draft version increments. Per-phase write-ups, specs, and the PR map: `docs/context-history.md`. Run tests **serially** for DB suites — see the `EMAXPOOLSREACHED` gotcha.
+**Through Phase 4B (employer-letter + CV drafting) is merged to `main` (PR #16).** All drafted-document verticals on the shared `drafts`/approval foundation are live: cover letter, employer letter, CV. The phase status table, per-phase write-ups, and PR map: `docs/context-history.md`. Run DB suites **serially** — see the `EMAXPOOLSREACHED` gotcha.
 
-**Next up:**
-- **Phase 4C / remaining drafted documents:** Anabin justification draft, `regenerate_draft` UX with framing instructions, and package completeness gates that require approved drafts.
-- **2C layer 3 live LLM (deferred follow-up):** live Anthropic run per persona + user-simulator (scripted vs. LLM-as-user TBD), nightly/on-demand. Scope in the 2C-tail spec's "Follow-up" section; build on the deterministic CI gate rather than mixing it into the first CI slice.
-- **2B secondary scope:** richer in-chat renderers + left-sidebar section drill-downs.
-- **3C/3D follow-ups:** optional full 3-group Documents workspace section (Needed / Awaiting / Confirmed) if the tracker gets too dense; drag-drop-anywhere; apostille tracker (Karnataka HRD→MEA state machine) + Inngest scheduled reminders; Resend "ready for review" / "apostille due" emails; **a live `document_extraction_status` emitter** (the renderer exists, but the live path after 2026-06-06 is the tracker row's `awaiting_confirmation` → review link).
+**Next up** (sliced into session cards in `IMPLEMENTATION_PLAN.md`):
+- **4C** — Anabin justification draft, `regenerate_draft` with framing, drafts completeness signal.
+- **5 (VIDEX)** — field map → PDF pipeline → Forms section → conversational gap-filling (4 cards).
+- **6 (QA)** — quality engine + submission package (2 cards). **7 (prod)** — eval, observability, GDPR, hardening (4 cards).
+- Standing follow-ups: 2C-layer-3 live LLM + user-simulator; richer in-chat renderers (2B); apostille tracker + Resend emails + drag-drop-anywhere (3D); full 3-group Documents section if the tracker gets too dense.
 
 **Open items (not regressions):**
 - `/api/chat` accepts the full client transcript with no server-side history rebuild — revisit if/when it matters.
-- **`messages.parts` is persisted last-step-only** (`event.content`). The `tool_calls` table IS aggregated across steps; the render-time mitigation (`hydrateMessages` falls back to text `content` when persisted parts are tool-only) stops empty bubbles on reload — but the blob is still last-step. Decide whether to aggregate `parts` at WRITE time before any feature treats it as the multi-step render source.
+- **`messages.parts` is persisted last-step-only** (`event.content`). The `tool_calls` table IS aggregated across steps; `hydrateMessages` falls back to text `content` when persisted parts are tool-only (stops empty bubbles on reload) — but the blob is still last-step. Decide whether to aggregate `parts` at WRITE time before any feature treats it as the multi-step render source.
 
-**Carry-forward facts (load-bearing — don't re-fix or re-debate):**
-- **Eligibility engine is *slimmed*, not a verbatim Nomad port.** No multi-degree arrays, ZAB statements, professional-experience arrays, German level — Phase 2+ concerns. Emits exactly the codes the 4 personas expect. Verdict-affecting fixes (PR #7) now live: IT-no-degree gates on **reduced** threshold; `activeThreshold` returns `undefined` when no period covers `today` (→ `no_active_threshold` reachable; `summarizeFigures` returns `Figures | null`, renderer shows amber "figures unavailable" card); recent-graduate route also requires `hasEducation`.
-- **`IntendedVisa` enum is `blue_card`/`student`/`job_seeker`/`family_reunion`/`asylum`/`other`.** Non-Blue-Card intents persist via `update_case` and make the engine's `outOfScope` branch reachable. **Engine is the sole setter of the `outOfScope` flag; the `out_of_scope` tool does NOT set it.**
-- **`appendChatTurn` requires `userId`** (populates `messages.user_id`, threaded from the route via `buildAgentTurn`). Any new caller MUST pass it.
-- **Tool-call errors persist:** `agent-turn.ts` `onFinish` scans each step's `content` for `tool-error` parts (NOT in `step.toolResults`) → `tool_calls.error`. A failed `update_case` still does NOT emit `case.facts.updated`.
-- **`deepEqual` in `repository.ts` is key-order insensitive** (structural recurse) — reordered object-leaf keys don't raise spurious contradictions.
-- **Profile lock order is users → case_facts → profiles.** `applyUpdate` takes `FOR UPDATE` on the always-present `users` row first (fixes the lost-update race across two cases of one user). Don't reorder.
-- **`getCurrentUserId` hits the DB** (`src/lib/auth/session.ts`) — null for a deleted user or one with `users.merged_into` set. **Column `users.merged_into`** (migration `drizzle/0002_melodic_silver_surfer.sql` — regenerate with `pnpm db:generate` against a real DB before deploying). Branch-(c) merge sets it when tombstoning.
-- **`/api/chat` guards `convertToModelMessages`** — malformed-but-valid-JSON transcripts 400, not 500.
-- **`hydrateMessages`** (`src/components/workspace/hydrate-messages.ts`) is the pure, tested rows→`UIMessage[]` mapping `page.tsx` uses; falls back to text `content` when parts are tool-only.
-- **Persona seeding:** `src/lib/personas/seed.ts` (`seedCaseFromPersona`, `personaToLeafUpdates`, `loadPersona`, `listPersonaIds`) is the production seeder; `/api/case/new?persona=<id>` seeds via the normal `update_case` path (unknown ids = no-op). NOTE: `tests/_personas/harness.ts` has its OWN parallel persona→facts conversion — consolidate if you touch either.
-- **False positive — do NOT "fix":** `assessReadiness` treating anabin `'unknown'`/`'H-'` as a satisfied recognition signal is INTENTIONAL (`unknown` → `assessed` with ZAB guidance; `ready` is an internal gate, never a positive user-facing state).
-- **Journey-tracker (2B) decisions — do NOT redebate** (full record: context-history.md):
-  - **Family = one account, family as case data.** `CaseFacts.family` carries `spouse` + `children[]` mini-profiles. **Eligibility engine untouched** — family doesn't gate the primary's verdict.
-  - **Identity (Profile) folds into Documents** — extracted from passport, confirmed in place, consumed by VIDEX. `Profile` DB table untouched (load-bearing for anon→authed merge).
-  - Tracker is a **read-only projection** (`computeJourneyProgress`, pure; rule 5 holds), config-driven via `config/rules/journey.yaml` (rule 7), reuses the 2A.2 helpers at ~0 token cost.
-- **Phase 3A (document-ingest, merged PR #9) decisions — do NOT redebate** (full write-up: context-history.md):
-  - **`documents` table is MUTABLE** (status/extracted/classification/error update in place) — a WIP record like `case_facts`, NOT append-only. Rule 10 covers `messages`/`activity_log`/`*_changes` only; the audit trail is the `activity_log` rows the workflow writes. Status: `pending_upload→uploaded→classifying→extracting→awaiting_confirmation`|`failed`.
-  - **3A does NOT write case state** — extraction lands on the `documents` row at `awaiting_confirmation`; the write into `CaseFacts`/identity is 3B's `confirm_extraction` (rule 5 holds, tested).
-  - **Upload = presigned direct-to-R2** (browser PUTs to R2, bypassing Vercel's body limit). Extraction triggers on the **finalize route**, not an agent `extract_document` tool — **intentional PRD deviation** (rule 13: agent never awaits background work). The `request_document_upload` tool only renders an upload affordance.
-  - **PII:** `case.document.extracted` activity rows carry field KEYS + confidences + `sensitiveKeys` only, never values; `GET /api/documents/[id]` projection never leaks `r2Key` or `extracted.raw`. Values live only in `documents.extracted`.
-  - **`request_document_upload` is registered BEFORE `lookup_anabin`** (which MUST stay last — single cache_control breakpoint). `ALLOWED_UPLOAD_TYPES`/`ALLOWED_UPLOAD_ACCEPT` in `src/lib/documents/types.ts` is the single source of truth for the mime allow-list.
-  - **NEW deps** `@aws-sdk/client-s3` + `s3-request-presigner`; **NEW env** `R2_*` (prod-required) + `REDUCTO_API_KEY` (NOT required — vision fallback). Migration `drizzle/0003_dear_grandmaster.sql`. Reducto request/response shape in `reducto.ts` is a **best-effort guess — reconcile against the live API** when provisioned (runbook `docs/runbooks/r2-reducto-setup.md`).
-  - **Non-blocking follow-ups** (for 3B/3D): race-safe load-document guard (conditional `setStatus ... WHERE status='uploaded'`); AbortController on the DocumentUpload poll loop; orphaned-`pending_upload` sweep; in-bubble upload card no-ops without `caseId` (composer uploader is the working path).
-- **Phase 3B (approvals & review, merged PR #12) decisions — do NOT redebate** (full write-up: context-history.md; spec/plan: `docs/superpowers/{specs,plans}/2026-06-04-phase-3b-approvals-review*.md`):
-  - **Confirm writes via `repo.applyUpdate` directly from a server action — NOT an agent `confirm_extraction` tool.** Rule 5's intent is "one write path"; the tool was just the agent's manifestation of `applyUpdate`. No LLM in the confirm loop (deterministic, fast). The `confirm_extraction` tool from the IMPLEMENTATION_PLAN was intentionally dropped for this slice. Actions live in `src/app/case/[id]/documents/[docId]/review/actions.ts`; the node-testable core is `src/lib/documents/confirm-core.ts`.
-  - **Generic polymorphic `approvals` table** (`{subjectType,subjectId,status,decision,...}`, migration `0004_zippy_kinsey_walden.sql`) — `subjectType:'document'` now, `'draft'` in Phase 4 with zero schema change. MUTABLE like `documents` (audit trail = `activity_log`). Partial unique index `approvals_pending_subject_unique` = at most one PENDING approval per subject (resolved rows don't conflict → re-review after reject works). `makeApprovalRepository`'s `createPending` is idempotent (returns existing pending). The workflow opens the pending approval in a new `create-approval` step (the only touch to 3A's `extract-document.ts`).
-  - **Confirm semantics:** writes at **confidence 1.0**, `sourceTurnId: null`, per-field `source` = `'document'` (as-extracted) or `'user_corrected'` (edited). Because `applyUpdate` takes ONE source per call, confirm splits into **≤2 `applyUpdate` calls** (one per source group) — zero change to the load-bearing `applyUpdate`. Ordering: applyUpdate(s) → resolve approval → setStatus('confirmed') → appendActivity.
-  - **Finalize-gating (post-review fix):** confirm persists every mappable field (partial progress, idempotent at 1.0) but **only resolves the approval + sets status `'confirmed'` when EVERY submitted field saved.** If a submitted field is unsaveable (transform→null), the doc stays `awaiting_confirmation` + approval `pending` and the UI warns which fields to correct, so re-confirm works (otherwise `wrong_status` would dead-end the correction). Tested.
-  - **Field→leaf mapping is config-driven in `documents.yaml`** (`extraction.fields.*.target` = BARE leaf path like `fullName`/`passportNumber`, NOT `profile.`-prefixed; `validateLeafPath` resolves profile leaves at the root). `assertValidTargets` validates every target at YAML load (fail-fast). Optional `transform` + `part` drive a typed registry (`src/lib/documents/transforms.ts`): `composeFullName` (surname+givenNames fan-in), `toIso2` (nationality→ISO2 via `config/rules/review.yaml` seed), `normalizeDate` (passport date formats→`YYYY-MM-DD`, day-first DD/MM/YYYY). A transform returning null → field left `unmapped` (not written). `buildConfirmUpdates` (`confirm-mapping.ts`, pure) groups fields by target and applies the transform once per group.
-  - **PII:** `case.approval.resolved` activity rows carry leaf path KEYS + status only — never values. `ApprovalDecision = {confirmedPaths, editedPaths, rejectedReason}`. Sensitive fields (`passportNumber`) render masked (password input + show/hide) in the review form.
-  - **Review UI = dedicated RSC route** `/case/[id]/documents/[docId]/review` (NOT in-chat, NOT modal). Guards mirror the case page (getCurrentUserId→/signin; cross-case→notFound; cross-user→redirect '/'; wrong status→redirect to case). Left = source preview (img inline / `<object>` via `presignDownload`), right = editable fields + confidence badges (`config/rules/review.yaml` bands, rule 7). `ReviewForm` (client, `useTransition`) only submits `mapped` fields. Confidence classification is a pure client-safe helper (`confidence.ts`, type-only import of `ConfidenceBands` keeps `node:fs` out of the client bundle).
-  - **NEW config** `config/rules/review.yaml` (confidence bands + nationality→ISO2 seed; module-cached loader `review-config.ts`). NO new deps. Migration `0004`.
-- **Phase 3C (Documents tracker loop, merged PR #13) decisions — do NOT redebate** (full write-up: context-history.md):
-  - **Tracker is the live Documents dashboard for now.** `CasePage` loads `DocumentRepository.listByCase(caseId)` and passes those rows to `computeJourneyProgress`; no separate Documents route was added in this slice.
-  - **Document status mapping:** only `confirmed` counts complete. `awaiting_confirmation` renders `ready for review` + `/case/<caseId>/documents/<docId>/review`; `uploaded`/`classifying`/`extracting` render `processing`; `failed` renders `could not read` and allows re-upload; `rejected` renders `dismissed` and allows re-upload; missing rows allow upload.
-  - **Checklist-specific uploads:** `DocumentUpload.uploadDocument(caseId,file,spineItemId?)` sends `spineItemId`; `/api/documents/upload-url` persists it; tracker-row upload controls pass the checklist item id. Chat composer upload still passes `null`.
-  - **Refresh:** `DocumentUpload` calls `router.refresh()` when polling reaches terminal dashboard states (`awaiting_confirmation`/`failed`) or errors, so RSC tracker state catches up.
-  - **Known limitation:** document rows match tracker requirements by `spineItemId` only. Multiple children with the same required doc consume rows in repository order; add a stable member key before relying on exact per-child matching.
-- **Phase 4A (cover-letter drafting, merged PR #15) decisions — do NOT redebate** (spec/plan: `docs/superpowers/{specs,plans}/2026-06-07-phase-4a-cover-letter-drafting*.md`; full write-up: context-history.md):
-  - **`drafts` table is MUTABLE** like `documents`: a WIP artifact row, not append-only case state. Audit trail = `activity_log`. Migration `0005_real_young_avengers.sql`.
-  - **`draft_cover_letter` does not generate inline in chat.** It creates a `drafting` row, logs `case.draft.requested`, dispatches `draft.requested`, and returns `{type:'draft_request_result',version:1,data}` immediately.
-  - **Generation runs in Inngest** (`generateDraftHandler`) and validates output with `CoverLetterContentSchema`. Success stores content, sets `ready_for_review`, creates `approvals.subjectType:'draft'`, and logs only safe metadata. Failure sets `failed`.
-  - **Draft review route** is `/case/[id]/drafts/[draftId]/review`; users may edit content before approval. Approval resolves the existing approval and marks the draft `approved`; rejection marks `rejected`. Activity payloads never contain draft text.
-  - **Tracker Drafts phase is unlocked for cover letter only.** Only `approved` counts complete. Employer letter, CV, Anabin justification, regeneration, version history, and package completeness are deferred.
-  - **`lookup_anabin` stays last.** `draft_cover_letter` is registered before it; the single cache-control breakpoint invariant still holds.
-- **Phase 4B (employer-letter + CV drafting, current branch) decisions — do NOT redebate** (full write-up: context-history.md):
-  - **Draft type union is now `cover_letter | employer_letter | cv`.** `DraftContentSchema` is still the validation boundary for storage and approval; employer letter and CV have their own Zod content schemas and prompt versions (`draft_employer_letter/v0`, `draft_cv/v0`).
-  - **One draft worker handles all draft types.** `generateDraftHandler` loads the row's `draft.type` and dispatches through `generateDraftByType`; activity rows still log only `{draftId,draftType}`.
-  - **Draft review is polymorphic.** The same review route accepts any `DraftContent`, validates type matches the row, and logs approval paths as `draft.<type>.content`; it never stores draft text in activity payloads.
-  - **Draft versioning is row-level.** `makeDraftRepository.insert()` assigns `version = max(version for caseId+type)+1`; no separate version-history UI yet. `regenerate_draft` remains deferred.
-  - **Tracker Drafts phase now has three rows** (`cover_letter`, `employer_letter`, `cv`); only `approved` counts complete. Package completeness gates are still deferred.
-  - **`lookup_anabin` still stays last.** New draft tools are registered before it so the single cache-control breakpoint invariant still holds.
+**Dev-only inspectors** (`node --env-file=.env.local --import tsx scripts/dev-only/<file> [args]`): `db-state.ts` — row counts + recent cases/users; `inspect-turn.ts <caseId>` — dumps a thread's persisted message parts (tool I/O/errorText) + `case_facts.data`. Reach for the latter when a chat turn misbehaves.
 
-**Dev-only inspectors** (run via `node --env-file=.env.local --import tsx scripts/dev-only/<file> [args]`): `db-state.ts` — row counts + recent cases/users; `inspect-turn.ts <caseId>` — dumps a thread's persisted message parts (tool inputs/outputs/errorText) + `case_facts.data`. Reach for the latter when a chat turn misbehaves.
+---
 
-### Pinned decisions — do NOT redebate
+## Subsystem decisions (read the linked section BEFORE touching that area — do NOT redebate)
 
-(Set across 1B and 2A brainstorming. Phase-2 strategy decisions are folded in here.)
+These are LOCKED. The full record (every "why", schema, PII discipline, follow-ups) lives in `docs/context-history.md`; this index says which section to read. Don't re-litigate a decision without reading its write-up first.
 
-**Turn / persistence**
-- Server mints `userMessageId`; never trust client-supplied ids.
-- Two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file still correct. Accepted; eval workflow in Phase 7 catches trends.
-- `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
-- `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call.
-
-**Agent loop / model seam**
-- **`buildAgentTurn({ model, repo, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop: composes `systemPrompt + "\n\n" + context.systemContext`, registers the tool set, sets `stopWhen: stepCountIs(MAX_AGENT_STEPS)` (=8) + ephemeral cache, runs `onFinish` (persist + Inngest emit). The route injects the real Anthropic model and keeps only HTTP concerns. Two test seams: `vi.mock('ai')` capturing `streamText` args (L2a `agent-turn-replay.test.ts`, `chat.test.ts` — no real loop) and `makeScriptedModel` driving the real loop (L2b, see phase-2 strategy).
-- `buildAgentContext` returns `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); `buildAgentTurn` composes `system = v0.md + "\n\n" + systemContext`. (Async signature kept for future Phase 2 awaits.)
-- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly). No activity tail in 2A.1's context (added in 2A.2/2B).
-
-**Inngest**
-- Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free.
-- Inngest **event** payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** then writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
-- `onFinish` mapping (in `buildAgentTurn`): aggregate `event.steps.flatMap((s) => s.toolResults)` (NOT top-level — last-step-only, see the AI SDK gotcha), filter by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables: `allToolResults` / `updateResults` / `result`.
-
-**Caching / refresh / model / prompt**
-- Prompt cache: system + tool only in 1B-3. Per-message and per-context caching wait for Phase 2.
-- `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
-- Anthropic model: **`claude-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (constant `MODEL_ID`). Don't restore `-4-7` — it's not a real model (`not_found_error`).
-- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'`. **`v0.md` covers the current chat tool catalog** — `update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`request_document_upload`/`draft_cover_letter`/`draft_employer_letter`/`draft_cv`/`lookup_anabin`. Reserve a `PROMPT_VERSION` bump for the next generational rewrite; generated draft prompts have their own per-type versions.
-
-**Tools / renderer / layout**
-- **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `activity_log` `kind:'case.out_of_scope'`**, via `repo.appendActivity({caseId,userId,kind,payload})`. No `notes` table. Neither touches case state (rule 5 holds — append-only audit log).
-- **`out_of_scope` does NOT set the eligibility `outOfScope` flag.** The tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable" (set only by `evaluateEligibility`, 2A.2). A refused apartment-search request must never read as a refused eligibility assessment.
-- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown (closes rule-8 gap). Dispatches on `type` ONLY; `version` ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships). `ChatPanel` reads the result off `part.output` (`if (!out?.type) return null` skips in-flight/errored parts). NOTE: `OutOfScopeResult` is a block-level amber card inside the chat bubble — revisit whether block renderers should sit outside the bubble.
-- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx` (sidebar / tracker / chat — Option-A). Update there if design shifts.
-
-**Phase-2 strategy**
-- **Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C** to keep each session well below 1M tokens. `simulate_what_if` folds into 2A.2 (the YAGNI tool; not on the happy path).
-- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) at ~0 tokens. Shipped: L1+2a (core + `onFinish`-replay seam — `harness.ts`, `case-file.test.ts`, `agent-turn-replay.test.ts`); L2b (real `MockLanguageModelV3` stream through the live `buildAgentTurn` loop — `mock-stream.ts`, `agent-turn-loop.test.ts`). L3 (live LLM + user-simulator) + GitHub Actions CI are the deferred follow-up.
-- **`ai@6` ships `MockLanguageModelV3` in `ai/test` with NO `msw` dependency** — `makeScriptedModel(steps)` in `tests/_personas/mock-stream.ts` wraps it and assigns to `LanguageModel` with no cast.
+| Touching… | Read in `context-history.md` | Load-bearing one-liners |
+|---|---|---|
+| **Agent turn loop, chat route, persistence, Inngest emit, caching** | §Architecture seams | `buildAgentTurn` owns the loop; `lookup_anabin` stays LAST (single cache_control breakpoint); `onFinish` aggregates `event.steps`, not top-level; `appendChatTurn` requires `userId`; `MAX_AGENT_STEPS=8` |
+| **Eligibility engine, personas** | §Codebase-review hardening | Engine is *slimmed*, not a verbatim Nomad port; IT-no-degree gates on **reduced** threshold; `outOfScope` flag set ONLY by `evaluateEligibility` (not the `out_of_scope` tool); `IntendedVisa` enum widened; anabin `unknown`/`H-` → `assessed` is INTENTIONAL (don't "fix") |
+| **`update_case` / repository** | §Architecture seams + §hardening | Only `applyUpdate` writes case state (rule 5); lock order users→case_facts→profiles; `deepEqual` key-order insensitive; valid paths from the schema-derived catalog, not a hand-list |
+| **Journey tracker** | §Journey-tracker dashboard | Read-only projection (`computeJourneyProgress`, pure); family = case data, doesn't gate verdict; Profile folds into Documents |
+| **Documents: upload, extraction, review** | §Phase 3A / §3B / §3C | `documents`/`approvals` tables MUTABLE (audit = `activity_log`); presigned direct-to-R2; extraction on the finalize ROUTE not a tool; confirm via server action → `applyUpdate` at confidence 1.0, NOT an agent tool; field→leaf mapping config-driven in `documents.yaml`; tracker IS the live Documents dashboard; PII = keys/confidences only, never values |
+| **Drafts (cover/employer/CV)** | §Phase 4A / §4B | `drafts` table MUTABLE; tools create a `drafting` row + dispatch Inngest (no inline generation); one worker dispatches by `draft.type`; polymorphic review route; row-level versioning; activity payloads never contain draft text |
+| **Auth, anon→authed merge** | §Anon→authed merge post-mortem + Stack gotchas | Merge tombstones (never deletes) the anon user; `getCurrentUserId` hits DB (null if `merged_into` set); `users.merged_into` migration `0002` |
 
 ---
 

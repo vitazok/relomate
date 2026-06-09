@@ -2,10 +2,11 @@
 
 Relocated out of `CLAUDE.md` to keep it lean. `AGENTS.md` and `CLAUDE.md` carry the
 forward-looking **directives** (what not to redo, what must hold); this file carries the
-**why** behind them and the record of resolved work — phase write-ups, bug post-mortems,
-superseded decisions. Read the relevant section here when you're about to touch that area;
-the one-liners in `AGENTS.md` / `CLAUDE.md` tell you WHAT not to do, this tells you why it
-bit us.
+**why** behind them, the **current architecture seams** (load-bearing contracts that are
+area-reference, not every-session reading), and the record of resolved work — phase
+write-ups, bug post-mortems, superseded decisions. Read the relevant section here when
+you're about to touch that area; `CLAUDE.md`'s "Subsystem decisions" index points you to
+the right section.
 
 Multiple developers and multiple agentic tools work on Relomate. At the end of each coding
 session, review the shared handover docs (`AGENTS.md`, `CLAUDE.md`, and this file) and
@@ -13,6 +14,51 @@ update them when phase state, architectural decisions, gotchas, verification not
 next-up work changed.
 
 > Per-phase commit hashes and test counts also live in git history.
+
+---
+
+## Architecture seams (load-bearing contracts — do NOT redebate)
+
+Pinned across 1B/2A; the constraints any change to the turn loop, persistence, Inngest wiring,
+or caching must respect. Reference these before touching `agent-turn.ts`, the chat route,
+`repository.ts`, or the Inngest emit path.
+
+**Turn / persistence**
+- Server mints `userMessageId`; never trust client-supplied ids.
+- Two independent tx per turn (tool-side `update_case` + chat-side `appendChatTurn`). Chat-side failure = history loses a turn, case file still correct. Accepted; eval workflow (Phase 7) catches trends.
+- `createCase` wraps cases + case_facts + threads in a single tx, returns `{ caseId, threadId }`. `loadCase` returns `threadId`. Exactly one thread per case in MVP.
+- `appendChatTurn(input, db?)` is the single chat-persistence path; one tx per call. Requires `userId` (populates `messages.user_id`) — any new caller MUST pass it.
+
+**Agent loop / model seam**
+- **`buildAgentTurn({ model, repo, ... })`** (`src/lib/ai/chat/agent-turn.ts`) owns the `streamText` loop: composes `systemPrompt + "\n\n" + context.systemContext`, registers the tool set, sets `stopWhen: stepCountIs(MAX_AGENT_STEPS)` (=8) + ephemeral cache, runs `onFinish` (persist + Inngest emit). The route injects the real Anthropic model and keeps only HTTP concerns. Two test seams: `vi.mock('ai')` capturing `streamText` args (L2a `agent-turn-replay.test.ts`, `chat.test.ts` — no real loop) and `makeScriptedModel` driving the real loop (L2b).
+- `buildAgentContext` returns `{ systemContext }` (full `CaseFacts` JSON + section-presence summary); `buildAgentTurn` composes `system = v0.md + "\n\n" + systemContext`. (Async signature kept for future awaits.)
+- **Context injects FULL `CaseFacts`; `read_case` stays minimal** (targeted section/path/provenance the summary abbreviates — agent uses it sparingly).
+- **`MAX_AGENT_STEPS = 8`** (was 5). A turn can fan out `update_case` + `lookup_anabin`, recover via `read_case`, run `check_eligibility`, then reply. Don't lower without re-checking the multi-tool recovery path.
+
+**Inngest**
+- Inngest emit lives in `buildAgentTurn`'s `onFinish` (best-effort), not in the tool or the route. Repository stays Inngest-free.
+- Event payload (`case.facts.updated`) is `{ caseId, paths, sourceTurnId }` — `caseId` MUST travel in the event (no other carrier at emit time; `CaseFactsUpdatedEvent` in `inngest/client.ts` types all three). The **handler** writes an `activity_log` row with `caseId` in the `case_id` column and `{ paths, sourceTurnId }` in the JSON `payload`. Don't conflate the two. `kind: 'inngest.echo'` for the trivial logger.
+- `onFinish` mapping: aggregate `event.steps.flatMap((s) => s.toolResults)` (NOT top-level — last-step-only, see the AI SDK post-mortem), filter by `toolName === 'update_case'`, read `result.output.data.updatedPaths`. Variables: `allToolResults` / `updateResults` / `result`.
+
+**Caching / refresh / model / prompt**
+- Prompt cache: system + tool only. Per-message / per-context caching deferred.
+- `router.refresh()` fires once per turn from `useChat.onFinish`, gated on whether the assistant message contains an `update_case` tool part. `messageContainsUpdateCase` only checks `tool-update_case*` parts.
+- Anthropic model: **`claude-sonnet-4-6`** pinned in `src/lib/ai/provider.ts` (`MODEL_ID`). Don't restore `-4-7` — not a real model (`not_found_error`).
+- Prompt: `prompts/agent/v0.md`, `PROMPT_VERSION = 'v0'` covers the current chat tool catalog (`update_case`/`read_case`/`add_case_note`/`out_of_scope`/`check_eligibility`/`request_document_upload`/`draft_cover_letter`/`draft_employer_letter`/`draft_cv`/`lookup_anabin`). Generated draft prompts have their own per-type versions. Reserve a `PROMPT_VERSION` bump for the next generational rewrite.
+
+**Tools / renderer / layout**
+- **`add_case_note` → `activity_log` `kind:'case.note.added'`**; **`out_of_scope` → `kind:'case.out_of_scope'`**, via `repo.appendActivity(...)`. No `notes` table. Neither touches case state (rule 5).
+- **`out_of_scope` does NOT set the eligibility `outOfScope` flag** (the tool = "agent declines a conversational request"; the flag = "engine determined the case is unassessable", set only by `evaluateEligibility`).
+- **Renderer registry** (`src/components/workspace/renderers/registry.tsx`): `resolveRenderer(type)` → React renderer, `FallbackResult` for unknown. Dispatches on `type` ONLY; `version` ignored while all outputs are v1 (key on `${type}@${version}` when a v2 ships). `ChatPanel` reads the result off `part.output` (`if (!out?.type) return null`).
+- **Tool conventions:** rich docstring-style descriptions; single purpose; no state mutation outside `update_case`; long-running tools dispatch Inngest and return job ids (agent doesn't await). `update_case` output shape `{type:'update_case_result',version:1,data}`; `applyUpdate` activity row is one-per-call `{kind:'case.facts.updated',paths,source,sourceTurnId,contradictions}`. Contradictions are path-local, surfaced not blocking (both writes persist). Valid `update_case` paths come from the schema-derived catalog (`listLeafPaths`/`formatLeafPathCatalog` in `src/lib/case/paths.ts`) injected in both `buildAgentContext` and the tool description — NOT a hand-list (see the path-catalog post-mortem).
+- **`check_eligibility` / `lookup_anabin`:** `check_eligibility(repo,{defaultCaseId,defaultUserId,now?})` runs engine FIRST (out_of_scope > incomplete), then `assessReadiness`, then `summarizeFigures`; returns `{type:'eligibility_result',version:1,data}`; logs `case.eligibility.checked` on incomplete+assessed only (codes/paths only — NO salary). `lookup_anabin()` — read-only; `found:false` (not seeded) vs `found:true,status:'unknown'` (seeded, unrated).
+- **`lookup_anabin` MUST stay last in the `tools` object** — single `cache_control` breakpoint (see the breakpoint post-mortem). Every new tool registers BEFORE it.
+- CSS Grid layout columns hardcoded `220px_1fr_360px` in `Layout.tsx` (sidebar / tracker / chat — Option-A).
+
+**Phase-2 strategy**
+- Phase 2 sliced 2A.1 / 2A.2 / 2B / 2C to keep each session well below 1M tokens. `simulate_what_if` folded into 2A.2 (YAGNI; not on the happy path).
+- **Persona testing = layered (strategy A).** Deterministic core (pure `evaluateEligibility` + tool-unit + scripted-sequence→end-state) at ~0 tokens. Shipped L1+2a (`harness.ts`, `case-file.test.ts`, `agent-turn-replay.test.ts`) + L2b (real `MockLanguageModelV3` through the live loop — `mock-stream.ts`, `agent-turn-loop.test.ts`). L3 (live LLM + user-simulator) + CI live run deferred.
+- `ai@6` ships `MockLanguageModelV3` in `ai/test` with NO `msw` dep — `makeScriptedModel(steps)` (`tests/_personas/mock-stream.ts`) wraps it and assigns to `LanguageModel` with no cast.
 
 ---
 
@@ -120,20 +166,20 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | Phase | Status | Spec / plan |
 |---|---|---|
 | 0 | complete | — |
-| 1A foundation | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1a-foundation.md` |
-| 1B-1 persistence + `update_case` | complete, pushed | `docs/superpowers/plans/2026-05-27-phase-1b-1-persistence.md` |
-| 1B-2 auth + anon→authed merge | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-2-auth-design.md` |
-| 1B-3 chat + workspace + Inngest | complete, pushed | `docs/superpowers/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
-| 2A.1 agent brain | complete, merged to main | `docs/superpowers/plans/2026-05-29-phase-2a-1-agent-brain.md` |
-| 2A.2 eligibility + knowledge | complete, merged to main | `docs/superpowers/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
-| 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md` |
-| 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/superpowers/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
-| 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/superpowers/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
+| 1A foundation | complete, pushed | `docs/archive/plans/2026-05-27-phase-1a-foundation.md` |
+| 1B-1 persistence + `update_case` | complete, pushed | `docs/archive/plans/2026-05-27-phase-1b-1-persistence.md` |
+| 1B-2 auth + anon→authed merge | complete, pushed | `docs/archive/specs/2026-05-28-phase-1b-2-auth-design.md` |
+| 1B-3 chat + workspace + Inngest | complete, pushed | `docs/archive/specs/2026-05-28-phase-1b-3-chat-workspace-design.md` |
+| 2A.1 agent brain | complete, merged to main | `docs/archive/plans/2026-05-29-phase-2a-1-agent-brain.md` |
+| 2A.2 eligibility + knowledge | complete, merged to main | `docs/archive/specs/2026-05-31-phase-2a-2-eligibility-knowledge-design.md` |
+| 2B journey-tracker dashboard | complete, merged to main (PR #3) | `docs/archive/plans/2026-06-01-journey-tracker-dashboard.md` |
+| 2C persona-E2E layers 1+2a | complete, merged to main (PR #4) | `docs/archive/specs/2026-06-01-phase-2c-persona-e2e-design.md` |
+| 2C-tail L2b real-stream replay | complete, merged to main (PR #5) | `docs/archive/specs/2026-06-02-phase-2c-tail-l2b-design.md` |
 | deterministic CI + AGENTS.md | complete, merged to main (PR #14) | `docs/runbooks/ci.md` |
 | 2C layer 3 (live LLM + user-simulator) | designed/deferred, not started | follow-up section in the 2C-tail spec |
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
-| 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
-| 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/superpowers/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
+| 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/archive/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
+| 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/archive/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
 | 4B employer-letter + CV drafting | implemented on current branch | this file, below |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
@@ -204,8 +250,8 @@ schema change rippled through tests. All `tsc`/`eslint` clean; full suite green 
 
 ### Journey-tracker dashboard (2B centerpiece — SHIPPED, merged to main PR #3) — full record
 
-Full spec: `docs/superpowers/specs/2026-05-31-journey-tracker-dashboard-design.md`
-(`4db6846`); plan: `docs/superpowers/plans/2026-06-01-journey-tracker-dashboard.md`.
+Full spec: `docs/archive/specs/2026-05-31-journey-tracker-dashboard-design.md`
+(`4db6846`); plan: `docs/archive/plans/2026-06-01-journey-tracker-dashboard.md`.
 Shipped `config/rules/journey.yaml` + `src/lib/journey/`
 (`loader`/`types`/`citations`/`provenance`/`compute`) +
 `src/components/workspace/Tracker.tsx` (replaced `Overview.tsx`, preserving its empty-state
@@ -235,8 +281,8 @@ fields with per-field confidence, parking the result on a new `documents` row in
 `awaiting_confirmation`. Built TDD, subagent-reviewed per task (implementer → spec → quality).
 All `tsc`/`eslint` clean; 91 tests green across the 3A surface (run **serially** —
 `EMAXPOOLSREACHED` is the documented pooler infra limit on full-suite re-runs, not a regression;
-batch DB files). Design: `docs/superpowers/specs/2026-06-03-phase-3a-document-ingest-design.md`;
-plan: `docs/superpowers/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
+batch DB files). Design: `docs/archive/specs/2026-06-03-phase-3a-document-ingest-design.md`;
+plan: `docs/archive/plans/2026-06-03-phase-3a-document-ingest.md`; runbook:
 `docs/runbooks/r2-reducto-setup.md`.
 
 **Why these decisions:**
@@ -332,8 +378,8 @@ via the single `applyUpdate` write path, gated by a generic `approvals` primitiv
 drafts). Built subagent-driven (implementer → spec review → quality review per task), TDD throughout.
 `tsc`/`eslint` clean; ~317 tests green (run **serially** — `EMAXPOOLSREACHED` is the documented
 pooler infra limit, not a regression). Spec:
-`docs/superpowers/specs/2026-06-04-phase-3b-approvals-review-design.md`; plan:
-`docs/superpowers/plans/2026-06-04-phase-3b-approvals-review.md`. 13 commits (`e454c06`..`095d63e`).
+`docs/archive/specs/2026-06-04-phase-3b-approvals-review-design.md`; plan:
+`docs/archive/plans/2026-06-04-phase-3b-approvals-review.md`. 13 commits (`e454c06`..`095d63e`).
 
 **Why these decisions:**
 
