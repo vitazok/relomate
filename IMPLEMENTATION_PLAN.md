@@ -202,11 +202,11 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 ### Card 4C-F-3 — Review inbox + role-aware approvals
 - **Goal:** Turn approvals into firm review work items with assignee, required role, due date, and escalation status.
 - **Tasks:**
-  - [ ] Extend `approvals` with required role, assignee, due date, escalation status, and visibility.
-  - [ ] Preserve applicant confirmation vs. consultant/reviewer approval as distinct semantics.
-  - [ ] Update document/draft review action cores to use role-aware case authorization.
-  - [ ] Add review inbox repository queries.
-  - [ ] Add tests for applicant cannot approve firm-ready drafts; consultant/reviewer can.
+  - [x] Extend `approvals` with required role, assignee, due date, escalation status, and visibility.
+  - [x] Preserve applicant confirmation vs. consultant/reviewer approval as distinct semantics.
+  - [x] Update document/draft review action cores to use role-aware case authorization.
+  - [x] Add review inbox repository queries.
+  - [x] Add tests for applicant cannot approve firm-ready drafts; consultant/reviewer can.
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/approvals tests/documents tests/drafting tests/api`.
 - **Deferred:** full firm console UI; SLA workflows.
 

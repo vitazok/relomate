@@ -247,6 +247,36 @@ case participants add finer-grained access for per-case reviewers, applicants, a
 The applicant portal split must still filter content by visibility and must not equate
 `client_visible` with internal access.
 
+### 4C-F firm foundation pivot — Review inbox + role-aware approvals (2026-06-09, current branch)
+
+The third firm-foundation slice turns the existing approval rows into role-aware work items while
+preserving the existing applicant confirmation workflow.
+
+Implemented:
+
+- `approvals` now carries `assignee_user_id`, `required_role`, `due_at`, `escalation_status`, and
+  `visibility`.
+- Migration `drizzle/0008_graceful_gargoyle.sql` backfills document approvals as
+  applicant-facing `client_visible` confirmations and draft approvals as internal consultant review
+  work.
+- `makeApprovalRepository().listReviewInbox()` returns pending approvals scoped to an organization,
+  with optional assignee and required-role filters.
+- `src/lib/approvals/authorization.ts` centralizes approval-resolution permission checks on top of
+  `getCaseAuthorization()`.
+- Document confirmation/rejection cores now require a pending applicant approval and use approval
+  authorization instead of direct document-owner checks.
+- Draft approval/rejection cores now require a pending firm-review approval and no longer require
+  `draft.user_id === acting_user_id`, so consultant/reviewer participants can approve firm-ready
+  drafts while applicant participants cannot.
+
+Verification:
+
+- `pnpm exec tsc --noEmit`
+- `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/approvals tests/documents tests/drafting tests/api`
+
+Known follow-up: this adds repository-level review inbox data, not the full firm console UI. 4C-F-5
+must still build the actual inbox/console surfaces.
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -270,6 +300,7 @@ The applicant portal split must still filter content by visibility and must not 
 | firm-first pivot decision | accepted | `docs/strategy/firm-first-pivot.md` |
 | 4C-F-1 RBAC + organization-owned cases | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-2 case participants + visibility primitives | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-3 review inbox + role-aware approvals | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F remaining firm foundation | next | `IMPLEMENTATION_PLAN.md` |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail

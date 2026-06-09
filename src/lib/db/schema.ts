@@ -15,7 +15,11 @@ import { sql } from 'drizzle-orm';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
 import type { ExtractedData, Classification } from '@/lib/documents/types';
-import type { ApprovalDecision } from '@/lib/approvals/types';
+import type {
+  ApprovalDecision,
+  ApprovalEscalationStatus,
+  ApprovalRequiredRole,
+} from '@/lib/approvals/types';
 import type { DraftContent } from '@/lib/drafting/types';
 
 export const organizations = pgTable('organizations', {
@@ -235,6 +239,14 @@ export const approvals = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     caseId: uuid('case_id').references(() => cases.id).notNull(),
     userId: uuid('user_id').references(() => users.id).notNull(),
+    assigneeUserId: uuid('assignee_user_id').references(() => users.id),
+    requiredRole: text('required_role').$type<ApprovalRequiredRole>().notNull().default('applicant'),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    escalationStatus: text('escalation_status')
+      .$type<ApprovalEscalationStatus>()
+      .notNull()
+      .default('none'),
+    visibility: text('visibility').notNull().default('shared'),
     subjectType: text('subject_type').notNull(),
     subjectId: uuid('subject_id').notNull(),
     status: text('status').notNull().default('pending'),

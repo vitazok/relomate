@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireAuthedUserId } from '@/lib/auth/session';
 import { makeRepository } from '@/lib/case/repository';
+import { makeApprovalAuthorizer } from '@/lib/approvals/authorization';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { makeDraftRepository } from '@/lib/drafting/repository';
 import {
@@ -23,6 +24,7 @@ function deps() {
     repo: makeRepository(),
     drafts: makeDraftRepository(),
     approvals: makeApprovalRepository(),
+    authorizer: makeApprovalAuthorizer(),
   };
 }
 

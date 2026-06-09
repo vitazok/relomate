@@ -1,4 +1,5 @@
 import { inngest, type DraftRequestedEvent } from '@/lib/inngest/client';
+import { eq } from 'drizzle-orm';
 import { makeRepository } from '@/lib/case/repository';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { makeDraftRepository } from '@/lib/drafting/repository';
@@ -59,9 +60,25 @@ export async function generateDraftHandler({
       }),
     );
 
-    await step.run('create-approval', () =>
-      approvals.createPending({ caseId, userId, subjectType: 'draft', subjectId: draftId }),
-    );
+    await step.run('create-approval', async () => {
+      const [assignment] = await db
+        .select({
+          assignedConsultantId: schema.cases.assignedConsultantId,
+          reviewerId: schema.cases.reviewerId,
+        })
+        .from(schema.cases)
+        .where(eq(schema.cases.id, caseId))
+        .limit(1);
+      await approvals.createPending({
+        caseId,
+        userId,
+        assigneeUserId: assignment?.assignedConsultantId ?? assignment?.reviewerId ?? null,
+        requiredRole: 'consultant',
+        visibility: 'internal',
+        subjectType: 'draft',
+        subjectId: draftId,
+      });
+    });
 
     await step.run('log-ready', async () => {
       await db.insert(schema.activityLog).values({
