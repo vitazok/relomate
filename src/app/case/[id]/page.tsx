@@ -3,7 +3,8 @@ import { eq, asc } from 'drizzle-orm';
 import { Layout } from '@/components/workspace/Layout';
 import { makeRepository } from '@/lib/case/repository';
 import { getCurrentUserId } from '@/lib/auth/session';
-import { canAccessCase } from '@/lib/auth/authorization';
+import { getCaseAuthorization } from '@/lib/auth/authorization';
+import { caseSurface } from '@/lib/auth/surface-access';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { hydrateMessages } from '@/components/workspace/hydrate-messages';
@@ -30,7 +31,12 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     notFound();
   }
 
-  if (!(await canAccessCase(db, { userId, caseId: loaded.case.id, action: 'read' }))) redirect('/');
+  const auth = await getCaseAuthorization(db, { userId, caseId: loaded.case.id, action: 'read' });
+  const surface = auth ? caseSurface(auth) : 'none';
+  if (surface === 'none') redirect('/');
+  // /case/[id] is the internal consultant workspace. Applicants (client surface) are bounced to
+  // their portal so they can never reach internal views (chat, tracker internals) by URL.
+  if (surface === 'client') redirect(`/portal/${loaded.case.id}`);
 
   const recent = await db
     .select()
