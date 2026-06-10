@@ -340,7 +340,7 @@ R2 prod-env creds (pre-existing env gotcha, unrelated).
 Known follow-up: portal upload/confirm/message widgets, manual-task UI, firm preview of the portal,
 ops analytics charts.
 
-### 4C-F firm foundation pivot — Firm knowledge + Canada/Toronto scaffolding (2026-06-10, current branch)
+### 4C-F firm foundation pivot — Firm knowledge + Canada/Toronto scaffolding (2026-06-10, merged to main PR #24)
 
 The sixth firm-foundation slice adds source-aware firm knowledge scaffolding and expands persona/rule
 fixtures for the Canada/Toronto MVP flow without treating the Canada checklist as user-verified.
@@ -394,6 +394,106 @@ Known follow-up: firm playbook retrieval/UI, manual internal notes UI, productio
 after user verification, and a consulate/checklist readiness assessment that can surface
 Toronto-specific residence/document blockers separately from eligibility.
 
+### 4C drafted documents — Anabin justification draft (2026-06-10, current branch)
+
+The first 4C slice adds Anabin justification as the fourth draft artifact on the existing
+`drafts`/approval foundation. The implementation intentionally keeps the same background generation
+path as cover letter, employer letter, and CV: the chat tool creates a `drafts` row, logs
+`case.draft.requested`, dispatches `draft.requested`, the Inngest handler generates typed content,
+creates an internal consultant approval, and logs only safe metadata.
+
+Implemented:
+
+- `anabin_justification` is now a `DraftType` with a Zod content schema for a factual recognition
+  memo: title, subject, institution status, degree status, justification paragraphs, and recommended
+  next steps.
+- `generateDraftByType` dispatches to `generateAnabinJustification`; prompt version
+  `draft_anabin_justification/v0` preserves Anabin uncertainty and forbids invented recognition
+  conclusions.
+- `draft_anabin_justification` is registered in the agent tool set before `lookup_anabin`; the single
+  Anthropic `cache_control` breakpoint remains on `lookup_anabin`, which stays last.
+- The agent prompt catalog, chat result renderer, draft review form, journey tracker type schema, and
+  Drafts tracker rows all know about the fourth draft type. Only `approved` counts complete.
+
+Gotchas:
+
+- The Anabin draft is a reviewer-facing memo, not a deterministic recognition verdict. Unknown,
+  unrated, or not-found states must stay uncertain until official evidence is on file.
+- Regeneration/framing and required-by-route draft completeness are still deferred to 4C-2 and 4C-3.
+
+Verification: `pnpm exec tsc --noEmit`;
+`node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting
+tests/ai/draft_cover_letter.test.ts tests/ai/agent-turn.test.ts tests/inngest/generate-draft.test.ts
+tests/journey/compute.test.ts` with network access to the configured Supabase pooler (40 passing);
+`pnpm exec vitest run tests/components` (20 passing).
+
+### 4C drafted documents — regenerate with framing (2026-06-10, current branch)
+
+The second 4C slice lets consultants create a new draft version with explicit framing instructions
+while preserving the existing append-only draft-version model. Regeneration does not mutate the
+source draft. It inserts a new `drafts` row for the same case/type, so repository version numbering
+continues to be the source of truth.
+
+Implemented:
+
+- `regenerate_draft` is registered in the agent tool set before `lookup_anabin`, preserving the
+  single cache-control breakpoint on the last tool. It takes `draftId` plus `framingInstruction`,
+  verifies the source draft belongs to the active case, inserts the next version, logs safe metadata,
+  and dispatches `draft.requested`.
+- `DraftRequestedEvent.data` now accepts optional `framingInstruction`; `generateDraftHandler`
+  threads it into `generateDraftByType`.
+- All draft prompts receive the same framing block after hard rules. The prompt tells the model to
+  follow framing only when consistent with facts and constraints.
+- The draft review route exposes a read-only version history list. Only the latest version is
+  reviewable: stale review URLs redirect to the latest ready draft if available, otherwise to the
+  case workspace.
+- The review UI has a "Regenerate with..." affordance that creates a new version and dispatches the
+  framed background job.
+
+Gotchas:
+
+- Free-text framing is sent to the worker event and prompt, but not copied into activity-log payloads;
+  activity logs record `framingProvided: true` instead.
+- There is still no diff UI between versions. The chosen 4C-2 UX is a compact read-only version list.
+- Draft completeness remains a separate 4C-3 signal; package gates still live in Phase 6.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/ai/agent-turn.test.ts tests/ai/draft_cover_letter.test.ts
+tests/ai/regenerate_draft.test.ts` (14 passing);
+`node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting
+tests/inngest/generate-draft.test.ts` with network access to the configured Supabase pooler (13
+passing); `pnpm exec vitest run tests/components` (20 passing).
+
+### 4C drafted documents — completeness signal (2026-06-10, current branch)
+
+The third 4C slice makes the Drafts phase report completion against the drafts actually required
+for the current eligibility verdict. This is still a tracker signal only; Phase 6 will consume it in
+the package/quality gate.
+
+Implemented:
+
+- Draft requirements moved into `config/rules/journey.yaml` under the `drafts` phase. Cover letter,
+  employer letter, and CV apply to all routes. Anabin justification is required only when the
+  verdict carries a configured Anabin blocker.
+- `JourneyManifest` validates `draftRequirements` with Zod, using the shared `DraftTypeEnum` and
+  `RouteId`.
+- `requiredDraftsForRoute(verdict)` is pure and config-driven. It filters by route overlap plus
+  optional verdict blocker/warning conditions; there is no draft-type list in `computeJourneyProgress`.
+- `computeJourneyProgress` now computes the Drafts phase total/completed count from required draft
+  rows. Only `approved` drafts count complete.
+
+Gotchas:
+
+- A normal recognized-degree case now shows three required drafts. An Anabin-unknown/H- verdict shows
+  four required drafts because `anabin_justification` becomes required.
+- The helper intentionally uses the eligibility verdict, not raw facts, so future rules can add
+  route/blocker/warning-driven draft requirements in YAML.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/journey tests/components/tracker.test.ts` (36 passing);
+`node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting`
+with network access to the configured Supabase pooler (7 passing).
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -420,7 +520,10 @@ Toronto-specific residence/document blockers separately from eligibility.
 | 4C-F-3 review inbox + role-aware approvals | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-4 real tasks foundation | complete, merged to main (PR #21) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-5 firm console + applicant portal split | complete, merged to main (PR #22) | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F-6 firm knowledge + Canada/Toronto scaffolding | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-6 firm knowledge + Canada/Toronto scaffolding | complete, merged to main (PR #24) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-1 Anabin justification draft | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-2 regenerate draft with framing | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-3 drafts completeness signal | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 

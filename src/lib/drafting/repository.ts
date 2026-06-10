@@ -31,6 +31,8 @@ export interface DraftRow {
   error: string | null;
   approvedBy: string | null;
   approvedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface DraftRepository {
@@ -58,6 +60,8 @@ function toRow(r: typeof schema.drafts.$inferSelect): DraftRow {
     error: r.error,
     approvedBy: r.approvedBy,
     approvedAt: r.approvedAt,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   };
 }
 

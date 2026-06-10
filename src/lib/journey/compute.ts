@@ -8,6 +8,7 @@ import { getJourneyManifest } from './loader';
 import { resolveCitation } from './citations';
 import { mapAnswerProvenance } from './provenance';
 import type {
+  JourneyDraftRequirement,
   JourneyProgress,
   JourneyStep,
   PhaseProgress,
@@ -168,14 +169,37 @@ function latestDraft(drafts: JourneyDraft[], type: DraftType): JourneyDraft | nu
   return drafts.find((d) => d.type === type) ?? null;
 }
 
-const DRAFT_STEP_DEFS: Array<{ type: DraftType; label: string }> = [
-  { type: 'cover_letter', label: 'Cover letter' },
-  { type: 'employer_letter', label: 'Employer letter' },
-  { type: 'cv', label: 'CV' },
-];
+function draftRequirementApplies(
+  requirement: JourneyDraftRequirement,
+  verdict: EligibilityVerdict,
+): boolean {
+  if (requirement.routes != null && !requirement.routes.some((r) => verdict.routes.includes(r))) {
+    return false;
+  }
 
-function buildDraftSteps(drafts: JourneyDraft[], caseId: string | null): StepProgress[] {
-  return DRAFT_STEP_DEFS.map(({ type, label }) => {
+  const requiredWhen = requirement.requiredWhen;
+  if (!requiredWhen) return true;
+
+  const blockerMatch =
+    requiredWhen.blockersAny?.some((blocker) => verdict.blockers.includes(blocker)) ?? false;
+  const warningMatch =
+    requiredWhen.warningsAny?.some((warning) => verdict.warnings.includes(warning)) ?? false;
+  return blockerMatch || warningMatch;
+}
+
+export function requiredDraftsForRoute(verdict: EligibilityVerdict): JourneyDraftRequirement[] {
+  const draftsPhase = getJourneyManifest().phases.find((phase) => phase.source === 'drafts');
+  return (draftsPhase?.draftRequirements ?? []).filter((requirement) =>
+    draftRequirementApplies(requirement, verdict),
+  );
+}
+
+function buildDraftSteps(
+  requiredDrafts: JourneyDraftRequirement[],
+  drafts: JourneyDraft[],
+  caseId: string | null,
+): StepProgress[] {
+  return requiredDrafts.map(({ type, label }) => {
     const draft = latestDraft(drafts, type);
     const reviewHref =
       draft?.status === 'ready_for_review' && caseId
@@ -336,7 +360,7 @@ export function computeJourneyProgress(
     if (phase.source === 'documents') {
       steps = expandDocuments(caseFacts, verdict, documents, uploadedDocuments, caseId);
     } else if (phase.source === 'drafts') {
-      steps = buildDraftSteps(drafts, caseId);
+      steps = buildDraftSteps(requiredDraftsForRoute(verdict), drafts, caseId);
     } else {
       steps = phase.steps.map((s) => buildEligibilityStep(s, caseFacts));
     }

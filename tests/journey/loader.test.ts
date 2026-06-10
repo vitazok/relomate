@@ -32,4 +32,18 @@ describe('journey loader', () => {
     expect(drafts?.comingSoon).toBeNull();
     expect(pkg?.comingSoon).toBeTruthy();
   });
+
+  it('loads config-driven draft requirements', () => {
+    const drafts = getJourneyManifest().phases.find((p) => p.id === 'drafts');
+    expect(drafts?.draftRequirements.map((d) => d.type)).toEqual([
+      'cover_letter',
+      'employer_letter',
+      'cv',
+      'anabin_justification',
+    ]);
+    expect(drafts?.draftRequirements.find((d) => d.type === 'anabin_justification')?.requiredWhen)
+      .toEqual({
+        blockersAny: ['anabin_status_unknown', 'degree_not_recognized'],
+      });
+  });
 });

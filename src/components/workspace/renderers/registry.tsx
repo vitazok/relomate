@@ -182,6 +182,21 @@ export const DocumentExtractionStatus: Renderer = ({ output }) => {
   );
 };
 
+function draftLabel(type: string | undefined): string {
+  switch (type) {
+    case 'cover_letter':
+      return 'Cover letter';
+    case 'employer_letter':
+      return 'Employer letter';
+    case 'cv':
+      return 'CV';
+    case 'anabin_justification':
+      return 'Anabin justification';
+    default:
+      return 'Draft';
+  }
+}
+
 export const DraftRequestResult: Renderer = ({ output }) => {
   const data = output.data as {
     draftId: string;
@@ -189,14 +204,7 @@ export const DraftRequestResult: Renderer = ({ output }) => {
     draftType?: string;
     status?: string;
   };
-  const label =
-    data.draftType === 'cover_letter'
-      ? 'Cover letter'
-      : data.draftType === 'employer_letter'
-        ? 'Employer letter'
-        : data.draftType === 'cv'
-          ? 'CV'
-          : 'Draft';
+  const label = draftLabel(data.draftType);
 
   if (data.status === 'ready_for_review' && data.caseId) {
     return (

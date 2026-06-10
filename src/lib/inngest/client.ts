@@ -19,5 +19,5 @@ export type DocumentUploadedEvent = {
 
 export type DraftRequestedEvent = {
   name: 'draft.requested';
-  data: { draftId: string; caseId: string; userId: string };
+  data: { draftId: string; caseId: string; userId: string; framingInstruction?: string };
 };

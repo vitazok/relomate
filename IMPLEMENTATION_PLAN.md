@@ -251,36 +251,36 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 **Done:** 4A cover letter (PR #15), 4B employer letter + CV (PR #16). Drafts foundation (`drafts` table, `makeDraftRepository`, `generateDraftHandler`, polymorphic review route, `approvals` `subjectType:'draft'`, per-type versioning) is settled — 4C cards reuse it.
 
-### Card 4C-1 — Anabin justification draft
+### Card 4C-1 — Anabin justification draft ✅
 - **Goal:** Add `draft_anabin_justification` as a fourth draft type for Anabin-`unknown`/ZAB cases.
 - **Tasks:**
-  - [ ] Add `anabin_justification` to the draft type union + a Zod content schema in `src/lib/drafting/types.ts`.
-  - [ ] Add `draft_anabin_justification/v0` prompt; wire into `generateDraftByType`.
-  - [ ] Register `draft_anabin_justification` tool BEFORE `lookup_anabin` (single cache-control breakpoint stays last).
-  - [ ] Add the fourth Drafts tracker row; only `approved` counts complete.
-  - [ ] Update agent prompt/tool catalog + handover docs.
-- **Verify:** `pnpm exec tsc --noEmit` + serial vitest on `tests/drafting tests/ai/draft_* tests/ai/agent-turn.test.ts tests/journey/compute.test.ts`.
+  - [x] Add `anabin_justification` to the draft type union + a Zod content schema in `src/lib/drafting/types.ts`.
+  - [x] Add `draft_anabin_justification/v0` prompt; wire into `generateDraftByType`.
+  - [x] Register `draft_anabin_justification` tool BEFORE `lookup_anabin` (single cache-control breakpoint stays last).
+  - [x] Add the fourth Drafts tracker row; only `approved` counts complete.
+  - [x] Update agent prompt/tool catalog + handover docs.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting tests/ai/draft_cover_letter.test.ts tests/ai/agent-turn.test.ts tests/inngest/generate-draft.test.ts tests/journey/compute.test.ts` → 40 passing with network access to the configured Supabase pooler; `pnpm exec vitest run tests/components` → 20 passing.
 - **Deferred:** regeneration; package gate.
 
-### Card 4C-2 — `regenerate_draft` with framing
+### Card 4C-2 — `regenerate_draft` with framing ✅
 - **Goal:** Let the user regenerate any existing draft with framing instructions (more formal, emphasize return intent, etc.).
 - **Tasks:**
-  - [ ] `regenerate_draft` tool: takes `draftId` + framing instruction, dispatches `draft.requested` with the instruction, bumps version.
-  - [ ] Thread framing instruction through `generateDraftByType` into each prompt.
-  - [ ] Review route surfaces version history (read-only list; latest is reviewable).
-  - [ ] "Regenerate with…" affordance in the draft review UI.
-  - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting tests/ai/agent-turn.test.ts tests/inngest/generate-draft.test.ts`.
+  - [x] `regenerate_draft` tool: takes `draftId` + framing instruction, dispatches `draft.requested` with the instruction, bumps version.
+  - [x] Thread framing instruction through `generateDraftByType` into each prompt.
+  - [x] Review route surfaces version history (read-only list; latest is reviewable).
+  - [x] "Regenerate with…" affordance in the draft review UI.
+  - [x] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/ai/agent-turn.test.ts tests/ai/draft_cover_letter.test.ts tests/ai/regenerate_draft.test.ts` → 14 passing; `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting tests/inngest/generate-draft.test.ts` → 13 passing with network access to the configured Supabase pooler; `pnpm exec vitest run tests/components` → 20 passing.
 - **Deferred:** package gate; live content-quality eval (Phase 7).
-- **Decisions:** version-history UX — list vs. diff vs. latest-only. Resolve in-session from the existing review-route shape; brainstorm only if a real fork appears.
+- **Decisions:** version-history UX resolved as a read-only version list on the review route; stale review URLs redirect to the latest ready draft when possible, otherwise back to the case.
 
-### Card 4C-3 — Drafts completeness signal
+### Card 4C-3 — Drafts completeness signal ✅
 - **Goal:** Expose "all required drafts approved" as a tracker signal (consumed by the Phase 6 package gate).
 - **Tasks:**
-  - [ ] `computeJourneyProgress` Drafts phase reports approved-count vs. required-by-route.
-  - [ ] Pure helper `requiredDraftsForRoute(verdict)` (config-driven; no hardcoded list).
-  - [ ] Update journey tests for the live count.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/journey tests/drafting`.
+  - [x] `computeJourneyProgress` Drafts phase reports approved-count vs. required-by-route.
+  - [x] Pure helper `requiredDraftsForRoute(verdict)` (config-driven; no hardcoded list).
+  - [x] Update journey tests for the live count.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/journey tests/components/tracker.test.ts` → 36 passing; `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting` → 7 passing with network access to the configured Supabase pooler.
 - **Deferred:** the actual blocking gate lives in Phase 6 (`quality_check`); this card only surfaces the signal.
 
 ---

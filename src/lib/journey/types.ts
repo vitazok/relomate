@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { DraftTypeEnum } from '@/lib/drafting/types';
+import { RouteId } from '@/lib/rules/types';
 
 // ---- Manifest (config/rules/journey.yaml) ----
 
@@ -9,6 +11,22 @@ export const JourneyStep = z.object({
   cite: z.string().nullable().default(null),
 });
 
+export const DraftRequiredWhen = z
+  .object({
+    blockersAny: z.array(z.string()).min(1).optional(),
+    warningsAny: z.array(z.string()).min(1).optional(),
+  })
+  .refine((c) => c.blockersAny !== undefined || c.warningsAny !== undefined, {
+    message: 'requiredWhen must specify blockersAny or warningsAny',
+  });
+
+export const JourneyDraftRequirement = z.object({
+  type: DraftTypeEnum,
+  label: z.string(),
+  routes: z.array(RouteId).nullable().default(null),
+  requiredWhen: DraftRequiredWhen.optional(),
+});
+
 export const JourneyPhase = z.object({
   id: z.enum(['eligibility', 'documents', 'drafts', 'package']),
   label: z.string(),
@@ -17,6 +35,7 @@ export const JourneyPhase = z.object({
   source: z.enum(['steps', 'documents', 'drafts']).default('steps'),
   comingSoon: z.string().nullable().default(null),
   steps: z.array(JourneyStep).default([]),
+  draftRequirements: z.array(JourneyDraftRequirement).default([]),
 });
 
 export const JourneyManifest = z.object({
@@ -25,6 +44,8 @@ export const JourneyManifest = z.object({
 });
 
 export type JourneyStep = z.infer<typeof JourneyStep>;
+export type DraftRequiredWhen = z.infer<typeof DraftRequiredWhen>;
+export type JourneyDraftRequirement = z.infer<typeof JourneyDraftRequirement>;
 export type JourneyPhase = z.infer<typeof JourneyPhase>;
 export type JourneyManifest = z.infer<typeof JourneyManifest>;
 
@@ -60,7 +81,7 @@ export const DocumentProgress = z.object({
 
 export const DraftProgress = z.object({
   id: z.string(),
-  type: z.enum(['cover_letter', 'employer_letter', 'cv']),
+  type: z.enum(['cover_letter', 'employer_letter', 'cv', 'anabin_justification']),
   status: z.enum(['drafting', 'ready_for_review', 'approved', 'rejected', 'failed']),
   reviewHref: z.string().nullable(),
 });

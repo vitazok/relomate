@@ -3,23 +3,38 @@
 import { useState, useTransition } from 'react';
 import {
   DRAFT_TYPE_LABELS,
+  type AnabinJustificationContent,
   type CoverLetterContent,
   type CvContent,
   type DraftContent,
+  type DraftStatus,
   type EmployerLetterContent,
 } from '@/lib/drafting/types';
-import { approveDraft, rejectDraft } from './actions';
+import { approveDraft, regenerateDraft, rejectDraft } from './actions';
+
+export interface DraftVersionHistoryItem {
+  id: string;
+  version: number;
+  status: DraftStatus;
+  isCurrent: boolean;
+  reviewHref: string | null;
+}
 
 export function DraftReviewForm({
   caseId,
   draftId,
   initial,
+  version,
+  versionHistory,
 }: {
   caseId: string;
   draftId: string;
   initial: DraftContent;
+  version: number;
+  versionHistory: DraftVersionHistoryItem[];
 }) {
   const [reason, setReason] = useState('');
+  const [framingInstruction, setFramingInstruction] = useState('');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -43,12 +58,41 @@ export function DraftReviewForm({
     });
   }
 
+  function regenerate() {
+    setError(null);
+    startTransition(async () => {
+      const res = await regenerateDraft({ caseId, draftId, framingInstruction });
+      if (res?.error) setError(res.message ?? 'Could not regenerate this draft.');
+    });
+  }
+
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-4">
       <div className="mb-3 text-xs font-medium text-zinc-500">
-        {DRAFT_TYPE_LABELS[initial.type]} draft
+        {DRAFT_TYPE_LABELS[initial.type]} draft · v{version}
       </div>
       <DraftFields initial={initial} onSubmit={submit} pending={pending} />
+
+      <div className="mt-4 border-t border-zinc-100 pt-3">
+        <TextArea
+          label="Regenerate with..."
+          value={framingInstruction}
+          rows={3}
+          onChange={setFramingInstruction}
+        />
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={regenerate}
+            disabled={pending || framingInstruction.trim().length === 0}
+            className="rounded border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {pending ? 'Working...' : 'Regenerate'}
+          </button>
+        </div>
+      </div>
+
+      <VersionHistory items={versionHistory} />
 
       <div className="mt-4 border-t border-zinc-100 pt-3">
         <label className="block">
@@ -71,6 +115,45 @@ export function DraftReviewForm({
       </div>
     </section>
   );
+}
+
+function VersionHistory({ items }: { items: DraftVersionHistoryItem[] }) {
+  if (items.length <= 1) return null;
+  return (
+    <div className="mt-4 border-t border-zinc-100 pt-3">
+      <div className="text-xs font-medium text-zinc-600">Version history</div>
+      <ul className="mt-2 space-y-1 text-xs text-zinc-600">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3">
+            <span>
+              v{item.version} · {draftStatusLabel(item.status)}
+              {item.isCurrent ? ' · current' : ''}
+            </span>
+            {item.reviewHref && item.isCurrent ? (
+              <span className="text-zinc-400">reviewing</span>
+            ) : (
+              <span className="text-zinc-400">read-only</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function draftStatusLabel(status: DraftStatus): string {
+  switch (status) {
+    case 'approved':
+      return 'approved';
+    case 'ready_for_review':
+      return 'ready for review';
+    case 'rejected':
+      return 'rejected';
+    case 'failed':
+      return 'failed';
+    default:
+      return 'drafting';
+  }
 }
 
 function parseParagraphs(raw: string): string[] {
@@ -144,6 +227,11 @@ function DraftFields({
   if (initial.type === 'cv') {
     return <CvFields initial={initial.data} pending={pending} onSubmit={onSubmit} />;
   }
+  if (initial.type === 'anabin_justification') {
+    return (
+      <AnabinJustificationFields initial={initial.data} pending={pending} onSubmit={onSubmit} />
+    );
+  }
   return (
     <LetterFields
       type={initial.type}
@@ -151,6 +239,66 @@ function DraftFields({
       pending={pending}
       onSubmit={onSubmit}
     />
+  );
+}
+
+function AnabinJustificationFields({
+  initial,
+  pending,
+  onSubmit,
+}: {
+  initial: AnabinJustificationContent;
+  pending: boolean;
+  onSubmit: (content: DraftContent | null) => void;
+}) {
+  const [title, setTitle] = useState(initial.title);
+  const [subject, setSubject] = useState(initial.subject);
+  const [institutionStatus, setInstitutionStatus] = useState(initial.institutionStatus);
+  const [degreeStatus, setDegreeStatus] = useState(initial.degreeStatus);
+  const [paragraphs, setParagraphs] = useState(initial.paragraphs.join('\n\n'));
+  const [recommendedNextSteps, setRecommendedNextSteps] = useState(
+    initial.recommendedNextSteps.join('\n'),
+  );
+
+  function content(): DraftContent | null {
+    return {
+      type: 'anabin_justification',
+      data: {
+        title: title.trim(),
+        subject: subject.trim(),
+        institutionStatus: institutionStatus.trim(),
+        degreeStatus: degreeStatus.trim(),
+        paragraphs: parseParagraphs(paragraphs),
+        recommendedNextSteps: parseLines(recommendedNextSteps),
+      },
+    };
+  }
+
+  return (
+    <div className="space-y-3">
+      <TextInput label="Title" value={title} onChange={setTitle} />
+      <TextInput label="Subject" value={subject} onChange={setSubject} />
+      <TextArea
+        label="Institution recognition status"
+        value={institutionStatus}
+        rows={3}
+        onChange={setInstitutionStatus}
+      />
+      <TextArea
+        label="Degree recognition status"
+        value={degreeStatus}
+        rows={3}
+        onChange={setDegreeStatus}
+      />
+      <TextArea label="Justification" value={paragraphs} rows={16} onChange={setParagraphs} />
+      <TextArea
+        label="Recommended next steps"
+        value={recommendedNextSteps}
+        rows={5}
+        onChange={setRecommendedNextSteps}
+      />
+      <ApproveButton pending={pending} onClick={() => onSubmit(content())} />
+    </div>
   );
 }
 

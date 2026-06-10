@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeJourneyProgress, evaluateCondition } from '@/lib/journey/compute';
+import {
+  computeJourneyProgress,
+  evaluateCondition,
+  requiredDraftsForRoute,
+} from '@/lib/journey/compute';
 import { getDocumentRules } from '@/lib/rules/loader';
 import { evaluateEligibility } from '@/lib/rules/eligibility';
 import type { CaseFacts } from '@/lib/case/schema';
@@ -80,7 +84,11 @@ describe('computeJourneyProgress — eligibility phase', () => {
     const drafts = progress.phases.find((p) => p.id === 'drafts')!;
     expect(drafts.status).toBe('todo');
     expect(drafts.comingSoon).toBeNull();
-    expect(drafts.steps.map((s) => s.id)).toEqual(['cover_letter', 'employer_letter', 'cv']);
+    expect(drafts.steps.map((s) => s.id)).toEqual([
+      'cover_letter',
+      'employer_letter',
+      'cv',
+    ]);
     expect(drafts.steps.every((s) => s.value === 'not started yet')).toBe(true);
     const pkg = progress.phases.find((p) => p.id === 'package')!;
     expect(pkg.status).toBe('locked');
@@ -117,6 +125,42 @@ describe('computeJourneyProgress — eligibility phase', () => {
     ).phases.find((p) => p.id === 'drafts')!;
     expect(approved.completed).toBe(3);
     expect(approved.status).toBe('done');
+  });
+
+  it('requires Anabin justification only when the verdict has a configured Anabin blocker', () => {
+    const hPlus: CaseFacts = { education: { anabinStatus: wrap('H+') } };
+    const unknown: CaseFacts = { education: { anabinStatus: wrap('unknown') } };
+
+    expect(requiredDraftsForRoute(verdictFor(hPlus)).map((d) => d.type)).toEqual([
+      'cover_letter',
+      'employer_letter',
+      'cv',
+    ]);
+    expect(requiredDraftsForRoute(verdictFor(unknown)).map((d) => d.type)).toEqual([
+      'cover_letter',
+      'employer_letter',
+      'cv',
+      'anabin_justification',
+    ]);
+
+    const drafts = computeJourneyProgress(
+      unknown,
+      EMPTY_PROFILE,
+      getDocumentRules(),
+      verdictFor(unknown),
+      TODAY,
+      [],
+      'case-1',
+      [
+        { id: 'cover-approved', type: 'cover_letter', status: 'approved' },
+        { id: 'employer-approved', type: 'employer_letter', status: 'approved' },
+        { id: 'cv-approved', type: 'cv', status: 'approved' },
+      ],
+    ).phases.find((p) => p.id === 'drafts')!;
+    expect(drafts.total).toBe(4);
+    expect(drafts.completed).toBe(3);
+    expect(drafts.status).toBe('active');
+    expect(drafts.steps.at(-1)?.id).toBe('anabin_justification');
   });
 
   it('computes overallPct from unlocked phases only', () => {

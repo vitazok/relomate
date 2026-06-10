@@ -12,6 +12,8 @@ import { makeRequestDocumentUploadTool } from '@/lib/ai/tools/request_document_u
 import { makeDraftCoverLetterTool } from '@/lib/ai/tools/draft_cover_letter';
 import { makeDraftEmployerLetterTool } from '@/lib/ai/tools/draft_employer_letter';
 import { makeDraftCvTool } from '@/lib/ai/tools/draft_cv';
+import { makeDraftAnabinJustificationTool } from '@/lib/ai/tools/draft_anabin_justification';
+import { makeRegenerateDraftTool } from '@/lib/ai/tools/regenerate_draft';
 import { inngest } from '@/lib/inngest/client';
 import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
@@ -85,6 +87,16 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       defaultSourceTurnId: userMessageId,
     }),
     draft_cv: makeDraftCvTool(repo, drafts, {
+      defaultCaseId: caseId,
+      defaultUserId: userId,
+      defaultSourceTurnId: userMessageId,
+    }),
+    draft_anabin_justification: makeDraftAnabinJustificationTool(repo, drafts, {
+      defaultCaseId: caseId,
+      defaultUserId: userId,
+      defaultSourceTurnId: userMessageId,
+    }),
+    regenerate_draft: makeRegenerateDraftTool(repo, drafts, {
       defaultCaseId: caseId,
       defaultUserId: userId,
       defaultSourceTurnId: userMessageId,
