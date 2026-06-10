@@ -71,6 +71,18 @@ function mockGenerator(overrides: Record<string, unknown> = {}) {
       modelVersion: 'm',
       promptVersion: 'p',
     }),
+    generateAnabinJustification: vi.fn().mockResolvedValue({
+      content: {
+        title: 'Anabin recognition justification',
+        subject: 'Recognition evidence for EU Blue Card file',
+        institutionStatus: 'Institution status is unknown in the seeded Anabin result.',
+        degreeStatus: 'Degree equivalence is not confirmed on the current record.',
+        paragraphs: ['One', 'Two', 'Three'],
+        recommendedNextSteps: ['Request ZAB statement or consulate clarification.'],
+      },
+      modelVersion: 'm',
+      promptVersion: 'p',
+    }),
     ...overrides,
   };
 }
@@ -122,6 +134,7 @@ describe('generateDraft handler', () => {
   it.each([
     ['employer_letter' as const, 'generateEmployerLetter' as const],
     ['cv' as const, 'generateCv' as const],
+    ['anabin_justification' as const, 'generateAnabinJustification' as const],
   ])('generates %s content through the typed dispatcher', async (type, method) => {
     const { generateDraftHandler } = await import('@/lib/inngest/functions/generate-draft');
     const drafts = makeDraftRepository(handle.db);
@@ -138,6 +151,31 @@ describe('generateDraft handler', () => {
     expect(generator[method]).toHaveBeenCalledOnce();
     expect(draft?.status).toBe('ready_for_review');
     expect(draft?.content?.type).toBe(type);
+  });
+
+  it('passes regeneration framing instructions into the generator', async () => {
+    const { generateDraftHandler } = await import('@/lib/inngest/functions/generate-draft');
+    const drafts = makeDraftRepository(handle.db);
+    const draftId = await drafts.insert({ caseId, userId, type: 'cover_letter' });
+    const generator = mockGenerator();
+
+    await generateDraftHandler({
+      event: {
+        name: 'draft.requested',
+        data: {
+          draftId,
+          caseId,
+          userId,
+          framingInstruction: 'Make the tone more formal.',
+        },
+      },
+      step,
+      deps: { generator },
+    });
+
+    expect(generator.generateCoverLetter).toHaveBeenCalledWith(
+      expect.objectContaining({ framingInstruction: 'Make the tone more formal.' }),
+    );
   });
 
   it('marks failed when generation throws', async () => {

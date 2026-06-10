@@ -47,6 +47,21 @@ phases:
   - id: drafts
     label: Drafts
     source: drafts
+    draftRequirements:
+      - type: cover_letter
+        label: Cover letter
+        routes: null
+      - type: employer_letter
+        label: Employer letter
+        routes: null
+      - type: cv
+        label: CV
+        routes: null
+      - type: anabin_justification
+        label: Anabin justification
+        routes: null
+        requiredWhen:
+          blockersAny: ['anabin_status_unknown', 'degree_not_recognized']
     steps: []
   - id: package
     label: VIDEX form + submission package

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const DraftTypeEnum = z.enum(['cover_letter', 'employer_letter', 'cv']);
+export const DraftTypeEnum = z.enum([
+  'cover_letter',
+  'employer_letter',
+  'cv',
+  'anabin_justification',
+]);
 export type DraftType = z.infer<typeof DraftTypeEnum>;
 
 export const DraftStatusEnum = z.enum([
@@ -56,6 +61,16 @@ export const CvContentSchema = z.object({
 });
 export type CvContent = z.infer<typeof CvContentSchema>;
 
+export const AnabinJustificationContentSchema = z.object({
+  title: z.string().min(1),
+  subject: z.string().min(1),
+  institutionStatus: z.string().min(1),
+  degreeStatus: z.string().min(1),
+  paragraphs: z.array(z.string().min(1)).min(3).max(8),
+  recommendedNextSteps: z.array(z.string().min(1)).min(1).max(6),
+});
+export type AnabinJustificationContent = z.infer<typeof AnabinJustificationContentSchema>;
+
 export const DraftContentSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('cover_letter'),
@@ -69,6 +84,10 @@ export const DraftContentSchema = z.discriminatedUnion('type', [
     type: z.literal('cv'),
     data: CvContentSchema,
   }),
+  z.object({
+    type: z.literal('anabin_justification'),
+    data: AnabinJustificationContentSchema,
+  }),
 ]);
 export type DraftContent = z.infer<typeof DraftContentSchema>;
 
@@ -76,6 +95,7 @@ export const DRAFT_TYPE_LABELS: Record<DraftType, string> = {
   cover_letter: 'Cover letter',
   employer_letter: 'Employer letter',
   cv: 'CV',
+  anabin_justification: 'Anabin justification',
 };
 
 export const DraftRequestResultSchema = z.object({

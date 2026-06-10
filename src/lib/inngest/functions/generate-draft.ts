@@ -28,7 +28,7 @@ export async function generateDraftHandler({
   step: StepLike;
   deps?: GenerateDraftDeps;
 }): Promise<void> {
-  const { draftId, caseId, userId } = event.data;
+  const { draftId, caseId, userId, framingInstruction } = event.data;
   const drafts = makeDraftRepository();
   const repo = makeRepository();
   const approvals = makeApprovalRepository();
@@ -49,6 +49,7 @@ export async function generateDraftHandler({
         caseId,
         profile: loaded.profile,
         caseFacts: loaded.caseFacts,
+        framingInstruction,
       });
     });
 
