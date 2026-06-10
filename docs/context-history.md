@@ -277,6 +277,69 @@ Verification:
 Known follow-up: this adds repository-level review inbox data, not the full firm console UI. 4C-F-5
 must still build the actual inbox/console surfaces.
 
+### 4C-F firm foundation pivot — Real tasks foundation (2026-06-10, merged to main PR #21)
+
+The fourth slice replaces tracker-only implied work with mutable task records.
+
+Implemented:
+
+- `tasks` + append-only `task_changes` tables (migration `drizzle/0009_odd_steel_serpent.sql`).
+  Task fields: assignee, due date, status, source, visibility, blocking, related subject.
+- `src/lib/tasks/`: `types.ts` (status/source/role/subject enums; `done`/`cancelled` terminal),
+  `repository.ts` (`makeTaskRepository`: create/getById/listByCase/update + `reconcileSystemTasks`),
+  `generate.ts` (pure `deriveSystemTasks`: pending approvals → review/confirm, failed docs →
+  re-upload, failed drafts → regenerate; sources disjoint, no double-count), `view-model.ts`
+  (pure `selectTopTasks`, `now`-parameterized, audience+assignee filtered, blocking→overdue→due-date
+  ordering), `service.ts` (`reconcileCaseTasks` integration seam).
+- System tasks dedupe via a stable `generationKey` + partial unique index on non-terminal status
+  (same trick as the approvals pending-subject index); reconcile is idempotent (no-op on steady
+  state) and auto-resolves cleared triggers.
+- Rule 7: `overdue` is a pure `now > dueAt`; no `escalationStatus`-style thresholds in code.
+
+Verification: `pnpm exec tsc --noEmit` + serial vitest on `tests/tasks tests/journey` (47 passing).
+
+Known follow-up: manual-task API/server actions and an Inngest SLA worker are deferred.
+
+### 4C-F firm foundation pivot — Firm console + applicant portal split (2026-06-10, merged to main PR #22)
+
+The fifth slice surfaces the firm console and the applicant portal as **distinct routes**, with the
+access boundary decided by pure functions (chosen over a role-adaptive single URL so the boundary
+is testable as redirects, not rendered content).
+
+Implemented:
+
+- `/console` (firm operators only): `assignedToMe` / `unassigned` / `blockedOrOverdue` case buckets.
+  Pure `bucketizeConsoleCases` (`src/lib/console/view-model.ts`, `now`-parameterized); `loadConsole`
+  is the thin DB seam that folds per-case open-task signals (blocking present, earliest due) in
+  memory to avoid N+1.
+- `/portal/[id]` (applicants): client-visible top tasks only — the `selectTopTasks` `audience:'client'`
+  filter is what keeps internal work off the surface. `loadPortal` reconciles system tasks first.
+- `/case/[id]` stays the internal consultant workspace, unchanged except a surface guard.
+- **Access boundary: `src/lib/auth/surface-access.ts`** — pure `caseSurface(auth)→'firm'|'client'|
+  'none'` and `canAccessConsole(role)`. Org firm role OR per-case firm participant seat → `firm`;
+  any other access → `client`; no access → `none`. Internal routes redirect `client` viewers to
+  `/portal/[id]`; the portal redirects `firm` viewers to `/case/[id]`.
+- New repo query: `Repository.listByOrganization(orgId)` (recency from `createdAt` — `cases` has no
+  `updatedAt`).
+
+Gotchas:
+
+- **Anon users are `firm_admin` of a one-person `individual_anon` org**, so they resolve to the
+  `firm` surface and keep the full workspace; only a *pure* applicant (applicant participant, no firm
+  role) gets the portal. This is what keeps the existing case page usable through the split.
+- **Malformed (non-UUID) caseId 500'd** because `getCaseAuthorization` runs `eq(cases.id, id)` and
+  Postgres throws at the uuid cast. The portal page wraps the lookup and redirects to `/` on failure
+  (matching the case page's notFound-on-bad-id). Found via live smoke; fix in commit `451e3a8`.
+
+Verification: `pnpm exec tsc --noEmit` + serial vitest on `tests/auth/surface-access* tests/console
+tests/auth/authorization.test.ts tests/case/repository.test.ts tests/tasks tests/journey` (94
+passing) + **live UI smoke** (firm→workspace/console, applicant→portal with both internal routes
+redirecting, outsider/cross-org/unauth all bounced). Full `pnpm build` is blocked locally by missing
+R2 prod-env creds (pre-existing env gotcha, unrelated).
+
+Known follow-up: portal upload/confirm/message widgets, manual-task UI, firm preview of the portal,
+ops analytics charts.
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -298,10 +361,12 @@ must still build the actual inbox/console surfaces.
 | 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/archive/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
 | 4B employer-letter + CV drafting | complete, merged to main (PR #16) | this file, below |
 | firm-first pivot decision | accepted | `docs/strategy/firm-first-pivot.md` |
-| 4C-F-1 RBAC + organization-owned cases | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F-2 case participants + visibility primitives | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F-3 review inbox + role-aware approvals | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F remaining firm foundation | next | `IMPLEMENTATION_PLAN.md` |
+| 4C-F-1 RBAC + organization-owned cases | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-2 case participants + visibility primitives | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-3 review inbox + role-aware approvals | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-4 real tasks foundation | complete, merged to main (PR #21) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-5 firm console + applicant portal split | complete, merged to main (PR #22) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-6 firm knowledge + Canada/Toronto scaffolding | next | `IMPLEMENTATION_PLAN.md` |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
