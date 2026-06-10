@@ -14,7 +14,14 @@ export default async function PortalPage({ params }: { params: Promise<{ id: str
   const userId = await getCurrentUserId();
   if (!userId) redirect('/');
 
-  const auth = await getCaseAuthorization(db, { userId, caseId: id, action: 'read' });
+  // A malformed (non-UUID) id makes the authorization query throw at the Postgres cast; treat it
+  // as no-access rather than a 500, matching the case page's notFound-on-bad-id behavior.
+  let auth;
+  try {
+    auth = await getCaseAuthorization(db, { userId, caseId: id, action: 'read' });
+  } catch {
+    redirect('/');
+  }
   if (!auth) redirect('/');
 
   const surface = caseSurface(auth);
