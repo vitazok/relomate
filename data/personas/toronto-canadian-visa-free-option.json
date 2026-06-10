@@ -1,0 +1,89 @@
+{
+  "id": "toronto-canadian-visa-free-option",
+  "description": "Canadian citizen with a German Blue Card job offer. Tests the Canada/Toronto pre-travel path even though Canadian citizens may also apply for residence after arrival.",
+  "firm": {
+    "sourceResidenceFlow": "canada_toronto",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "normal",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Maya Chen",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant", "citizenship": "CA", "pretravelVisaSelected": true }
+      },
+      {
+        "role": "employer_contact",
+        "label": "Employer HR contact",
+        "visibility": "shared",
+        "relation": { "kind": "employer_contact" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ],
+    "notes": ["Surface the visa-free-after-arrival option as advisory context, not as an eligibility blocker."]
+  },
+  "profile": {
+    "fullName": "Maya Chen",
+    "dateOfBirth": "1993-04-27",
+    "nationality": "CA",
+    "passportNumber": "C4100223",
+    "passportExpiry": "2032-01-11",
+    "currentAddress": {
+      "line1": "88 University Avenue",
+      "city": "Toronto",
+      "state": "Ontario",
+      "country": "CA",
+      "postalCode": "M5J 2H7"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": "B.Sc",
+      "fieldOfStudy": "Data Science",
+      "institution": "University of Toronto",
+      "completionYear": 2017,
+      "anabinStatus": "H+",
+      "modeOfStudy": "full_time"
+    },
+    "employment": {
+      "employerName": "Isar Analytics GmbH",
+      "employerCity": "Munich",
+      "jobTitle": "Data Scientist",
+      "iscoCode": "2511",
+      "annualGrossSalaryEur": 71000,
+      "contractType": "permanent",
+      "contractStartDate": "2026-11-01",
+      "priorExperienceYears": 7
+    },
+    "family": {
+      "maritalStatus": "single",
+      "spouse": null,
+      "children": []
+    },
+    "target": {
+      "consulate": "toronto",
+      "moveDate": "2026-10-20",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": true,
+    "route": "standard",
+    "blockers": [],
+    "warnings": [],
+    "reason": null
+  }
+}

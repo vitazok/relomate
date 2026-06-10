@@ -235,12 +235,12 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 ### Card 4C-F-6 — Firm knowledge + Canada/Toronto scaffolding
 - **Goal:** Add firm knowledge placeholders and Canada/Toronto config/personas without treating unverified checklist details as production truth.
 - **Tasks:**
-  - [ ] Firm knowledge tables/config scaffolding with source metadata and staleness.
-  - [ ] Canada/Toronto consulate/source scaffolding from official `canada.diplo.de` sources.
-  - [ ] Mark Canada checklist/rule details `verifiedByUser: false` until user verifies.
-  - [ ] Add four synthetic Toronto personas plus firm role/assignment metadata for existing personas.
-  - [ ] Update persona tests to load role metadata.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/personas tests/rules tests/journey`.
+  - [x] Firm knowledge tables/config scaffolding with source metadata and staleness.
+  - [x] Canada/Toronto consulate/source scaffolding from official `canada.diplo.de` sources.
+  - [x] Mark Canada checklist/rule details `verifiedByUser: false` until user verifies.
+  - [x] Add four synthetic Toronto personas plus firm role/assignment metadata for existing personas.
+  - [x] Update persona tests to load role metadata.
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/personas tests/rules tests/journey`. ✅ `tsc --noEmit`; `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/personas tests/rules-loader.test.ts tests/journey` → 87 passing. DB-backed suites require network access to the configured Supabase pooler.
 - **Deferred:** retrieval over firm playbooks; production Canada checklist until user verification.
 
 ---

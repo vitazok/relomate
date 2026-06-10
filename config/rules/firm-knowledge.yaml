@@ -1,0 +1,26 @@
+schemaVersion: 1
+sources:
+  - https://canada.diplo.de/ca-en/consular-services/visa/long-term
+  - https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126
+  - https://canada.diplo.de/ca-en/consular-services/15-terminbuchung
+  - https://canada.diplo.de/ca-en/about-us/generalkonsulat2
+lastVerified: '2026-06-10'
+
+freshness:
+  officialSourceStaleAfterDays: 30
+  playbookStaleAfterDays: 180
+  templateStaleAfterDays: 365
+
+sourceTypes:
+  - official_source
+  - firm_playbook
+  - template
+  - prior_approved_example
+  - internal_note
+
+requiredMetadata:
+  - sourceType
+  - sourceUrls
+  - lastCheckedAt
+  - verifiedByUser
+  - staleAfter

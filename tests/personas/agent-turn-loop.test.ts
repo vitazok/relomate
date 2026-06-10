@@ -47,7 +47,7 @@ describe('persona agent-turn LIVE LOOP (L2b, DB-backed)', () => {
         userId: seeded.userId,
         visaType: 'blue_card',
         targetCountry: 'DE',
-        targetConsulate: 'bengaluru',
+        targetConsulate: persona.caseFacts.target?.consulate ?? 'bengaluru',
       });
 
       let script: ScriptStep[];

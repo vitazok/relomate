@@ -1,6 +1,38 @@
 {
   "id": "priya-strong",
   "description": "Indian SWE, M.Tech CS from IIT Bombay (Anabin H+), salary €48,500, shortage-occupation route. Married, one child. Happy-path exemplar.",
+  "firm": {
+    "sourceResidenceFlow": "india_bengaluru",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "normal",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Priya Sharma",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant" }
+      },
+      {
+        "role": "spouse",
+        "label": "Arun Sharma",
+        "visibility": "client_visible",
+        "relation": { "kind": "family_member", "familyRole": "spouse" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ]
+  },
   "profile": {
     "fullName": "Priya Sharma",
     "dateOfBirth": "1992-03-14",

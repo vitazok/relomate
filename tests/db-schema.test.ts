@@ -9,6 +9,8 @@ import {
   documents,
   organizationMembers,
   caseParticipants,
+  firmKnowledgeSources,
+  firmKnowledgeEntries,
 } from '@/lib/db/schema';
 
 describe('db schema', () => {
@@ -21,12 +23,57 @@ describe('db schema', () => {
     expect(activityLog).toBeDefined();
     expect(organizationMembers).toBeDefined();
     expect(caseParticipants).toBeDefined();
+    expect(firmKnowledgeSources).toBeDefined();
+    expect(firmKnowledgeEntries).toBeDefined();
   });
 
   it('cases.eligibilityVerdict is a jsonb column', () => {
     const col = cases.eligibilityVerdict;
     expect(col).toBeDefined();
     expect(String(col.dataType)).toContain('json');
+  });
+});
+
+describe('firm knowledge schema', () => {
+  it('sources expose source metadata and staleness columns', () => {
+    const cols = Object.keys(firmKnowledgeSources);
+    for (const c of [
+      'id',
+      'organizationId',
+      'title',
+      'sourceType',
+      'url',
+      'jurisdiction',
+      'lastCheckedAt',
+      'lastVerifiedAt',
+      'staleAfter',
+      'verifiedByUser',
+      'metadata',
+      'createdAt',
+      'updatedAt',
+    ]) {
+      expect(cols).toContain(c);
+    }
+  });
+
+  it('entries expose source linkage and internal visibility columns', () => {
+    const cols = Object.keys(firmKnowledgeEntries);
+    for (const c of [
+      'id',
+      'organizationId',
+      'sourceId',
+      'title',
+      'category',
+      'body',
+      'visibility',
+      'jurisdiction',
+      'tags',
+      'metadata',
+      'createdAt',
+      'updatedAt',
+    ]) {
+      expect(cols).toContain(c);
+    }
   });
 });
 

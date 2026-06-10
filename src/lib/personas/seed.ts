@@ -29,6 +29,15 @@ export function listPersonaIds(): string[] {
     .map((f) => f.replace(/\.json$/, ''));
 }
 
+export function getPersonaCaseDefaults(personaId: string): { targetConsulate?: string } {
+  try {
+    const persona = loadPersona(personaId);
+    return { targetConsulate: persona.caseFacts.target?.consulate };
+  } catch {
+    return {};
+  }
+}
+
 export interface PersonaLeafUpdates {
   /** Dotted CaseFacts leaf path → raw value. */
   caseUpdates: Record<string, unknown>;

@@ -98,18 +98,24 @@ export const FamilyRules = z.object({
   documentsRequired: z.array(z.string()).min(1),
 });
 
+export const ConsulateId = z.enum(['bengaluru', 'toronto']);
+
 export const ConsulateRules = z.object({
   officialName: z.string(),
   url: url,
+  sources: z.array(url).optional(),
+  lastChecked: isoDate.optional(),
+  verifiedByUser: z.boolean().optional(),
+  sourceNotes: z.array(z.string()).optional(),
   jurisdictionStates: z.array(z.string()).min(1),
-  appointmentBookingPartner: z.string(),
-  visaFeeEur: z.number(),
-  visaFeePaymentMethod: z.string(),
-  documentSetsRequired: z.number().int().positive(),
+  appointmentBookingPartner: z.string().nullable(),
+  visaFeeEur: z.number().nullable(),
+  visaFeePaymentMethod: z.string().nullable(),
+  documentSetsRequired: z.number().int().positive().nullable(),
   biometricPhotos: z.object({
-    count: z.number().int().positive(),
+    count: z.number().int().positive().nullable(),
     sizeRequirement: z.string(),
-    maxAgeMonths: z.number().int().positive(),
+    maxAgeMonths: z.number().int().positive().nullable(),
     spec: z.string(),
   }),
   applicationForm: z.string(),
@@ -123,18 +129,52 @@ export const ConsulateRules = z.object({
     maxAgeYears: z.number().int().positive(),
     minBlankPages: z.number().int().nonnegative(),
   }),
-  indianApplicantSpecific: z.object({
-    distanceLearningClarificationRequired: z.boolean(),
-    markSheetsAllSemestersRequired: z.boolean(),
-    marriageCertificateNeedsApostille: z.boolean(),
-    birthCertificateNeedsApostille: z.boolean(),
-  }),
+  indianApplicantSpecific: z
+    .object({
+      distanceLearningClarificationRequired: z.boolean(),
+      markSheetsAllSemestersRequired: z.boolean(),
+      marriageCertificateNeedsApostille: z.boolean(),
+      birthCertificateNeedsApostille: z.boolean(),
+    })
+    .optional(),
+  canadianResidentSpecific: z
+    .object({
+      legalResidenceOverSixMonthsRequired: z.boolean(),
+      nonCanadianResidencePermitProofRequired: z.boolean(),
+      proofOfStayInCanadaRequired: z.boolean(),
+      inPersonApplicationRequired: z.boolean(),
+      prepaidReturnEnvelopeRequired: z.boolean(),
+      canadianCitizenVisaFreeResidencePermitOption: z.boolean(),
+    })
+    .optional(),
 });
 
 export const ConsulatesFile = z.object({
   schemaVersion: z.literal(1),
   lastVerified: isoDate,
   bengaluru: ConsulateRules,
+  toronto: ConsulateRules,
+});
+
+export const FirmKnowledgeConfig = z.object({
+  schemaVersion: z.literal(1),
+  sources: z.array(url),
+  lastVerified: isoDate,
+  freshness: z.object({
+    officialSourceStaleAfterDays: z.number().int().positive(),
+    playbookStaleAfterDays: z.number().int().positive(),
+    templateStaleAfterDays: z.number().int().positive(),
+  }),
+  sourceTypes: z.array(
+    z.enum([
+      'official_source',
+      'firm_playbook',
+      'template',
+      'prior_approved_example',
+      'internal_note',
+    ]),
+  ),
+  requiredMetadata: z.array(z.string()).min(1),
 });
 
 const ApostilleStep = z.object({
@@ -269,6 +309,8 @@ export type BlueCardRules = z.infer<typeof BlueCardRules>;
 export type FamilyRules = z.infer<typeof FamilyRules>;
 export type ConsulateRules = z.infer<typeof ConsulateRules>;
 export type ConsulatesFile = z.infer<typeof ConsulatesFile>;
+export type ConsulateId = z.infer<typeof ConsulateId>;
+export type FirmKnowledgeConfig = z.infer<typeof FirmKnowledgeConfig>;
 export type ApostilleRules = z.infer<typeof ApostilleRules>;
 export type ShortageOccupationsRules = z.infer<typeof ShortageOccupationsRules>;
 export type ShortageMapping = z.infer<typeof ShortageMapping>;

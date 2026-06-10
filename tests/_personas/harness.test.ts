@@ -16,6 +16,13 @@ describe('flattenLeafValues', () => {
     expect(map['education.anabinStatus']).toBe('H+');
     expect(map['target.targetConsulate']).toBe('bengaluru');
   });
+
+  it('preserves Toronto as a valid target consulate', () => {
+    const flat = flattenLeafValues(toCaseFacts(loadPersona('toronto-strong-pretravel')));
+    const map = Object.fromEntries(flat.map((l) => [l.path, l.value]));
+    expect(map['target.targetConsulate']).toBe('toronto');
+    expect(isLeafValueValid('target.targetConsulate', 'toronto')).toBe(true);
+  });
 });
 
 describe('isLeafValueValid', () => {

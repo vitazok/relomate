@@ -4,13 +4,14 @@ import {
   getBlueCardRules,
   getConsulate,
   getFamilyRules,
+  getFirmKnowledgeConfig,
   getShortageMappings,
   loadRules,
 } from '@/lib/rules/loader';
 import { DocumentCondition } from '@/lib/rules/types';
 
 describe('rules loader', () => {
-  it('loads and validates all 5 YAMLs + anabin seed', () => {
+  it('loads and validates all rules YAMLs', () => {
     const rules = loadRules();
     expect(rules.blueCard.schemaVersion).toBe(1);
     expect(rules.family.schemaVersion).toBe(1);
@@ -18,6 +19,7 @@ describe('rules loader', () => {
     expect(rules.apostille.schemaVersion).toBe(1);
     expect(rules.shortage.schemaVersion).toBe(1);
     expect(rules.anabin.schemaVersion).toBe(1);
+    expect(rules.firmKnowledge.schemaVersion).toBe(1);
   });
 
   it('exposes the 2026 Blue Card thresholds', () => {
@@ -30,6 +32,23 @@ describe('rules loader', () => {
   it('exposes the Bengaluru consulate passport rule', () => {
     const bengaluru = getConsulate('bengaluru');
     expect(bengaluru.passportRequirements.minRemainingValidityMonths).toBe(12);
+  });
+
+  it('exposes Toronto as unverified Canada source scaffolding', () => {
+    const toronto = getConsulate('toronto');
+    expect(toronto.officialName).toContain('Toronto');
+    expect(toronto.verifiedByUser).toBe(false);
+    expect(toronto.sources).toContain(
+      'https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126',
+    );
+    expect(toronto.canadianResidentSpecific?.legalResidenceOverSixMonthsRequired).toBe(true);
+  });
+
+  it('exposes firm knowledge freshness defaults', () => {
+    const config = getFirmKnowledgeConfig();
+    expect(config.sourceTypes).toContain('official_source');
+    expect(config.requiredMetadata).toContain('verifiedByUser');
+    expect(config.freshness.officialSourceStaleAfterDays).toBeGreaterThan(0);
   });
 
   it('exposes family reunification spouse legal basis array', () => {

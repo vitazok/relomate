@@ -1,0 +1,93 @@
+{
+  "id": "toronto-non-canadian-resident",
+  "description": "Brazilian engineer living in Canada on a work permit. Tests Toronto residence-flow metadata for a non-Canadian citizen with proof-of-residence needs.",
+  "firm": {
+    "sourceResidenceFlow": "canada_toronto",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "high",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Rafael Costa",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant", "residenceCountry": "CA", "residenceMonths": 9, "needsResidencePermitProof": true }
+      },
+      {
+        "role": "employer_contact",
+        "label": "Employer HR contact",
+        "visibility": "shared",
+        "relation": { "kind": "employer_contact" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ],
+    "notes": ["Canada-specific proof-of-stay and residence-permit checklist details are not yet user-verified."]
+  },
+  "profile": {
+    "fullName": "Rafael Costa",
+    "dateOfBirth": "1990-08-16",
+    "nationality": "BR",
+    "passportNumber": "B8822010",
+    "passportExpiry": "2030-09-04",
+    "currentAddress": {
+      "line1": "45 Bay Street",
+      "city": "Toronto",
+      "state": "Ontario",
+      "country": "CA",
+      "postalCode": "M5J 2X2"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": "B.Tech",
+      "fieldOfStudy": "Electrical Engineering",
+      "institution": "University of Sao Paulo",
+      "completionYear": 2013,
+      "anabinStatus": "H+",
+      "modeOfStudy": "full_time"
+    },
+    "employment": {
+      "employerName": "Nordlicht Mobility GmbH",
+      "employerCity": "Hamburg",
+      "jobTitle": "Embedded Systems Engineer",
+      "iscoCode": "2152",
+      "annualGrossSalaryEur": 52000,
+      "contractType": "permanent",
+      "contractStartDate": "2026-12-01",
+      "priorExperienceYears": 10
+    },
+    "family": {
+      "maritalStatus": "married",
+      "spouse": {
+        "fullName": "Ana Costa",
+        "dateOfBirth": "1992-02-12",
+        "nationality": "BR"
+      },
+      "children": []
+    },
+    "target": {
+      "consulate": "toronto",
+      "moveDate": "2026-11-15",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": true,
+    "route": "standard",
+    "blockers": [],
+    "warnings": [],
+    "reason": null
+  }
+}

@@ -71,7 +71,7 @@ const IntendedVisa = z.enum([
   'asylum',
   'other',
 ]);
-const Consulate = z.enum(['bengaluru']);
+const Consulate = z.enum(['bengaluru', 'toronto']);
 
 const Optional = <T extends z.ZodTypeAny>(inner: T) => FieldSchema(inner).optional();
 
