@@ -1,0 +1,89 @@
+{
+  "id": "toronto-strong-pretravel",
+  "description": "Indian product engineer legally resident in Toronto, choosing a pre-travel EU Blue Card visa so employment can be authorized from the first day of visa validity.",
+  "firm": {
+    "sourceResidenceFlow": "canada_toronto",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "normal",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Nisha Menon",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant", "residenceCountry": "CA", "residenceMonths": 18 }
+      },
+      {
+        "role": "employer_contact",
+        "label": "Employer HR contact",
+        "visibility": "shared",
+        "relation": { "kind": "employer_contact" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ],
+    "notes": ["Canada/Toronto checklist details remain unverified by the user; use only for flow testing."]
+  },
+  "profile": {
+    "fullName": "Nisha Menon",
+    "dateOfBirth": "1991-12-08",
+    "nationality": "IN",
+    "passportNumber": "T9001122",
+    "passportExpiry": "2031-05-19",
+    "currentAddress": {
+      "line1": "120 King Street West",
+      "city": "Toronto",
+      "state": "Ontario",
+      "country": "CA",
+      "postalCode": "M5H 1J9"
+    }
+  },
+  "caseFacts": {
+    "education": {
+      "highestDegree": "M.Sc",
+      "fieldOfStudy": "Human-Computer Interaction",
+      "institution": "University of Waterloo",
+      "completionYear": 2015,
+      "anabinStatus": "H+",
+      "modeOfStudy": "full_time"
+    },
+    "employment": {
+      "employerName": "Rhein Product GmbH",
+      "employerCity": "Dusseldorf",
+      "jobTitle": "Senior Product Engineer",
+      "iscoCode": "2512",
+      "annualGrossSalaryEur": 62000,
+      "contractType": "permanent",
+      "contractStartDate": "2026-10-01",
+      "priorExperienceYears": 9
+    },
+    "family": {
+      "maritalStatus": "single",
+      "spouse": null,
+      "children": []
+    },
+    "target": {
+      "consulate": "toronto",
+      "moveDate": "2026-09-15",
+      "visaType": "blue_card"
+    }
+  },
+  "expected": {
+    "outOfScope": false,
+    "eligible": true,
+    "route": "standard",
+    "blockers": [],
+    "warnings": [],
+    "reason": null
+  }
+}

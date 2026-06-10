@@ -340,6 +340,60 @@ R2 prod-env creds (pre-existing env gotcha, unrelated).
 Known follow-up: portal upload/confirm/message widgets, manual-task UI, firm preview of the portal,
 ops analytics charts.
 
+### 4C-F firm foundation pivot — Firm knowledge + Canada/Toronto scaffolding (2026-06-10, current branch)
+
+The sixth firm-foundation slice adds source-aware firm knowledge scaffolding and expands persona/rule
+fixtures for the Canada/Toronto MVP flow without treating the Canada checklist as user-verified.
+
+Implemented:
+
+- `firm_knowledge_sources` and `firm_knowledge_entries` tables (migration `0010`) with
+  organization ownership, source type, URL/jurisdiction, `lastCheckedAt`, `lastVerifiedAt`,
+  `staleAfter`, `verifiedByUser`, and JSON metadata. This is scaffolding only: no retrieval pipeline,
+  embeddings, or playbook UI yet.
+- `config/rules/firm-knowledge.yaml` defines freshness defaults and required metadata keys for
+  official sources, playbooks, templates, prior-approved examples, and internal notes.
+- `config/rules/consulates.yaml` now includes `toronto` with official German Missions in Canada
+  sources checked on 2026-06-10. Toronto carries `verifiedByUser: false`, source notes, and nullable
+  unknowns for details that should not be forced before user verification.
+- `CaseFacts.target.targetConsulate` now accepts `toronto`; `getConsulate()` accepts the typed
+  consulate id union.
+- Persona schema now requires `firm` metadata: source/residence flow, organization kind, assigned
+  consultant role, reviewer role, case stage, priority, participants, and optional notes.
+- Existing India/Bengaluru personas now carry firm role/assignment metadata. Four synthetic Toronto
+  personas were added: `toronto-strong-pretravel`, `toronto-canadian-visa-free-option`,
+  `toronto-non-canadian-resident`, and `toronto-edge-anabin`.
+- `?persona=` case creation reads the persona's target consulate before creating the case, so Toronto
+  fixtures create Toronto case rows instead of a Bengaluru row later overwritten in facts.
+
+Verified official Canada/Toronto source facts used as scaffolding:
+
+- The national visa page lists Blue Card (EU) among residence visas available for online application
+  and says people legally residing in Canada for over six months can apply at Toronto.
+- The EU Blue Card page says Canadian citizens may apply for a residence permit after arrival, but
+  may choose a pre-travel visa if they want employment authorized from the first day of visa validity.
+- The EU Blue Card page lists Canada-specific document/checklist items and says Canadian residents
+  apply in person at the German Consulate General in Toronto.
+- The appointment page says long-term visa applications must be submitted at Toronto.
+- The Toronto consulate page gives the Toronto address, phone, and consular district.
+
+Gotchas:
+
+- Canada/Toronto checklist details remain **agent-checked but not user-verified**. Keep
+  `verifiedByUser: false` until the user confirms the checklist/rule content.
+- The eligibility engine still assesses Blue Card legal eligibility only. Toronto-specific residence
+  requirements live in config/persona metadata for now; do not infer Toronto residence blockers in
+  the engine until a dedicated consulate/checklist assessment exists.
+
+Verification: `pnpm exec tsc --noEmit`; fast parser/rules subset (46 passing); then
+`node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/personas
+tests/rules-loader.test.ts tests/journey` with network access to the configured Supabase pooler (87
+passing). The same command without network access fails at DNS for the DB-backed persona suites.
+
+Known follow-up: firm playbook retrieval/UI, manual internal notes UI, production Canada checklist
+after user verification, and a consulate/checklist readiness assessment that can surface
+Toronto-specific residence/document blockers separately from eligibility.
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -366,7 +420,7 @@ ops analytics charts.
 | 4C-F-3 review inbox + role-aware approvals | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-4 real tasks foundation | complete, merged to main (PR #21) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-5 firm console + applicant portal split | complete, merged to main (PR #22) | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F-6 firm knowledge + Canada/Toronto scaffolding | next | `IMPLEMENTATION_PLAN.md` |
+| 4C-F-6 firm knowledge + Canada/Toronto scaffolding | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 

@@ -28,6 +28,11 @@ import type {
   TaskStatus,
   TaskSubjectType,
 } from '@/lib/tasks/types';
+import type {
+  FirmKnowledgeEntryMetadata,
+  FirmKnowledgeSourceMetadata,
+  FirmKnowledgeSourceType,
+} from '@/lib/firm-knowledge/types';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -315,6 +320,37 @@ export const taskChanges = pgTable('task_changes', {
   // PII-safe: structural change metadata only (status transitions, assignee ids), never case data.
   payload: jsonb('payload').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const firmKnowledgeSources = pgTable('firm_knowledge_sources', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  title: text('title').notNull(),
+  sourceType: text('source_type').$type<FirmKnowledgeSourceType>().notNull(),
+  url: text('url'),
+  jurisdiction: text('jurisdiction'),
+  lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+  lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  staleAfter: timestamp('stale_after', { withTimezone: true }),
+  verifiedByUser: boolean('verified_by_user').notNull().default(false),
+  metadata: jsonb('metadata').$type<FirmKnowledgeSourceMetadata>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const firmKnowledgeEntries = pgTable('firm_knowledge_entries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  sourceId: uuid('source_id').references(() => firmKnowledgeSources.id),
+  title: text('title').notNull(),
+  category: text('category').notNull(),
+  body: text('body').notNull(),
+  visibility: text('visibility').notNull().default('internal'),
+  jurisdiction: text('jurisdiction'),
+  tags: jsonb('tags').$type<string[]>().notNull().default([]),
+  metadata: jsonb('metadata').$type<FirmKnowledgeEntryMetadata>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const verificationTokens = pgTable(

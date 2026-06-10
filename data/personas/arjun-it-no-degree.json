@@ -1,6 +1,33 @@
 {
   "id": "arjun-it-no-degree",
   "description": "Indian DevOps engineer, no formal degree, 5 years documented experience, salary €52,000. Tests §18g(2) IT-specialist route.",
+  "firm": {
+    "sourceResidenceFlow": "india_bengaluru",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "normal",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Arjun Patel",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ],
+    "notes": ["IT-no-degree route needs firm review of experience evidence."]
+  },
   "profile": {
     "fullName": "Arjun Patel",
     "dateOfBirth": "1994-09-11",

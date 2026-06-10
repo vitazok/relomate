@@ -4,6 +4,10 @@ lastVerified: '2026-05-25'
 bengaluru:
   officialName: 'Consulate General of the Federal Republic of Germany Bengaluru'
   url: 'https://india.diplo.de/in-en/ueber-uns/bengaluru'
+  sources:
+    - 'https://india.diplo.de/in-en/ueber-uns/bengaluru'
+  lastChecked: '2026-05-25'
+  verifiedByUser: true
   jurisdictionStates:
     - Karnataka
     - Kerala
@@ -33,3 +37,54 @@ bengaluru:
     markSheetsAllSemestersRequired: true
     marriageCertificateNeedsApostille: true
     birthCertificateNeedsApostille: true
+
+toronto:
+  officialName: 'Consulate General of the Federal Republic of Germany Toronto'
+  url: 'https://canada.diplo.de/ca-en/about-us/generalkonsulat2'
+  sources:
+    - 'https://canada.diplo.de/ca-en/consular-services/visa/long-term'
+    - 'https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126'
+    - 'https://canada.diplo.de/ca-en/consular-services/15-terminbuchung'
+    - 'https://canada.diplo.de/ca-en/about-us/generalkonsulat2'
+  lastChecked: '2026-06-10'
+  verifiedByUser: false
+  sourceNotes:
+    - 'Canada/Toronto details were checked from official German Missions in Canada pages by the agent, but are not yet user-verified.'
+    - 'Use as source scaffolding only; do not treat the Canada checklist as production-ready until user verification.'
+  jurisdictionStates:
+    - Manitoba
+    - New Brunswick
+    - Newfoundland and Labrador
+    - Nova Scotia
+    - Ontario
+    - Prince Edward Island
+    - Quebec
+    - Nunavut
+  appointmentBookingPartner: 'Federal Foreign Office online appointment system'
+  visaFeeEur: null
+  visaFeePaymentMethod: null
+  documentSetsRequired: null
+  biometricPhotos:
+    count: 1
+    sizeRequirement: '35x45mm'
+    maxAgeMonths: 3
+    spec: 'German biometric specifications; white background; do not attach to application form'
+  applicationForm: 'VIDEX online form, printed and signed; online residence visa application may be available through the Consular Services Portal'
+  noStapling: true
+  documentLanguages: ['German', 'English']
+  translationRequired: false
+  contactPhone: '+1 416 925 28 13'
+  visaServiceHotline: ''
+
+  passportRequirements:
+    minRemainingValidityMonths: 6
+    maxAgeYears: 10
+    minBlankPages: 2
+
+  canadianResidentSpecific:
+    legalResidenceOverSixMonthsRequired: true
+    nonCanadianResidencePermitProofRequired: true
+    proofOfStayInCanadaRequired: true
+    inPersonApplicationRequired: true
+    prepaidReturnEnvelopeRequired: true
+    canadianCitizenVisaFreeResidencePermitOption: true

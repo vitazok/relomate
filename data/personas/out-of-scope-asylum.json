@@ -1,6 +1,33 @@
 {
   "id": "out-of-scope-asylum",
   "description": "Syrian national asking about asylum, not Blue Card. Confirms the engine refuses to evaluate Blue Card rules for off-scope visa types.",
+  "firm": {
+    "sourceResidenceFlow": "india_bengaluru",
+    "organizationKind": "relocation_firm",
+    "assignedConsultantRole": "consultant",
+    "reviewerRole": "reviewer",
+    "caseStage": "intake",
+    "priority": "normal",
+    "participants": [
+      {
+        "role": "primary_applicant",
+        "label": "Layla Haddad",
+        "visibility": "client_visible",
+        "relation": { "kind": "primary_applicant" }
+      },
+      {
+        "role": "consultant",
+        "label": "Assigned immigration consultant",
+        "visibility": "internal"
+      },
+      {
+        "role": "reviewer",
+        "label": "Firm reviewer",
+        "visibility": "internal"
+      }
+    ],
+    "notes": ["Out-of-scope intake should not create a Blue Card-ready case."]
+  },
   "profile": {
     "fullName": "Layla Haddad",
     "dateOfBirth": "1998-06-30",

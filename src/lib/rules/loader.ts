@@ -10,8 +10,10 @@ import {
   type ConsulateRules,
   ConsulatesFile,
   DocumentRules,
+  FirmKnowledgeConfig,
   FamilyRules,
   ShortageOccupationsRules,
+  type ConsulateId,
   type ShortageMapping,
 } from './types';
 
@@ -25,6 +27,7 @@ type Cache = {
   shortage: z.infer<typeof ShortageOccupationsRules>;
   anabin: z.infer<typeof AnabinSeed>;
   documents: z.infer<typeof DocumentRules>;
+  firmKnowledge: z.infer<typeof FirmKnowledgeConfig>;
 };
 
 let cache: Cache | null = null;
@@ -51,6 +54,7 @@ function loadAll(): Cache {
     shortage: parseYaml('shortage-occupations.yaml', ShortageOccupationsRules),
     anabin: parseYaml('anabin-seed.yaml', AnabinSeed),
     documents: parseYaml('documents.yaml', DocumentRules),
+    firmKnowledge: parseYaml('firm-knowledge.yaml', FirmKnowledgeConfig),
   };
   return cache;
 }
@@ -69,7 +73,7 @@ export function getFamilyRules(): Rules['family'] {
   return loadAll().family;
 }
 
-export function getConsulate(name: 'bengaluru'): ConsulateRules {
+export function getConsulate(name: ConsulateId): ConsulateRules {
   return loadAll().consulates[name];
 }
 
@@ -87,6 +91,10 @@ export function findShortageMappingByIscoGroup(group: string): ShortageMapping |
 
 export function getDocumentRules(): Rules['documents'] {
   return loadAll().documents;
+}
+
+export function getFirmKnowledgeConfig(): Rules['firmKnowledge'] {
+  return loadAll().firmKnowledge;
 }
 
 export function getAnabinInstitutionByName(name: string): AnabinInstitution | undefined {

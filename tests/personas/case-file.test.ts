@@ -35,7 +35,7 @@ describe('persona case-file end-state (DB-backed)', () => {
         userId: seeded.userId,
         visaType: 'blue_card',
         targetCountry: 'DE',
-        targetConsulate: 'bengaluru',
+        targetConsulate: persona.caseFacts.target?.consulate ?? 'bengaluru',
       });
 
       const calls = deriveUpdateCalls(persona);

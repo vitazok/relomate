@@ -1,8 +1,8 @@
 {
-  "id": "vikram-edge-anabin",
-  "description": "Indian SWE, B.Tech from a non-H+ institution (Anabin status unknown). Forces lookup_anabin + ZAB clarification. Engine refuses to issue a verdict.",
+  "id": "toronto-edge-anabin",
+  "description": "Canadian-resident Indian backend engineer with Anabin unknown. Tests Toronto flow plus refusal to conclude until recognition evidence is resolved.",
   "firm": {
-    "sourceResidenceFlow": "india_bengaluru",
+    "sourceResidenceFlow": "canada_toronto",
     "organizationKind": "relocation_firm",
     "assignedConsultantRole": "consultant",
     "reviewerRole": "reviewer",
@@ -11,9 +11,15 @@
     "participants": [
       {
         "role": "primary_applicant",
-        "label": "Vikram Reddy",
+        "label": "Sameer Iyer",
         "visibility": "client_visible",
-        "relation": { "kind": "primary_applicant" }
+        "relation": { "kind": "primary_applicant", "residenceCountry": "CA", "residenceMonths": 14 }
+      },
+      {
+        "role": "employer_contact",
+        "label": "Employer HR contact",
+        "visibility": "shared",
+        "relation": { "kind": "employer_contact" }
       },
       {
         "role": "consultant",
@@ -26,40 +32,40 @@
         "visibility": "internal"
       }
     ],
-    "notes": ["Anabin unknown must stay a firm-visible risk until ZAB/Anabin evidence is resolved."]
+    "notes": ["Firm reviewer must keep Anabin/ZAB uncertainty separate from Toronto checklist uncertainty."]
   },
   "profile": {
-    "fullName": "Vikram Reddy",
-    "dateOfBirth": "1996-01-22",
+    "fullName": "Sameer Iyer",
+    "dateOfBirth": "1995-05-21",
     "nationality": "IN",
-    "passportNumber": "Z1029384",
-    "passportExpiry": "2032-02-14",
+    "passportNumber": "T4410908",
+    "passportExpiry": "2031-03-03",
     "currentAddress": {
-      "line1": "8-2-293, Jubilee Hills",
-      "city": "Hyderabad",
-      "state": "Telangana",
-      "country": "IN",
-      "postalCode": "500033"
+      "line1": "300 Front Street West",
+      "city": "Toronto",
+      "state": "Ontario",
+      "country": "CA",
+      "postalCode": "M5V 0E9"
     }
   },
   "caseFacts": {
     "education": {
       "highestDegree": "B.Tech",
-      "fieldOfStudy": "Information Technology",
-      "institution": "XYZ Engineering College",
+      "fieldOfStudy": "Computer Engineering",
+      "institution": "Northern Lakes Institute of Technology",
       "completionYear": 2018,
       "anabinStatus": "unknown",
       "modeOfStudy": "full_time"
     },
     "employment": {
-      "employerName": "Hanseatische Software AG",
-      "employerCity": "Hamburg",
-      "jobTitle": "Software Engineer",
+      "employerName": "Mainufer Systems GmbH",
+      "employerCity": "Frankfurt",
+      "jobTitle": "Backend Engineer",
       "iscoCode": "2512",
-      "annualGrossSalaryEur": 50000,
+      "annualGrossSalaryEur": 59000,
       "contractType": "permanent",
       "contractStartDate": "2026-10-15",
-      "priorExperienceYears": 4
+      "priorExperienceYears": 6
     },
     "family": {
       "maritalStatus": "single",
@@ -67,8 +73,8 @@
       "children": []
     },
     "target": {
-      "consulate": "bengaluru",
-      "moveDate": "2026-11-01",
+      "consulate": "toronto",
+      "moveDate": "2026-10-01",
       "visaType": "blue_card"
     }
   },

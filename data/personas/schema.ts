@@ -83,9 +83,36 @@ export const PersonaExpectedSchema = z.object({
   reason: z.string().nullable().optional(),
 });
 
+const PersonaFirmParticipantSchema = z.object({
+  role: z.enum([
+    'primary_applicant',
+    'spouse',
+    'child',
+    'employer_contact',
+    'consultant',
+    'reviewer',
+    'ops_manager',
+  ]),
+  label: z.string(),
+  visibility: z.enum(['internal', 'client_visible', 'shared']),
+  relation: z.record(z.string(), z.unknown()).optional(),
+});
+
+const PersonaFirmSchema = z.object({
+  sourceResidenceFlow: z.enum(['india_bengaluru', 'canada_toronto']),
+  organizationKind: z.enum(['relocation_firm', 'law_firm', 'individual_anon']),
+  assignedConsultantRole: z.enum(['firm_admin', 'ops_manager', 'consultant']),
+  reviewerRole: z.enum(['reviewer', 'consultant']),
+  caseStage: z.string(),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']),
+  participants: z.array(PersonaFirmParticipantSchema).min(2),
+  notes: z.array(z.string()).optional(),
+});
+
 export const PersonaSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   description: z.string(),
+  firm: PersonaFirmSchema,
   profile: PersonaProfileSchema,
   caseFacts: PersonaCaseFactsSchema,
   expected: PersonaExpectedSchema,
