@@ -46,9 +46,20 @@ export interface LoadedCase {
   threadId: string;
 }
 
+export interface OrganizationCaseRow {
+  id: string;
+  status: string;
+  assignedConsultantId: string | null;
+  reviewerId: string | null;
+  targetSubmissionDate: Date | null;
+  primaryApplicantUserId: string;
+  updatedAt: Date;
+}
+
 export interface Repository {
   createCase(input: CreateCaseInput): Promise<{ caseId: string; threadId: string }>;
   loadCase(caseId: string): Promise<LoadedCase>;
+  listByOrganization(organizationId: string): Promise<OrganizationCaseRow[]>;
   applyUpdate(input: UpdateCaseInput): Promise<UpdateCaseResult>;
   appendActivity(input: AppendActivityInput): Promise<void>;
 }
@@ -153,6 +164,23 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
         caseFacts: parsedFacts,
         threadId,
       };
+    },
+
+    async listByOrganization(organizationId) {
+      const rows = await dbInstance
+        .select({
+          id: schema.cases.id,
+          status: schema.cases.status,
+          assignedConsultantId: schema.cases.assignedConsultantId,
+          reviewerId: schema.cases.reviewerId,
+          targetSubmissionDate: schema.cases.targetSubmissionDate,
+          primaryApplicantUserId: schema.cases.primaryApplicantUserId,
+          // `cases` has no updatedAt column; createdAt is the available recency signal.
+          updatedAt: schema.cases.createdAt,
+        })
+        .from(schema.cases)
+        .where(eq(schema.cases.organizationId, organizationId));
+      return rows;
     },
 
     async applyUpdate(input) {

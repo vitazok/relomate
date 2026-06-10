@@ -221,16 +221,16 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/tasks tests/journey tests/api`. ✅ 70 passing.
 - **Deferred:** SLA escalation worker; firm console charts; task UI surfaces (4C-F-5); manual-task API/server actions.
 
-### Card 4C-F-5 — Firm console + applicant portal split
+### Card 4C-F-5 — Firm console + applicant portal split ✅
 - **Goal:** Separate the consultant-first workspace from applicant-safe intake/upload/review surfaces.
 - **Tasks:**
-  - [ ] Firm console route with assigned cases, unassigned cases, review inbox, blocked/overdue cases.
-  - [ ] Consultant case workspace keeps chat and internal views.
-  - [ ] Applicant portal exposes only applicant-safe tasks/uploads/confirmations/messages.
-  - [ ] Add route tests for applicant cannot access internal console/workspace surfaces.
-  - [ ] Keep existing case page usable while the split lands.
-- **Verify:** `tsc --noEmit` + focused component/route vitest; manual local smoke if UI changes are significant.
-- **Deferred:** ops analytics charts beyond basic counts.
+  - [x] Firm console route (`/console`) with assigned / unassigned / blocked-overdue case buckets (pure `bucketizeConsoleCases`; review inbox query already exists from 4C-F-3, surfaced via blocked/overdue).
+  - [x] Consultant case workspace keeps chat and internal views (`/case/[id]` unchanged except a surface guard).
+  - [x] Applicant portal (`/portal/[id]`) exposes only client-visible tasks (audience filter in `selectTopTasks`).
+  - [x] Access boundary tested at the authorization layer: pure `caseSurface`/`canAccessConsole` (`tests/auth/surface-access.test.ts`) + DB-backed (`tests/auth/surface-access.db.test.ts`) — applicant → `client`/portal, consultant → `firm`, outsider → `none`. Distinct-paths design: internal routes redirect `client` viewers to `/portal/[id]`.
+  - [x] Existing case page stays usable (anon firm_admin owner resolves to `firm` surface; only pure applicants are redirected).
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/auth/surface-access* tests/console tests/auth/authorization.test.ts tests/case/repository.test.ts tests/tasks tests/journey` ✅ 94 passing. (Full `pnpm build` blocked by missing R2 prod-env creds locally — pre-existing env gotcha, unrelated.)
+- **Deferred:** ops analytics charts beyond basic counts; firm preview of the portal; manual-task creation UI; portal upload/confirm/message widgets (read-only task list for now).
 
 ### Card 4C-F-6 — Firm knowledge + Canada/Toronto scaffolding
 - **Goal:** Add firm knowledge placeholders and Canada/Toronto config/personas without treating unverified checklist details as production truth.
