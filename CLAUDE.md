@@ -287,14 +287,16 @@ Every PR runs the persona test suite. Don't skip — strongest E2E signal we hav
 
 ---
 
-## Current state (as of 2026-06-09)
+## Current state (as of 2026-06-10)
 
 **Through Phase 4B (employer-letter + CV drafting) is merged to `main` (PR #16).** All drafted-document verticals on the shared `drafts`/approval foundation are live: cover letter, employer letter, CV. The phase status table, per-phase write-ups, and PR map: `docs/context-history.md`. Run DB suites **serially** — see the `EMAXPOOLSREACHED` gotcha.
 
-**Product direction changed on 2026-06-08:** Relomate is now firm-first. The existing automation core carries forward, but cases are moving from applicant-owned to organization-owned. **4C-F-1 through 4C-F-3 are implemented on the current branch:** `organization_members`, firm ownership columns on `cases`, `case_participants`, visibility constants, primary-applicant participant seeding, central `src/lib/auth/authorization.ts`, and role-aware approval work items with `src/lib/approvals/authorization.ts`. Legacy `cases.user_id` remains for profile/applicant compatibility while `cases.organization_id` is now the ownership key. Document approvals remain applicant-facing confirmations; draft approvals are internal firm review work by default.
+**Product direction changed on 2026-06-08:** Relomate is now firm-first. The existing automation core carries forward, but cases are moving from applicant-owned to organization-owned. **4C-F-1 through 4C-F-4 are implemented:** `organization_members`, firm ownership columns on `cases`, `case_participants`, visibility constants, primary-applicant participant seeding, central `src/lib/auth/authorization.ts`, role-aware approval work items with `src/lib/approvals/authorization.ts`, and the **real tasks foundation** (`tasks` + append-only `task_changes`, migration `0009`; `src/lib/tasks/`). Legacy `cases.user_id` remains for profile/applicant compatibility while `cases.organization_id` is now the ownership key. Document approvals remain applicant-facing confirmations; draft approvals are internal firm review work by default.
+
+**Tasks foundation (4C-F-4):** `src/lib/tasks/` — `types.ts` (status/source/role/subject enums; `done`/`cancelled` terminal), `repository.ts` (`makeTaskRepository`: create/getById/listByCase/update + `reconcileSystemTasks`), `generate.ts` (pure `deriveSystemTasks`: pending approvals → review/confirm tasks, failed docs → re-upload, failed drafts → regenerate; **sources disjoint, no double-count**), `view-model.ts` (pure `selectTopTasks`, `now`-parameterized, audience+assignee filtered, blocking→overdue→due-date ordering), `service.ts` (`reconcileCaseTasks` integration seam). System tasks dedupe via a stable `generationKey` + partial unique index on non-terminal status (same trick as the approvals pending-subject index); reconcile is idempotent (no-op on steady state) and auto-resolves cleared triggers. `escalationStatus`-style thresholds are NOT computed in code (rule 7) — `overdue` is a pure `now > dueAt`. **Not yet built:** task UI surfaces (4C-F-5), manual-task API/server actions, Inngest SLA worker.
 
 **Next up** (sliced into session cards in `IMPLEMENTATION_PLAN.md`):
-- **4C-F** — continue the firm foundation pivot: real tasks, firm console, applicant portal split, internal notes, firm knowledge scaffolding, Canada/Toronto config/personas.
+- **4C-F** — continue the firm foundation pivot: firm console + applicant portal split (4C-F-5, consumes the tasks foundation), internal notes, firm knowledge scaffolding, Canada/Toronto config/personas (4C-F-6).
 - **Then 4C** — Anabin justification draft, `regenerate_draft` with framing, drafts completeness signal.
 - **5 (VIDEX)** — field map → PDF pipeline → Forms section → conversational gap-filling (4 cards).
 - **6 (QA)** — quality engine + submission package (2 cards). **7 (prod)** — eval, observability, GDPR, hardening (4 cards).

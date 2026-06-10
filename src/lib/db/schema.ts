@@ -21,6 +21,13 @@ import type {
   ApprovalRequiredRole,
 } from '@/lib/approvals/types';
 import type { DraftContent } from '@/lib/drafting/types';
+import type {
+  TaskChangeKind,
+  TaskRequiredRole,
+  TaskSource,
+  TaskStatus,
+  TaskSubjectType,
+} from '@/lib/tasks/types';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -264,6 +271,51 @@ export const approvals = pgTable(
       .where(sql`${t.status} = 'pending'`),
   }),
 );
+
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id').references(() => cases.id).notNull(),
+    organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+    title: text('title').notNull(),
+    // `system` tasks are reconciled from case state by the generator; `manual` tasks are firm-authored.
+    source: text('source').$type<TaskSource>().notNull().default('manual'),
+    // Stable dedupe key for `system` tasks (e.g. `document:<id>:reupload`). NULL for `manual` tasks.
+    // The partial unique index below keeps at most one OPEN system task per (case, key).
+    generationKey: text('generation_key'),
+    status: text('status').$type<TaskStatus>().notNull().default('open'),
+    requiredRole: text('required_role').$type<TaskRequiredRole | null>(),
+    assigneeUserId: uuid('assignee_user_id').references(() => users.id),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    // Blocking tasks gate downstream progress (e.g. the submission package); surfaced first.
+    blocking: boolean('blocking').notNull().default(false),
+    visibility: text('visibility').notNull().default('internal'),
+    subjectType: text('subject_type').$type<TaskSubjectType | null>(),
+    subjectId: uuid('subject_id'),
+    createdBy: uuid('created_by').references(() => users.id),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    // At most one OPEN system task per (case, generationKey). Terminal-status rows release the key,
+    // so a re-emerging trigger can spawn a fresh task. Mirrors the approvals pending-subject index.
+    openSystemTaskUnique: uniqueIndex('tasks_open_system_generation_unique')
+      .on(t.caseId, t.generationKey)
+      .where(sql`${t.source} = 'system' AND ${t.status} NOT IN ('done', 'cancelled')`),
+  }),
+);
+
+export const taskChanges = pgTable('task_changes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  taskId: uuid('task_id').references(() => tasks.id).notNull(),
+  kind: text('kind').$type<TaskChangeKind>().notNull(),
+  actorUserId: uuid('actor_user_id').references(() => users.id),
+  // PII-safe: structural change metadata only (status transitions, assignee ids), never case data.
+  payload: jsonb('payload').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const verificationTokens = pgTable(
   'verification_tokens',

@@ -64,6 +64,13 @@
       "when": 1781035408485,
       "tag": "0008_graceful_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781092137373,
+      "tag": "0009_odd_steel_serpent",
+      "breakpoints": true
     }
   ]
 }
