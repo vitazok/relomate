@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { createTestSchema, type TestDbHandle } from '../_db/setup';
 import { seedAnonUser } from '../_db/seed-auth';
 import { makeRepository } from '@/lib/case/repository';
+import { makeApprovalAuthorizer } from '@/lib/approvals/authorization';
 import { makeDraftRepository } from '@/lib/drafting/repository';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { approveDraftCore, rejectDraftCore } from '@/lib/drafting/approval-core';
@@ -23,12 +24,15 @@ const baseContent = {
 };
 
 describe('draft approval core', () => {
+  let organizationId: string;
   let caseId: string;
   let userId: string;
 
   beforeAll(async () => {
     handle = await createTestSchema();
-    userId = (await seedAnonUser(handle)).userId;
+    const seeded = await seedAnonUser(handle);
+    organizationId = seeded.organizationId;
+    userId = seeded.userId;
     caseId = (await makeRepository(handle.db, handle.schemaName)
       .createCase({ userId, visaType: 'blue_card', targetCountry: 'DE' })).caseId;
   }, 30_000);
@@ -42,6 +46,7 @@ describe('draft approval core', () => {
       repo: makeRepository(handle.db, handle.schemaName),
       drafts: makeDraftRepository(handle.db),
       approvals: makeApprovalRepository(handle.db),
+      authorizer: makeApprovalAuthorizer(handle.db),
     };
   }
 
@@ -103,5 +108,56 @@ describe('draft approval core', () => {
     const approval = await makeApprovalRepository(handle.db).getById(approvalId);
     expect(approval?.status).toBe('rejected');
     expect(approval?.decision?.rejectedReason).toBe('Tone is wrong');
+  });
+
+  it('forbids applicant participants from approving firm-ready drafts', async () => {
+    const { draftId } = await readyDraft();
+    const applicant = await seedAnonUser(handle);
+    await handle.db.insert(schema.caseParticipants).values({
+      caseId,
+      organizationId,
+      userId: applicant.userId,
+      role: 'applicant',
+      invitationStatus: 'active',
+      visibility: 'shared',
+      relation: { kind: 'primary_applicant' },
+    });
+
+    const res = await approveDraftCore(deps(), {
+      caseId,
+      userId: applicant.userId,
+      draftId,
+      content: baseContent,
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toBe('forbidden');
+    expect((await makeDraftRepository(handle.db).getById(draftId))?.status).toBe('ready_for_review');
+  });
+
+  it('allows reviewer participants to approve firm-ready drafts', async () => {
+    const { draftId } = await readyDraft();
+    const reviewer = await seedAnonUser(handle);
+    await handle.db.insert(schema.caseParticipants).values({
+      caseId,
+      organizationId,
+      userId: reviewer.userId,
+      role: 'reviewer',
+      invitationStatus: 'active',
+      visibility: 'internal',
+      relation: { queue: 'senior_review' },
+    });
+
+    const res = await approveDraftCore(deps(), {
+      caseId,
+      userId: reviewer.userId,
+      draftId,
+      content: baseContent,
+    });
+
+    expect(res.ok).toBe(true);
+    const draft = await makeDraftRepository(handle.db).getById(draftId);
+    expect(draft?.status).toBe('approved');
+    expect(draft?.approvedBy).toBe(reviewer.userId);
   });
 });

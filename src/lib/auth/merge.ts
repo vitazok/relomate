@@ -90,6 +90,11 @@ export async function promoteToAuthed(
         .values({ organizationId: org.id, isAnonymous: false, lastSeenAt: new Date() })
         .returning({ id: schema.users.id });
       if (!user) throw new Error('failed to insert user');
+      await tx.insert(schema.organizationMembers).values({
+        organizationId: org.id,
+        userId: user.id,
+        role: 'firm_admin',
+      });
       await tx
         .insert(schema.userIdentities)
         .values({
@@ -124,7 +129,11 @@ export async function promoteToAuthed(
       // Re-point cases
       const repointed = await tx
         .update(schema.cases)
-        .set({ userId: targetUserId })
+        .set({
+          userId: targetUserId,
+          organizationId: existing.orgId,
+          primaryApplicantUserId: targetUserId,
+        })
         .where(eq(schema.cases.userId, anonymousUserId))
         .returning({ id: schema.cases.id });
       casesMerged = repointed.length;

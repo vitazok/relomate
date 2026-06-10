@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { makeRepository } from '@/lib/case/repository';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeR2StorageAdapter, documentKey } from '@/lib/storage/r2';
@@ -59,7 +60,9 @@ export async function POST(req: Request) {
     }
     throw err;
   }
-  if (loaded.case.userId !== userId) return new NextResponse('forbidden', { status: 403 });
+  if (!(await canAccessCase(db, { userId, caseId: loaded.case.id, action: 'upload_document' }))) {
+    return new NextResponse('forbidden', { status: 403 });
+  }
 
   const documentId = randomUUID();
   const key = documentKey(body.caseId, documentId, body.fileName);

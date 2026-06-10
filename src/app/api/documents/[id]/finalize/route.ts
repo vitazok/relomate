@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeR2StorageAdapter } from '@/lib/storage/r2';
 import { inngest } from '@/lib/inngest/client';
@@ -16,7 +17,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const docs = makeDocumentRepository(db);
   const row = await docs.getById(id);
   if (!row) return new NextResponse('not found', { status: 404 });
-  if (row.userId !== userId) return new NextResponse('forbidden', { status: 403 });
+  if (!(await canAccessCase(db, { userId, caseId: row.caseId, action: 'upload_document' }))) {
+    return new NextResponse('forbidden', { status: 403 });
+  }
   if (row.status !== 'pending_upload') {
     // Idempotent: already finalized (or further along). Re-emitting would re-trigger the
     // extract workflow, so do nothing.

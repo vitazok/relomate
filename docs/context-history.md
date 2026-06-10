@@ -161,6 +161,122 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 
 ## Phase write-ups (resolved)
 
+### Firm-first pivot decision (2026-06-08)
+
+Relomate's product direction changed from applicant-first self-service to a firm-first immigration
+operating system for Germany Blue Card cases. The MVP visa remains Germany Blue Card, but the
+source/residence scope expands from **India/Bengaluru** to **India/Bengaluru + Canada/Toronto**.
+The decision record is `docs/strategy/firm-first-pivot.md`.
+
+The existing automation core carries forward: deterministic eligibility, typed tools, provenance,
+document extraction, approvals, draft artifacts, Inngest workflows, and the journey tracker. The
+product owner changes: cases become organization-owned, applicants become participants, and
+consultants/reviewers/ops managers get first-class workflows.
+
+Architecture decision from the Harvey/Legora comparison: adopt the professional product primitives
+(firm console, review inbox, playbooks, workflows, portal, monitors/governance) but **do not** adopt
+multi-agent orchestration, LangGraph, LangChain, or LlamaIndex as core architecture. Relomate keeps
+single-agent typed tools, deterministic rules, explicit approvals, one authoritative case-fact write
+path, and Inngest for durable workflows.
+
+Canada/Toronto official facts verified from `canada.diplo.de` on 2026-06-08:
+
+- Blue Card (EU) appears among national/residence visa categories available for online application.
+- People legally residing in Canada for over 6 months can apply at the German Consulate General in
+  Toronto.
+- Long-term visa applications must be submitted at the Consulate General in Toronto.
+- The EU Blue Card page says all Canadian residents need to apply in person at Toronto.
+- Canadian citizens may apply for a residence permit after arrival without a prior visa, but may
+  choose a pre-travel visa if they want employment authorized from the first day of visa validity.
+
+Canada/Toronto checklist details are **not** user-verified yet. Future config work must verify the
+current checklist, fees, appointment path, document copies, proof of Canadian residence, mail-service
+requirements, health insurance wording, translations/legalization, and caveats from official sources,
+then mark config `verifiedByUser: false` until the user confirms.
+
+### 4C-F firm foundation pivot — RBAC + organization-owned cases (2026-06-09, current branch)
+
+The first firm-foundation slice establishes ownership and access-control primitives without removing
+the applicant-compatible flow.
+
+Implemented:
+
+- `organization_members` table with role/status membership rows.
+- `cases.organization_id` as the ownership key.
+- `cases.primary_applicant_user_id`, `assigned_consultant_id`, `reviewer_id`, `stage`, `priority`,
+  `target_submission_date`, `submitted_at`, and `closed_at`.
+- Migration `drizzle/0006_lumpy_klaw.sql` backfills existing users as `firm_admin` members and
+  backfills existing cases from `users.organization_id` + `cases.user_id`.
+- `src/lib/auth/authorization.ts` centralizes case access decisions.
+- Case page, chat route, document upload/poll/finalize routes, and document/draft review pages now
+  call the central authorization helper instead of doing direct route-level `case.userId` or
+  `document.userId` checks.
+
+Deliberate compatibility decision: keep legacy `cases.user_id` for profile/applicant compatibility
+and existing `applyUpdate` profile writes. Do not treat it as the route ownership key. Future slices
+should keep migrating access decisions to authorization/participants rather than adding new direct
+`case.userId === userId` checks.
+
+Known follow-up: document/draft review action cores still contain legacy subject-owner checks. That is
+acceptable for this slice because current applicant-compatible review remains intact, but 4C-F-3
+must convert those cores to role-aware approval semantics so firm reviewers can act through the review
+inbox.
+
+### 4C-F firm foundation pivot — Case participants + visibility primitives (2026-06-09, current branch)
+
+The second firm-foundation slice adds per-case participant records so access can diverge from broad
+organization membership.
+
+Implemented:
+
+- `case_participants` table with participant role, linked `user_id` or invited email, invitation
+  status, visibility, relation metadata, and timestamps.
+- Migration `drizzle/0007_special_zarek.sql` backfills existing cases with an active primary
+  applicant participant.
+- `src/lib/case/visibility.ts` defines `internal`, `client_visible`, and `shared`.
+- `src/lib/case/participant-roles.ts` defines participant roles without importing DB code.
+- `src/lib/case/participants.ts` provides list/get/upsert repository helpers.
+- `makeRepository().createCase()` now seeds the primary applicant participant with
+  `relation.kind = 'primary_applicant'`.
+- `getCaseAuthorization()` includes active participant roles. Consultant/reviewer/ops participants
+  can access firm case actions, applicant participants can read/chat/upload, and employer contacts
+  can read/upload but not chat or review.
+
+Compatibility decision: organization membership remains sufficient for firm roles in this slice;
+case participants add finer-grained access for per-case reviewers, applicants, and employer contacts.
+The applicant portal split must still filter content by visibility and must not equate
+`client_visible` with internal access.
+
+### 4C-F firm foundation pivot — Review inbox + role-aware approvals (2026-06-09, current branch)
+
+The third firm-foundation slice turns the existing approval rows into role-aware work items while
+preserving the existing applicant confirmation workflow.
+
+Implemented:
+
+- `approvals` now carries `assignee_user_id`, `required_role`, `due_at`, `escalation_status`, and
+  `visibility`.
+- Migration `drizzle/0008_graceful_gargoyle.sql` backfills document approvals as
+  applicant-facing `client_visible` confirmations and draft approvals as internal consultant review
+  work.
+- `makeApprovalRepository().listReviewInbox()` returns pending approvals scoped to an organization,
+  with optional assignee and required-role filters.
+- `src/lib/approvals/authorization.ts` centralizes approval-resolution permission checks on top of
+  `getCaseAuthorization()`.
+- Document confirmation/rejection cores now require a pending applicant approval and use approval
+  authorization instead of direct document-owner checks.
+- Draft approval/rejection cores now require a pending firm-review approval and no longer require
+  `draft.user_id === acting_user_id`, so consultant/reviewer participants can approve firm-ready
+  drafts while applicant participants cannot.
+
+Verification:
+
+- `pnpm exec tsc --noEmit`
+- `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/approvals tests/documents tests/drafting tests/api`
+
+Known follow-up: this adds repository-level review inbox data, not the full firm console UI. 4C-F-5
+must still build the actual inbox/console surfaces.
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -180,7 +296,12 @@ The prior pin `claude-sonnet-4-7` is NOT a real Anthropic model — the API retu
 | codebase-review hardening pass (15 findings) | complete, merged to main (PR #7) | this file, below |
 | 3A document-ingest pipeline | complete, merged to main (PR #9) | `docs/archive/specs/2026-06-03-phase-3a-document-ingest-design.md` + plan; this file, below |
 | 4A cover-letter drafting | complete, merged to main (PR #15) | `docs/archive/specs/2026-06-07-phase-4a-cover-letter-drafting-design.md` |
-| 4B employer-letter + CV drafting | implemented on current branch | this file, below |
+| 4B employer-letter + CV drafting | complete, merged to main (PR #16) | this file, below |
+| firm-first pivot decision | accepted | `docs/strategy/firm-first-pivot.md` |
+| 4C-F-1 RBAC + organization-owned cases | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-2 case participants + visibility primitives | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-3 review inbox + role-aware approvals | implemented on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F remaining firm foundation | next | `IMPLEMENTATION_PLAN.md` |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 

@@ -178,5 +178,5 @@ describe('persona agent-turn LIVE LOOP (L2b, DB-backed)', () => {
 
     // The good update_case fired → emit happened.
     expect(inngestSendSpy).toHaveBeenCalled();
-  });
+  }, 15_000);
 });

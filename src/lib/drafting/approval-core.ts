@@ -1,5 +1,6 @@
 import type { Repository } from '@/lib/case/repository';
 import type { ApprovalRepository } from '@/lib/approvals/repository';
+import type { ApprovalAuthorizer } from '@/lib/approvals/authorization';
 import type { DraftRepository } from '@/lib/drafting/repository';
 import { DraftContentSchema, type DraftContent, type DraftType } from '@/lib/drafting/types';
 
@@ -18,6 +19,7 @@ export interface DraftReviewDeps {
   repo: Pick<Repository, 'appendActivity'>;
   drafts: DraftRepository;
   approvals: ApprovalRepository;
+  authorizer: ApprovalAuthorizer;
 }
 
 export interface ApproveDraftInput {
@@ -50,9 +52,6 @@ export async function approveDraftCore(
   if (!draft || draft.caseId !== input.caseId) {
     return { ok: false, error: 'not_found', message: 'Draft not found.' };
   }
-  if (draft.userId !== input.userId) {
-    return { ok: false, error: 'forbidden', message: 'You cannot review this draft.' };
-  }
   if (draft.status !== 'ready_for_review') {
     return { ok: false, error: 'wrong_status', message: 'This draft is not waiting for review.' };
   }
@@ -60,6 +59,9 @@ export async function approveDraftCore(
   const approval = await deps.approvals.getBySubject('draft', input.draftId);
   if (!approval) {
     return { ok: false, error: 'missing_approval', message: 'No pending approval was found.' };
+  }
+  if (!(await deps.authorizer.canResolve(input.userId, approval))) {
+    return { ok: false, error: 'forbidden', message: 'You cannot review this draft.' };
   }
 
   if (draft.type !== input.content.type) {
@@ -104,9 +106,6 @@ export async function rejectDraftCore(
   if (!draft || draft.caseId !== input.caseId) {
     return { ok: false, error: 'not_found', message: 'Draft not found.' };
   }
-  if (draft.userId !== input.userId) {
-    return { ok: false, error: 'forbidden', message: 'You cannot review this draft.' };
-  }
   if (draft.status !== 'ready_for_review') {
     return { ok: false, error: 'wrong_status', message: 'This draft is not waiting for review.' };
   }
@@ -114,6 +113,9 @@ export async function rejectDraftCore(
   const approval = await deps.approvals.getBySubject('draft', input.draftId);
   if (!approval) {
     return { ok: false, error: 'missing_approval', message: 'No pending approval was found.' };
+  }
+  if (!(await deps.authorizer.canResolve(input.userId, approval))) {
+    return { ok: false, error: 'forbidden', message: 'You cannot review this draft.' };
   }
 
   const reason = input.reason?.trim() || null;

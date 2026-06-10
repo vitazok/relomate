@@ -43,6 +43,27 @@
       "when": 1780829930602,
       "tag": "0005_real_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781033339270,
+      "tag": "0006_lumpy_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781034376269,
+      "tag": "0007_special_zarek",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781035408485,
+      "tag": "0008_graceful_gargoyle",
+      "breakpoints": true
     }
   ]
 }

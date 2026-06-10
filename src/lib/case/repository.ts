@@ -15,6 +15,7 @@ type Db = ReturnType<typeof drizzle<typeof schema>>;
 
 export interface CreateCaseInput {
   userId: string;
+  organizationId?: string | null;
   visaType: string;
   targetCountry: string;
   targetConsulate?: string | null;
@@ -25,6 +26,15 @@ export interface LoadedCase {
   case: {
     id: string;
     userId: string;
+    organizationId: string;
+    primaryApplicantUserId: string;
+    assignedConsultantId: string | null;
+    reviewerId: string | null;
+    stage: string;
+    priority: string;
+    targetSubmissionDate: Date | null;
+    submittedAt: Date | null;
+    closedAt: Date | null;
     status: string;
     visaType: string;
     targetCountry: string;
@@ -61,10 +71,22 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
   return {
     async createCase(input) {
       return await dbInstance.transaction(async (tx) => {
+        let organizationId = input.organizationId ?? null;
+        if (!organizationId) {
+          const [owner] = await tx
+            .select({ organizationId: schema.users.organizationId })
+            .from(schema.users)
+            .where(eq(schema.users.id, input.userId));
+          if (!owner) throw new Error(`user not found: ${input.userId}`);
+          organizationId = owner.organizationId;
+        }
+
         const [row] = await tx
           .insert(schema.cases)
           .values({
             userId: input.userId,
+            organizationId,
+            primaryApplicantUserId: input.userId,
             status: 'draft',
             visaType: input.visaType,
             targetCountry: input.targetCountry,
@@ -74,6 +96,15 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
           .returning({ id: schema.cases.id });
         if (!row) throw new Error('createCase: insert returned no row');
         await tx.insert(schema.caseFacts).values({ caseId: row.id, data: {} as CaseFacts });
+        await tx.insert(schema.caseParticipants).values({
+          caseId: row.id,
+          organizationId,
+          userId: input.userId,
+          role: 'applicant',
+          invitationStatus: 'active',
+          visibility: 'shared',
+          relation: { kind: 'primary_applicant' },
+        });
         const [thread] = await tx
           .insert(schema.threads)
           .values({ caseId: row.id, title: null })
@@ -103,6 +134,15 @@ export function makeRepository(db?: Db, _schemaName: string | null = null): Repo
         case: {
           id: c.id,
           userId: c.userId,
+          organizationId: c.organizationId,
+          primaryApplicantUserId: c.primaryApplicantUserId,
+          assignedConsultantId: c.assignedConsultantId,
+          reviewerId: c.reviewerId,
+          stage: c.stage,
+          priority: c.priority,
+          targetSubmissionDate: c.targetSubmissionDate,
+          submittedAt: c.submittedAt,
+          closedAt: c.closedAt,
           status: c.status,
           visaType: c.visaType,
           targetCountry: c.targetCountry,

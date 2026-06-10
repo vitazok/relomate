@@ -1,12 +1,14 @@
 import type { Repository } from '@/lib/case/repository';
 import type { DocumentRepository } from '@/lib/documents/repository';
 import type { ApprovalRepository } from '@/lib/approvals/repository';
+import type { ApprovalAuthorizer } from '@/lib/approvals/authorization';
 import { buildConfirmUpdates, type ReviewedField, type FieldSource } from '@/lib/documents/confirm-mapping';
 
 export interface ConfirmDeps {
   repo: Repository;
   docs: DocumentRepository;
   approvals: ApprovalRepository;
+  authorizer: ApprovalAuthorizer;
 }
 
 export interface ConfirmInput {
@@ -16,7 +18,7 @@ export interface ConfirmInput {
   fields: ReviewedField[];
 }
 
-export type ConfirmError = 'not_found' | 'forbidden' | 'wrong_status' | 'validation';
+export type ConfirmError = 'not_found' | 'forbidden' | 'wrong_status' | 'missing_approval' | 'validation';
 
 export type ConfirmResult =
   | { ok: true; updatedPaths: string[]; unmapped: string[] }
@@ -31,7 +33,6 @@ async function loadOwnedAwaitingDoc(
 > {
   const doc = await deps.docs.getById(input.documentId);
   if (!doc || doc.caseId !== input.caseId) return { error: 'not_found' as const };
-  if (doc.userId !== input.userId) return { error: 'forbidden' as const };
   if (doc.status !== 'awaiting_confirmation') return { error: 'wrong_status' as const };
   return { doc };
 }
@@ -40,6 +41,11 @@ export async function confirmExtractionCore(deps: ConfirmDeps, input: ConfirmInp
   const loaded = await loadOwnedAwaitingDoc(deps, input);
   if ('error' in loaded) return { ok: false, error: loaded.error };
   const { doc } = loaded;
+  const approval = await deps.approvals.getBySubject('document', input.documentId);
+  if (!approval) return { ok: false, error: 'missing_approval' };
+  if (!(await deps.authorizer.canResolve(input.userId, approval))) {
+    return { ok: false, error: 'forbidden' };
+  }
 
   const { updates, perPathSource, unmapped } = buildConfirmUpdates(doc.spineItemId, input.fields);
 
@@ -81,14 +87,11 @@ export async function confirmExtractionCore(deps: ConfirmDeps, input: ConfirmInp
   }
 
   if (unsavedSubmitted.length === 0) {
-    const approval = await deps.approvals.getBySubject('document', input.documentId);
-    if (approval) {
-      await deps.approvals.resolve(approval.id, {
-        status: 'approved',
-        decision: { confirmedPaths, editedPaths, rejectedReason: null },
-        resolvedBy: input.userId,
-      });
-    }
+    await deps.approvals.resolve(approval.id, {
+      status: 'approved',
+      decision: { confirmedPaths, editedPaths, rejectedReason: null },
+      resolvedBy: input.userId,
+    });
 
     await deps.docs.setStatus(input.documentId, 'confirmed');
 
@@ -116,13 +119,15 @@ export async function rejectExtractionCore(deps: ConfirmDeps, input: RejectInput
   if ('error' in loaded) return { ok: false, error: loaded.error };
 
   const approval = await deps.approvals.getBySubject('document', input.documentId);
-  if (approval) {
-    await deps.approvals.resolve(approval.id, {
-      status: 'rejected',
-      decision: { confirmedPaths: [], editedPaths: [], rejectedReason: input.reason ?? null },
-      resolvedBy: input.userId,
-    });
+  if (!approval) return { ok: false, error: 'missing_approval' };
+  if (!(await deps.authorizer.canResolve(input.userId, approval))) {
+    return { ok: false, error: 'forbidden' };
   }
+  await deps.approvals.resolve(approval.id, {
+    status: 'rejected',
+    decision: { confirmedPaths: [], editedPaths: [], rejectedReason: input.reason ?? null },
+    resolvedBy: input.userId,
+  });
   await deps.docs.setStatus(input.documentId, 'rejected');
   await deps.repo.appendActivity({
     caseId: input.caseId,

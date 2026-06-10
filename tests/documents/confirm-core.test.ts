@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createTestSchema, type TestDbHandle } from '../_db/setup';
 import { seedAnonUser } from '../_db/seed-auth';
 import { makeRepository } from '@/lib/case/repository';
+import { makeApprovalAuthorizer } from '@/lib/approvals/authorization';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { confirmExtractionCore, rejectExtractionCore } from '@/lib/documents/confirm-core';
@@ -56,6 +57,7 @@ describe('confirmExtractionCore', () => {
       repo: makeRepository(testHandle.db, testHandle.schemaName),
       docs: makeDocumentRepository(testHandle.db),
       approvals: makeApprovalRepository(testHandle.db),
+      authorizer: makeApprovalAuthorizer(testHandle.db),
     };
   }
 

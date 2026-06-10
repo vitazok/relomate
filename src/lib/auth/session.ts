@@ -73,6 +73,11 @@ export async function ensureAnonymousSession(): Promise<{ userId: string; isNew:
     .values({ organizationId: org.id, isAnonymous: true, lastSeenAt: new Date() })
     .returning({ id: schema.users.id });
   if (!user) throw new Error('failed to insert user');
+  await db.insert(schema.organizationMembers).values({
+    organizationId: org.id,
+    userId: user.id,
+    role: 'firm_admin',
+  });
 
   await writeAuthedSession(user.id);
   return { userId: user.id, isNew: true };

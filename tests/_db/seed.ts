@@ -20,5 +20,10 @@ export async function seedOrgAndUser(handle: TestDbHandle): Promise<SeededIds> {
     .values({ organizationId: org.id, isAnonymous: true })
     .returning({ id: schema.users.id });
   if (!user) throw new Error('failed to insert user');
+  await db.insert(schema.organizationMembers).values({
+    organizationId: org.id,
+    userId: user.id,
+    role: 'firm_admin',
+  });
   return { organizationId: org.id, userId: user.id };
 }

@@ -15,7 +15,11 @@ import { sql } from 'drizzle-orm';
 import type { CaseFacts, EligibilityVerdict } from '@/lib/case/schema';
 import type { Profile } from '@/lib/profile/schema';
 import type { ExtractedData, Classification } from '@/lib/documents/types';
-import type { ApprovalDecision } from '@/lib/approvals/types';
+import type {
+  ApprovalDecision,
+  ApprovalEscalationStatus,
+  ApprovalRequiredRole,
+} from '@/lib/approvals/types';
 import type { DraftContent } from '@/lib/drafting/types';
 
 export const organizations = pgTable('organizations', {
@@ -37,6 +41,21 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
 });
+
+export const organizationMembers = pgTable(
+  'organization_members',
+  {
+    organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    role: text('role').notNull(),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.organizationId, t.userId] }),
+  }),
+);
 
 export const userIdentities = pgTable(
   'user_identities',
@@ -66,6 +85,15 @@ export const profiles = pgTable('profiles', {
 export const cases = pgTable('cases', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  primaryApplicantUserId: uuid('primary_applicant_user_id').references(() => users.id).notNull(),
+  assignedConsultantId: uuid('assigned_consultant_id').references(() => users.id),
+  reviewerId: uuid('reviewer_id').references(() => users.id),
+  stage: text('stage').notNull().default('intake'),
+  priority: text('priority').notNull().default('normal'),
+  targetSubmissionDate: timestamp('target_submission_date', { withTimezone: true }),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
   status: text('status').notNull(),
   visaType: text('visa_type').notNull(),
   targetCountry: text('target_country').notNull(),
@@ -82,6 +110,28 @@ export const caseFacts = pgTable('case_facts', {
   summary: text('summary'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const caseParticipants = pgTable(
+  'case_participants',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    caseId: uuid('case_id').references(() => cases.id).notNull(),
+    organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+    userId: uuid('user_id').references(() => users.id),
+    invitedEmail: text('invited_email'),
+    role: text('role').notNull(),
+    invitationStatus: text('invitation_status').notNull().default('active'),
+    visibility: text('visibility').notNull().default('shared'),
+    relation: jsonb('relation').$type<Record<string, unknown> | null>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    caseUserRoleUnique: uniqueIndex('case_participants_case_user_role_unique')
+      .on(t.caseId, t.userId, t.role)
+      .where(sql`${t.userId} IS NOT NULL`),
+  }),
+);
 
 export const threads = pgTable('threads', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -189,6 +239,14 @@ export const approvals = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     caseId: uuid('case_id').references(() => cases.id).notNull(),
     userId: uuid('user_id').references(() => users.id).notNull(),
+    assigneeUserId: uuid('assignee_user_id').references(() => users.id),
+    requiredRole: text('required_role').$type<ApprovalRequiredRole>().notNull().default('applicant'),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    escalationStatus: text('escalation_status')
+      .$type<ApprovalEscalationStatus>()
+      .notNull()
+      .default('none'),
+    visibility: text('visibility').notNull().default('shared'),
     subjectType: text('subject_type').notNull(),
     subjectId: uuid('subject_id').notNull(),
     status: text('status').notNull().default('pending'),

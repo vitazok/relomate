@@ -5,6 +5,7 @@ import { anthropic, MODEL_ID } from '@/lib/ai/provider';
 import { buildAgentTurn } from '@/lib/ai/chat/agent-turn';
 import { makeRepository } from '@/lib/case/repository';
 import { getCurrentUserId } from '@/lib/auth/session';
+import { canAccessCase } from '@/lib/auth/authorization';
 import { db } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
@@ -41,7 +42,9 @@ export async function POST(req: Request) {
 
   const repo = makeRepository(db);
   const loaded = await repo.loadCase(body.caseId);
-  if (loaded.case.userId !== userId) return new NextResponse('forbidden', { status: 403 });
+  if (!(await canAccessCase(db, { userId, caseId: body.caseId, action: 'chat' }))) {
+    return new NextResponse('forbidden', { status: 403 });
+  }
 
   const userMessageId = crypto.randomUUID();
   // BodySchema only checks that messages is a non-empty array of unknowns; the per-message

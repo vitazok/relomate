@@ -76,6 +76,8 @@ describe('promoteToAuthed', () => {
       .from(schema.cases)
       .where(eq(schema.cases.userId, target.userId));
     expect(targetCases).toHaveLength(3);
+    expect(targetCases.every((c) => c.organizationId === target.organizationId)).toBe(true);
+    expect(targetCases.every((c) => c.primaryApplicantUserId === target.userId)).toBe(true);
 
     // Anon user + org are tombstoned, not deleted, so audit-row FKs stay valid.
     const anonExists = await handle.db
@@ -182,6 +184,7 @@ describe('promoteToAuthed', () => {
       .from(schema.cases)
       .where(eq(schema.cases.userId, target.userId));
     expect(targetCases).toHaveLength(1);
+    expect(targetCases[0]?.organizationId).toBe(target.organizationId);
   });
 
   it('idempotent: calling twice with same inputs yields same end state', async () => {

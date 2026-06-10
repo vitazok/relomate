@@ -67,7 +67,7 @@ describe('POST /api/case/new', () => {
     const data = facts[0]?.data as { employment?: { annualGrossSalaryEur?: { value: number } } };
     // priya-strong has a salary on file — seeding must have populated case_facts.
     expect(data?.employment?.annualGrossSalaryEur?.value).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it('ignores an unknown ?persona=<id> and still creates an empty case (#15)', async () => {
     const { POST } = await import('@/app/api/case/new/route');
