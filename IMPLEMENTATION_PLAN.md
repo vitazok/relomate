@@ -210,16 +210,16 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/approvals tests/documents tests/drafting tests/api`.
 - **Deferred:** full firm console UI; SLA workflows.
 
-### Card 4C-F-4 — Real tasks foundation
+### Card 4C-F-4 — Real tasks foundation ✅
 - **Goal:** Replace tracker-only implied work with mutable task records that can be assigned, due, visible, and blocking.
 - **Tasks:**
-  - [ ] Add `tasks` and task change/audit support.
-  - [ ] Task fields: assignee, due date, status, source, visibility, blocking, related subject.
-  - [ ] Repository helpers and pure view model for top tasks.
-  - [ ] Generate tasks from document/draft/review states without duplicating on repeated reads.
-  - [ ] Tests for visibility and blocking behavior.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/tasks tests/journey tests/api`.
-- **Deferred:** SLA escalation worker; firm console charts.
+  - [x] Add `tasks` and task change/audit support (`task_changes`, append-only; migration `0009`).
+  - [x] Task fields: assignee, due date, status, source, visibility, blocking, related subject.
+  - [x] Repository helpers and pure view model for top tasks (`selectTopTasks`, `now`-parameterized).
+  - [x] Generate tasks from document/draft/review states without duplicating on repeated reads (pure `deriveSystemTasks` + idempotent `reconcileSystemTasks`; partial unique index dedupes open system tasks by `generationKey`).
+  - [x] Tests for visibility and blocking behavior (`tests/tasks/`).
+- **Verify:** `tsc --noEmit` + serial vitest on `tests/tasks tests/journey tests/api`. ✅ 70 passing.
+- **Deferred:** SLA escalation worker; firm console charts; task UI surfaces (4C-F-5); manual-task API/server actions.
 
 ### Card 4C-F-5 — Firm console + applicant portal split
 - **Goal:** Separate the consultant-first workspace from applicant-safe intake/upload/review surfaces.
