@@ -300,7 +300,7 @@ Verification: `pnpm exec tsc --noEmit` + serial vitest on `tests/tasks tests/jou
 
 Known follow-up: manual-task API/server actions and an Inngest SLA worker are deferred.
 
-### 4C-F firm foundation pivot — Firm console + applicant portal split (2026-06-10, PR #22)
+### 4C-F firm foundation pivot — Firm console + applicant portal split (2026-06-10, merged to main PR #22)
 
 The fifth slice surfaces the firm console and the applicant portal as **distinct routes**, with the
 access boundary decided by pure functions (chosen over a role-adaptive single URL so the boundary
@@ -365,7 +365,7 @@ ops analytics charts.
 | 4C-F-2 case participants + visibility primitives | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-3 review inbox + role-aware approvals | complete, merged to main (PR #19) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-4 real tasks foundation | complete, merged to main (PR #21) | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-F-5 firm console + applicant portal split | implemented, PR #22 open | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-F-5 firm console + applicant portal split | complete, merged to main (PR #22) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-6 firm knowledge + Canada/Toronto scaffolding | next | `IMPLEMENTATION_PLAN.md` |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
