@@ -67,10 +67,29 @@ jobs:
     name: Vitest serial
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Postgres runs as a service container on the runner itself. Tests previously
+    # pointed at a remote Supabase pooler in another region; the per-query
+    # transatlantic round-trip pushed migration-replay and DB-backed tests past
+    # vitest's 5s/10s timeouts (non-deterministically). A local container removes
+    # the network latency and retires the EMAXPOOLSREACHED pooler-saturation flake.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: relomate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
-      DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.CI_DIRECT_URL }}
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/relomate_test
+      DIRECT_URL: postgres://postgres:postgres@localhost:5432/relomate_test
       AUTH_SECRET: ci-test-secret-with-at-least-thirty-two-chars
       ANTHROPIC_API_KEY: sk-ant-ci-dummy
     steps:
@@ -90,11 +109,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Validate CI database secrets
-        run: |
-          test -n "$DATABASE_URL" || (echo "Missing CI_DATABASE_URL secret" && exit 1)
-          test -n "$DIRECT_URL" || (echo "Missing CI_DIRECT_URL secret" && exit 1)
 
       - name: Run full Vitest suite serially
         run: pnpm exec vitest run --no-file-parallelism
