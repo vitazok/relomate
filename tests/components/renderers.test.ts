@@ -10,6 +10,7 @@ import {
   FallbackResult,
   DraftRequestResult,
   VidexCompletenessResult,
+  MissingFormFieldRequest,
 } from '@/components/workspace/renderers/registry';
 
 describe('renderer registry', () => {
@@ -92,6 +93,31 @@ describe('VIDEX renderer', () => {
           total: 37,
           filled: 26,
           missing: [{ fieldNumber: 14, label: 'Date of issue of travel document' }],
+        },
+      },
+    });
+    expect(result).toBeTruthy();
+  });
+});
+
+describe('missing form field renderer', () => {
+  it('resolves missing_form_field_request to the field-request renderer', () => {
+    expect(resolveRenderer('missing_form_field_request')).toBe(MissingFormFieldRequest);
+  });
+
+  it('renders a structured question without throwing', () => {
+    const result = MissingFormFieldRequest({
+      output: {
+        type: 'missing_form_field_request',
+        version: 1,
+        data: {
+          status: 'question',
+          question: 'What should I use for "Intended date of arrival" on the VIDEX online form?',
+          field: {
+            fieldNumber: 29,
+            label: 'Intended date of arrival',
+            sourcePaths: ['target.targetMoveDate'],
+          },
         },
       },
     });

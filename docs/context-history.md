@@ -572,6 +572,78 @@ Verification: `pnpm exec tsc --noEmit`;
 tests/journey/loader.test.ts tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts
 tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (43 passing).
 
+### Phase 5-3 — Forms workspace section (2026-06-11, current branch)
+
+This slice surfaces the route-aware forms foundation in the internal case workspace. It intentionally
+does not add PDF generation, PDF preview, approval, or field-specific chat updates; those remain
+separate 5-2B/5-4 work.
+
+Implemented:
+
+- `src/lib/forms/view-model.ts` builds a pure `FormsWorkspaceViewModel` from `{profile, caseFacts,
+  today}`. It combines `requiredFormOutputForCase` with `assessVidexCompleteness`, resolves
+  consulate metadata, computes the filled/total percentage, and groups missing fields into
+  user-provided data, not-yet-modelled schema gaps, and manual completion.
+- `src/components/workspace/FormsSection.tsx` renders the Forms workspace block with route mode,
+  readiness gauge, official consulate/form copy, source link, and missing-field rows with disabled
+  "Provide"/"Pending"/"Sign" controls. Bengaluru renders as CSP-integrated readiness and does not
+  claim a generated VIDEX PDF. Toronto renders as VIDEX readiness with the Canada source marked
+  not user-verified.
+- `/case/[id]` now passes the repository-loaded profile into eligibility, journey progress, and
+  forms readiness. The old page-level empty profile shell would have made profile-backed VIDEX
+  fields look missing even when the case profile had them.
+- `Nav` now enables the Forms anchor while leaving the other unbuilt anchors disabled.
+
+Gotchas:
+
+- The Forms section is read-only. Its controls are intentionally disabled until 5-4 adds structured
+  missing-field prompts/updates and 5-2B adds any Toronto output pipeline.
+- The locked Journey phase still says "Forms + submission package"; the actual Forms workspace block
+  now lives below the tracker cards in the same scrollable center column.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/forms tests/components tests/journey/loader.test.ts
+tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts`
+(48 passing).
+
+### Phase 5-4 — Conversational gap-filling (2026-06-11, current branch)
+
+This slice adds the chat-side loop for actionable missing form fields. It does not add new schema
+leaves for currently unmodelled VIDEX fields, so the Phase 5 "100%" gate remains blocked by known
+schema gaps such as passport issue date/authority, birth country, phone/email, prior
+visas/fingerprints, and signature.
+
+Implemented:
+
+- `request_missing_field` is a read-only tool that loads the active case, builds the forms view
+  model, and asks for one actionable `missing_source` field. It accepts an optional VIDEX
+  `fieldNumber`; otherwise it picks the first user-provided missing field. It returns
+  `{type:'missing_form_field_request',version:1,data}` with the question plus exact `sourcePaths`.
+- The prompt catalog tells the model to call `update_case` with those exact `sourcePaths` after the
+  user answers. The tool itself never writes case facts.
+- `MissingFormFieldRequest` renders the structured question in chat and shows the target case path(s).
+- `request_missing_field` is registered before `lookup_anabin`; `lookup_anabin` remains last and the
+  sole Anthropic cache-control breakpoint.
+- Form missing-field system tasks now derive from the same forms view model inside
+  `reconcileCaseTasks`. At most the next actionable missing field is taskified, and only when the
+  consulate route is known from CaseFacts (`forms.formOutput.source === 'consulate_rules'`). These
+  tasks are client-visible, applicant-owned, blocking system tasks keyed by
+  `form_field:<fieldNumber>:<sourcePaths>`.
+
+Gotchas:
+
+- Case-row `cases.target_consulate` is not enough for forms/task readiness; the consulate must be
+  persisted as the `target.targetConsulate` CaseFacts leaf via `applyUpdate`/`update_case`.
+- Task generation intentionally ignores `not_modelled` and `manual_signature` form gaps; those are
+  product/schema work or manual completion, not applicant answer tasks.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/ai/request_missing_field.test.ts tests/ai/fill_videx_form.test.ts
+tests/ai/agent-turn.test.ts tests/components/renderers.test.ts tests/forms
+tests/tasks/view-model.test.ts` (40 passing);
+`node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism
+tests/tasks/service.test.ts` with network access to the configured Supabase pooler (2 passing).
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -604,6 +676,8 @@ tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (43 passing).
 | 4C-3 drafts completeness signal | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 5-1 VIDEX field map + completeness engine | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 5-2A route-aware forms foundation | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-3 Forms workspace section | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-4 conversational gap-filling | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 

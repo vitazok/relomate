@@ -105,6 +105,33 @@ describe('deriveSystemTasks (pure generator)', () => {
     expect(reupload).toMatchObject({ requiredRole: 'applicant', blocking: true, visibility: 'client_visible' });
   });
 
+  it('emits client-visible blocking tasks for actionable missing form fields', () => {
+    const tasks = deriveSystemTasks({
+      documents: [],
+      drafts: [],
+      approvals: [],
+      formFields: [
+        {
+          fieldNumber: 29,
+          label: 'Intended date of arrival',
+          sourcePaths: ['target.targetMoveDate'],
+        },
+      ],
+    });
+
+    expect(tasks).toEqual([
+      expect.objectContaining({
+        generationKey: 'form_field:29:target.targetMoveDate',
+        title: 'Provide Intended date of arrival for form readiness',
+        requiredRole: 'applicant',
+        blocking: true,
+        visibility: 'client_visible',
+        subjectType: 'form_field',
+        subjectId: null,
+      }),
+    ]);
+  });
+
   it('is deterministic — same input yields identical keys (idempotent reconcile precondition)', () => {
     const input = {
       documents: [{ id: 'doc-1', fileName: 'a.pdf', status: 'failed' as const }],

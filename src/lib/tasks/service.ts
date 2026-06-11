@@ -5,6 +5,8 @@ import { makeDraftRepository } from '@/lib/drafting/repository';
 import { makeApprovalRepository } from '@/lib/approvals/repository';
 import { makeTaskRepository, type ReconcileResult } from '@/lib/tasks/repository';
 import { deriveSystemTasks } from '@/lib/tasks/generate';
+import { makeRepository } from '@/lib/case/repository';
+import { buildFormsWorkspaceViewModel } from '@/lib/forms/view-model';
 
 type Db = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -23,6 +25,11 @@ export async function reconcileCaseTasks(
   const documents = await makeDocumentRepository(db).listByCase(caseId);
   const drafts = await makeDraftRepository(db).listByCase(caseId);
   const approvals = await makeApprovalRepository(db).listPending(caseId);
+  const loaded = await makeRepository(db).loadCase(caseId);
+  const forms = buildFormsWorkspaceViewModel({
+    profile: loaded.profile,
+    caseFacts: loaded.caseFacts,
+  });
 
   const desired = deriveSystemTasks({
     documents: documents.map((d) => ({ id: d.id, fileName: d.fileName, status: d.status })),
@@ -35,6 +42,7 @@ export async function reconcileCaseTasks(
       visibility: a.visibility,
       dueAt: a.dueAt,
     })),
+    formFields: forms.formOutput.source === 'consulate_rules' ? forms.missingUserInput.slice(0, 1) : [],
   });
 
   return await makeTaskRepository(db).reconcileSystemTasks(caseId, organizationId, desired);

@@ -60,4 +60,39 @@ describe('reconcileCaseTasks (integration seam)', () => {
     const keys = tasks.map((t) => t.generationKey).sort();
     expect(keys).toEqual([`approval:${approvalId}`, `document:${docId}:reupload`]);
   });
+
+  it('derives client-visible form-field tasks when a routed case is missing form source data', async () => {
+    const seeded = await seedOrgAndUser(handle);
+    const repo = makeRepository(handle.db, handle.schemaName);
+    const { caseId } = await repo.createCase({
+      userId: seeded.userId,
+      visaType: 'blue_card',
+      targetCountry: 'DE',
+      targetConsulate: 'bengaluru',
+    });
+    await repo.applyUpdate({
+      caseId,
+      source: 'user_stated',
+      sourceTurnId: null,
+      confidence: 1,
+      updates: { 'target.targetConsulate': 'bengaluru' },
+    });
+
+    const first = await reconcileCaseTasks(caseId, seeded.organizationId, handle.db);
+    expect(first.created).toBeGreaterThan(0);
+
+    const second = await reconcileCaseTasks(caseId, seeded.organizationId, handle.db);
+    expect(second).toEqual({ created: 0, updated: 0, resolved: 0 });
+
+    const tasks = await makeTaskRepository(handle.db).listByCase(caseId);
+    expect(tasks).toContainEqual(
+      expect.objectContaining({
+        generationKey: 'form_field:1:fullName',
+        title: 'Provide Surname for form readiness',
+        requiredRole: 'applicant',
+        visibility: 'client_visible',
+        subjectType: 'form_field',
+      }),
+    );
+  });
 });
