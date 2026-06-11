@@ -32,6 +32,7 @@ describe('rules loader', () => {
   it('exposes the Bengaluru consulate passport rule', () => {
     const bengaluru = getConsulate('bengaluru');
     expect(bengaluru.passportRequirements.minRemainingValidityMonths).toBe(12);
+    expect(bengaluru.formMode).toBe('csp_integrated');
   });
 
   it('exposes Toronto as unverified Canada source scaffolding', () => {
@@ -41,6 +42,7 @@ describe('rules loader', () => {
     expect(toronto.sources).toContain(
       'https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126',
     );
+    expect(toronto.formMode).toBe('videx_online');
     expect(toronto.canadianResidentSpecific?.legalResidenceOverSixMonthsRequired).toBe(true);
   });
 

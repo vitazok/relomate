@@ -64,7 +64,7 @@ phases:
           blockersAny: ['anabin_status_unknown', 'degree_not_recognized']
     steps: []
   - id: package
-    label: VIDEX form + submission package
+    label: Forms + submission package
     locked: true
-    comingSoon: VIDEX form completion and the assembled submission package arrive in a later step.
+    comingSoon: Route-specific form readiness and the assembled submission package arrive in a later step.
     steps: []

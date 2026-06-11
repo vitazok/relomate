@@ -394,7 +394,7 @@ Known follow-up: firm playbook retrieval/UI, manual internal notes UI, productio
 after user verification, and a consulate/checklist readiness assessment that can surface
 Toronto-specific residence/document blockers separately from eligibility.
 
-### 4C drafted documents — Anabin justification draft (2026-06-10, current branch)
+### 4C drafted documents — Anabin justification draft (2026-06-10, merged to main PR #25)
 
 The first 4C slice adds Anabin justification as the fourth draft artifact on the existing
 `drafts`/approval foundation. The implementation intentionally keeps the same background generation
@@ -427,7 +427,7 @@ tests/ai/draft_cover_letter.test.ts tests/ai/agent-turn.test.ts tests/inngest/ge
 tests/journey/compute.test.ts` with network access to the configured Supabase pooler (40 passing);
 `pnpm exec vitest run tests/components` (20 passing).
 
-### 4C drafted documents — regenerate with framing (2026-06-10, current branch)
+### 4C drafted documents — regenerate with framing (2026-06-10, merged to main PR #25)
 
 The second 4C slice lets consultants create a new draft version with explicit framing instructions
 while preserving the existing append-only draft-version model. Regeneration does not mutate the
@@ -464,7 +464,7 @@ tests/ai/regenerate_draft.test.ts` (14 passing);
 tests/inngest/generate-draft.test.ts` with network access to the configured Supabase pooler (13
 passing); `pnpm exec vitest run tests/components` (20 passing).
 
-### 4C drafted documents — completeness signal (2026-06-10, current branch)
+### 4C drafted documents — completeness signal (2026-06-10, merged to main PR #25)
 
 The third 4C slice makes the Drafts phase report completion against the drafts actually required
 for the current eligibility verdict. This is still a tracker signal only; Phase 6 will consume it in
@@ -494,6 +494,84 @@ Verification: `pnpm exec tsc --noEmit`;
 `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting`
 with network access to the configured Supabase pooler (7 passing).
 
+### Phase 5-1 — VIDEX field map + completeness engine (2026-06-11, current branch)
+
+The first VIDEX slice adds a pure field-map/completeness layer only. It does not generate,
+preview, store, flatten, or approve a PDF. The `formular` public repo was empty at lookup time;
+the useful source was `vitazok/immigration`, specifically `src/lib/assembly/form-mapper.ts` and the
+confirmed AcroForm field IDs listed in that repo's `CLAUDE.md`. That source app models a
+Schengen-short-stay flow, so this slice ports AcroForm names and transform patterns but keeps
+Relomate's Blue Card/national-visa assumptions separate.
+
+Implemented:
+
+- `src/lib/drafting/videx.ts` defines 37 field-level VIDEX entries with AcroForm IDs, transform
+  names, and at least one validated Profile/CaseFacts source-path anchor per field.
+- `assessVidexCompleteness({profile, caseFacts, today})` returns `{total, filled, missing, values,
+  fields}`. It is pure and deterministic when `today` is passed.
+- The mapper fills supported values from the current schema: split full name, date formatting,
+  country-name formatting, gender/marital radio fields, address lines, employer fields, Blue Card
+  purpose/destination, target move date, support-from-employment indicators, and place/date.
+- Unsupported or absent facts are reported as missing with reasons (`missing_source`,
+  `not_modelled`, `manual_signature`) instead of being guessed. Current gaps include passport issue
+  date/authority, birth country, phone/email, prior visas/fingerprints, and signature.
+- `fill_videx_form` is a read-only agent tool that loads the active case and returns
+  `{type:'videx_completeness_result',version:1,data}`. It is registered before `lookup_anabin`, so
+  `lookup_anabin` remains the last tool and sole Anthropic cache-control breakpoint.
+- A compact chat renderer for `videx_completeness_result` shows the filled/total count and first
+  missing fields; the full report stays structured for the later Forms UI.
+
+Gotchas:
+
+- Field 25 and field 37 do not have clean AcroForm widgets in the imported reference. Field 25 is
+  represented through purpose details for now; field 37 stays a manual-signature missing item.
+- Do not treat this as PDF readiness. 5-2 owns PDF filling, R2 storage, draft/approval reuse, and
+  manual verification that values land in the correct fields.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts
+tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (24 passing).
+
+### Phase 5-2A — route-aware forms foundation (2026-06-11, current branch)
+
+Official-source check before 5-2 PDF work showed the form path is route-specific, not one generic
+Germany-wide VIDEX PDF pipeline. The India national-visa page
+(`https://india.diplo.de/in-en/service/2755482-2755482`) says CSP applications no longer require
+visiting a separate online form site for supported visa types, while the Canada EU Blue Card page
+(`https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126`) still documents an
+online VIDEX form that must be printed and signed; the official VIDEX long-stay entrypoint is
+`https://videx.diplo.de/videx/visum-erfassung/en/videx-langfristiger-aufenthalt`. So 5-2 was split:
+first land a route-aware foundation, then decide whether to build a Toronto-only VIDEX output/export
+pipeline.
+
+Implemented:
+
+- `config/rules/consulates.yaml` adds structured `formMode`: `csp_integrated` for Bengaluru and
+  `videx_online` for Toronto. `ConsulateRules` validates it via the new `FormMode` enum.
+- `src/lib/forms/output.ts` exposes `requiredFormOutputForCase(caseFacts)`, returning mode,
+  consulate id, and source (`consulate_rules`, `missing_consulate`, `invalid_consulate`).
+- `fill_videx_form` remains read-only but now includes `formOutput` in
+  `videx_completeness_result`, so renderers/workspace code can branch without parsing consulate
+  prose.
+- The chat renderer now says "CSP form readiness", "VIDEX readiness", or generic "Form readiness"
+  based on `formOutput.mode`.
+- Journey copy changed from "VIDEX form + submission package" to "Forms + submission package" so
+  the tracker no longer implies VIDEX is universal.
+- `IMPLEMENTATION_PLAN.md` supersedes the old generic 5-2 PDF card and adds future 5-2B as a
+  Toronto-only VIDEX output pipeline after a reliable non-scraping template/source strategy exists.
+
+Gotchas:
+
+- Do not automate or scrape CSP/VIDEX websites. The route-aware foundation can track readiness and
+  prepare data; submission/form-site interaction remains human-driven unless explicitly re-scoped.
+- Bengaluru CSP mode means a missing generated VIDEX PDF is not a package blocker by itself.
+- Toronto VIDEX output still needs a safe source strategy before `pdf-lib` work starts.
+
+Verification: `pnpm exec tsc --noEmit`;
+`pnpm exec vitest run tests/forms/output.test.ts tests/rules-loader.test.ts
+tests/journey/loader.test.ts tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts
+tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (43 passing).
+
 ### Phase status table
 
 | Phase | Status | Spec / plan |
@@ -521,9 +599,11 @@ with network access to the configured Supabase pooler (7 passing).
 | 4C-F-4 real tasks foundation | complete, merged to main (PR #21) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-5 firm console + applicant portal split | complete, merged to main (PR #22) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-F-6 firm knowledge + Canada/Toronto scaffolding | complete, merged to main (PR #24) | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-1 Anabin justification draft | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-2 regenerate draft with framing | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 4C-3 drafts completeness signal | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-1 Anabin justification draft | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-2 regenerate draft with framing | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 4C-3 drafts completeness signal | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-1 VIDEX field map + completeness engine | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-2A route-aware forms foundation | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
