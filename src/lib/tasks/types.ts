@@ -28,7 +28,7 @@ export const TaskRequiredRoleEnum = z.enum([
 export type TaskRequiredRole = z.infer<typeof TaskRequiredRoleEnum>;
 
 // What the task is about. Null = standalone task with no linked artifact.
-export const TaskSubjectTypeEnum = z.enum(['document', 'draft', 'approval']);
+export const TaskSubjectTypeEnum = z.enum(['document', 'draft', 'approval', 'form_field']);
 export type TaskSubjectType = z.infer<typeof TaskSubjectTypeEnum>;
 
 // Append-only audit kinds for task_changes (rule 10: no UPDATE on *_changes tables).

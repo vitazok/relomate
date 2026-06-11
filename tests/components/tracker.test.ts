@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Tracker, phaseBadge } from '@/components/workspace/Tracker';
+import { buildFormsWorkspaceViewModel } from '@/lib/forms/view-model';
 import type { JourneyProgress } from '@/lib/journey/types';
 
 const EMPTY: JourneyProgress = {
@@ -12,6 +13,12 @@ const EMPTY: JourneyProgress = {
   ],
 };
 
+const FORMS = buildFormsWorkspaceViewModel({
+  profile: null,
+  caseFacts: {},
+  today: new Date('2026-06-11T00:00:00.000Z'),
+});
+
 describe('phaseBadge', () => {
   it('renders a fraction for unlocked phases and a lock marker for locked', () => {
     expect(phaseBadge(EMPTY.phases[0]!)).toBe('0/8');
@@ -22,12 +29,12 @@ describe('phaseBadge', () => {
 
 describe('Tracker', () => {
   it('returns an element without throwing for a populated progress', () => {
-    const el = Tracker({ caseId: 'case-1', progress: EMPTY, eligibilityHeadline: null });
+    const el = Tracker({ caseId: 'case-1', progress: EMPTY, forms: FORMS, eligibilityHeadline: null });
     expect(el).toBeTruthy();
   });
 
   it('returns the empty-state element when all phases are empty/todo', () => {
-    const el = Tracker({ caseId: 'case-1', progress: EMPTY, eligibilityHeadline: null });
+    const el = Tracker({ caseId: 'case-1', progress: EMPTY, forms: FORMS, eligibilityHeadline: null });
     expect(el).toBeTruthy();
   });
 });

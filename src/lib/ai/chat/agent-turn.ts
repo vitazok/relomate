@@ -15,6 +15,7 @@ import { makeDraftCvTool } from '@/lib/ai/tools/draft_cv';
 import { makeDraftAnabinJustificationTool } from '@/lib/ai/tools/draft_anabin_justification';
 import { makeRegenerateDraftTool } from '@/lib/ai/tools/regenerate_draft';
 import { makeFillVidexFormTool } from '@/lib/ai/tools/fill_videx_form';
+import { makeRequestMissingFieldTool } from '@/lib/ai/tools/request_missing_field';
 import { inngest } from '@/lib/inngest/client';
 import { MODEL_ID } from '@/lib/ai/provider';
 import type { Repository } from '@/lib/case/repository';
@@ -103,6 +104,7 @@ export async function buildAgentTurn(params: BuildAgentTurnParams) {
       defaultSourceTurnId: userMessageId,
     }),
     fill_videx_form: makeFillVidexFormTool(repo, { defaultCaseId: caseId }),
+    request_missing_field: makeRequestMissingFieldTool(repo, { defaultCaseId: caseId }),
     // lookup_anabin MUST stay last: it carries the single cache_control breakpoint
     // (in its factory), which caches the whole static tools block. See lookup_anabin.ts.
     lookup_anabin: makeLookupAnabinTool(),

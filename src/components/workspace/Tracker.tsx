@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EligibilityVerdict } from '@/lib/case/schema';
 import { ALLOWED_UPLOAD_ACCEPT } from '@/lib/documents/types';
+import type { FormsWorkspaceViewModel } from '@/lib/forms/view-model';
 import type { JourneyProgress, PhaseProgress, StepProgress } from '@/lib/journey/types';
 import { DocumentUpload } from './DocumentUpload';
+import { FormsSection } from './FormsSection';
 
 export function phaseBadge(phase: PhaseProgress): string {
   if (phase.status === 'locked') return 'Coming soon';
@@ -156,10 +158,12 @@ function PhaseCard({ phase, caseId }: { phase: PhaseProgress; caseId: string }) 
 export function Tracker({
   caseId,
   progress,
+  forms,
   eligibilityHeadline,
 }: {
   caseId: string;
   progress: JourneyProgress;
+  forms: FormsWorkspaceViewModel;
   eligibilityHeadline: EligibilityVerdict | null;
 }) {
   const anyProgress = progress.phases.some((p) => p.completed > 0);
@@ -187,6 +191,8 @@ export function Tracker({
       {progress.phases.map((phase) => (
         <PhaseCard key={phase.id} phase={phase} caseId={caseId} />
       ))}
+
+      <FormsSection forms={forms} />
     </main>
   );
 }

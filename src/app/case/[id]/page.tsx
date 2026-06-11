@@ -13,6 +13,7 @@ import { computeJourneyProgress } from '@/lib/journey/compute';
 import { getDocumentRules } from '@/lib/rules/loader';
 import { makeDocumentRepository } from '@/lib/documents/repository';
 import { makeDraftRepository } from '@/lib/drafting/repository';
+import { buildFormsWorkspaceViewModel } from '@/lib/forms/view-model';
 import type { Profile } from '@/lib/profile/schema';
 
 export const runtime = 'nodejs';
@@ -47,7 +48,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
 
   const initialMessages = hydrateMessages(recent);
 
-  const profile: Profile = { schemaVersion: 1 };
+  const profile: Profile = loaded.profile ?? { schemaVersion: 1 };
   const today = new Date();
   const verdict = evaluateEligibility(loaded.caseFacts, profile, today);
   const uploadedDocuments = await makeDocumentRepository(db).listByCase(loaded.case.id);
@@ -62,11 +63,17 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
     loaded.case.id,
     drafts,
   );
+  const forms = buildFormsWorkspaceViewModel({
+    profile,
+    caseFacts: loaded.caseFacts,
+    today,
+  });
 
   return (
     <Layout
       caseId={loaded.case.id}
       progress={progress}
+      forms={forms}
       eligibilityVerdict={verdict}
       initialMessages={initialMessages}
     />

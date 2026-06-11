@@ -33,10 +33,17 @@ export interface GeneratorApproval {
   dueAt: Date | null;
 }
 
+export interface GeneratorFormField {
+  fieldNumber: number;
+  label: string;
+  sourcePaths: string[];
+}
+
 export interface GeneratorInput {
   documents: GeneratorDocument[];
   drafts: GeneratorDraft[];
   approvals: GeneratorApproval[];
+  formFields?: GeneratorFormField[];
 }
 
 // Approval required roles are a strict subset of task required roles; this widens the type
@@ -120,6 +127,18 @@ export function deriveSystemTasks(input: GeneratorInput): DesiredSystemTask[] {
       visibility: 'internal',
       subjectType: 'draft',
       subjectId: draft.id,
+    });
+  }
+
+  for (const field of input.formFields ?? []) {
+    tasks.push({
+      generationKey: `form_field:${field.fieldNumber}:${field.sourcePaths.join('+')}`,
+      title: `Provide ${field.label} for form readiness`,
+      requiredRole: 'applicant',
+      blocking: true,
+      visibility: 'client_visible',
+      subjectType: 'form_field',
+      subjectId: null,
     });
   }
 

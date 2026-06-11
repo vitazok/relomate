@@ -256,6 +256,34 @@ export const VidexCompletenessResult: Renderer = ({ output }) => {
   );
 };
 
+export const MissingFormFieldRequest: Renderer = ({ output }) => {
+  const data = output.data as {
+    status?: 'question' | 'missing_consulate' | 'no_missing_user_fields';
+    question?: string | null;
+    field?: { fieldNumber: number; label: string; sourcePaths: string[] } | null;
+  };
+
+  if (data.status === 'no_missing_user_fields') {
+    return (
+      <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+        No user-provided form fields are missing right now.
+      </span>
+    );
+  }
+
+  return (
+    <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+      <span className="block font-medium">{data.question ?? 'I need one more form detail.'}</span>
+      {data.field ? (
+        <span className="mt-1 block text-zinc-500">
+          Field {data.field.fieldNumber}: {data.field.label}
+          {data.field.sourcePaths.length > 0 ? ` - saves to ${data.field.sourcePaths.join(', ')}` : ''}
+        </span>
+      ) : null}
+    </span>
+  );
+};
+
 const registry: Record<string, Renderer> = {
   update_case_result: UpdateCaseResult,
   read_case_result: ReadCaseResult,
@@ -267,6 +295,7 @@ const registry: Record<string, Renderer> = {
   document_extraction_status: DocumentExtractionStatus,
   draft_request_result: DraftRequestResult,
   videx_completeness_result: VidexCompletenessResult,
+  missing_form_field_request: MissingFormFieldRequest,
 };
 
 // Dispatch keys on `type` only; `output.version` is intentionally ignored while

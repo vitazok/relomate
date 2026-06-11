@@ -325,25 +325,26 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting/videx-pdf* tests/inngest`; manual: generated PDF opens, values in correct fields.
 - **Deferred:** Forms UI (5-3); gap-filling (5-4).
 
-### Card 5-3 — Forms workspace section
+### Card 5-3 — Forms workspace section ✅
 - **Goal:** Surface route-specific form readiness + preview/approval where applicable in the workspace.
 - **Tasks:**
-  - [ ] Forms section: route mode (`csp_integrated` vs `videx_online`), completeness gauge ("28 of 37"), missing-fields list with "Provide" buttons.
-  - [ ] Toronto VIDEX flow: side-by-side preview when complete if 5-2B is available.
-  - [ ] Bengaluru CSP flow: readiness checklist and portal guidance, no generated VIDEX PDF claim.
-  - [ ] Approve action triggers the final flattened PDF only for output modes with a generated PDF pipeline.
-  - [ ] Nav wiring (follow the settled section-host pattern).
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/components` (forms section, gauge).
+  - [x] Forms section: route mode (`csp_integrated` vs `videx_online`), completeness gauge ("28 of 37"), missing-fields list with "Provide" buttons.
+  - [x] Toronto VIDEX flow: readiness view plus disabled preview affordance until 5-2B is available.
+  - [x] Bengaluru CSP flow: readiness checklist and portal guidance, no generated VIDEX PDF claim.
+  - [x] Approval/output action stays disabled because no generated PDF pipeline exists yet.
+  - [x] Nav wiring (follow the settled section-host pattern).
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/forms tests/components tests/journey/loader.test.ts tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts` → 48 passing.
 - **Deferred:** conversational gap-filling (5-4).
 
-### Card 5-4 — Conversational gap-filling
+### Card 5-4 — Conversational gap-filling ✅
 - **Goal:** Agent surfaces missing form fields as structured questions; answers update the case and re-check route-specific readiness.
 - **Tasks:**
-  - [ ] `request_missing_field` tool surfaces missing fields as structured questions.
-  - [ ] User answers in chat (or the form widget from 5-3) → `update_case` → form re-checked.
-  - [ ] Renderer for the structured missing-field prompt.
-  - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/ai tests/drafting/videx*`; persona E2E: priya-strong reaches 100% via chat + uploads; remove a field → task created.
+  - [x] `request_missing_field` tool surfaces missing fields as structured questions.
+  - [x] User answers in chat (or the form widget from 5-3) → `update_case` → form re-checked.
+  - [x] Renderer for the structured missing-field prompt.
+  - [x] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/ai/request_missing_field.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts tests/components/renderers.test.ts tests/forms tests/tasks/view-model.test.ts` → 40 passing; `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/tasks/service.test.ts` → 2 passing with network access to the configured Supabase pooler.
+- **Deferred:** full persona E2E to 100% form readiness remains part of the Phase 5 verification gate; schema gaps such as passport issue date/authority still need future modelling before 100% is reachable.
 
 ### Phase 5 verification gate
 - [ ] priya-strong reaches 100% Bengaluru CSP form readiness through chat + uploads
