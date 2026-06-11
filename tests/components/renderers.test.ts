@@ -9,6 +9,7 @@ import {
   AnabinResult,
   FallbackResult,
   DraftRequestResult,
+  VidexCompletenessResult,
 } from '@/components/workspace/renderers/registry';
 
 describe('renderer registry', () => {
@@ -73,5 +74,27 @@ describe('document renderers', () => {
 describe('draft renderers', () => {
   it('resolves draft_request_result to the draft renderer', () => {
     expect(resolveRenderer('draft_request_result')).toBe(DraftRequestResult);
+  });
+});
+
+describe('VIDEX renderer', () => {
+  it('resolves videx_completeness_result to the VIDEX renderer', () => {
+    expect(resolveRenderer('videx_completeness_result')).toBe(VidexCompletenessResult);
+  });
+
+  it('renders a compact completeness summary without throwing', () => {
+    const result = VidexCompletenessResult({
+      output: {
+        type: 'videx_completeness_result',
+        version: 1,
+        data: {
+          formOutput: { mode: 'videx_online', consulateId: 'toronto' },
+          total: 37,
+          filled: 26,
+          missing: [{ fieldNumber: 14, label: 'Date of issue of travel document' }],
+        },
+      },
+    });
+    expect(result).toBeTruthy();
   });
 });

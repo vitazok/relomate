@@ -31,6 +31,7 @@ describe('journey loader', () => {
     expect(pkg?.locked).toBe(true);
     expect(drafts?.comingSoon).toBeNull();
     expect(pkg?.comingSoon).toBeTruthy();
+    expect(pkg?.label).toBe('Forms + submission package');
   });
 
   it('loads config-driven draft requirements', () => {

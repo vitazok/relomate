@@ -99,6 +99,7 @@ export const FamilyRules = z.object({
 });
 
 export const ConsulateId = z.enum(['bengaluru', 'toronto']);
+export const FormMode = z.enum(['csp_integrated', 'videx_online', 'unknown']);
 
 export const ConsulateRules = z.object({
   officialName: z.string(),
@@ -119,6 +120,7 @@ export const ConsulateRules = z.object({
     spec: z.string(),
   }),
   applicationForm: z.string(),
+  formMode: FormMode,
   noStapling: z.boolean(),
   documentLanguages: z.array(z.string()).min(1),
   translationRequired: z.boolean(),

@@ -6,6 +6,7 @@ bengaluru:
   url: 'https://india.diplo.de/in-en/ueber-uns/bengaluru'
   sources:
     - 'https://india.diplo.de/in-en/ueber-uns/bengaluru'
+    - 'https://india.diplo.de/in-en/service/2755482-2755482'
   lastChecked: '2026-05-25'
   verifiedByUser: true
   jurisdictionStates:
@@ -20,7 +21,8 @@ bengaluru:
     sizeRequirement: '35x45mm'
     maxAgeMonths: 6
     spec: 'German biometric specifications'
-  applicationForm: 'VIDEX online (videx-national.diplo.de), printed twice, signed separately'
+  applicationForm: 'Consular Services Portal integrated application form for supported Blue Card cases; no separate VIDEX visit required for CSP applications'
+  formMode: csp_integrated
   noStapling: true
   documentLanguages: ['German', 'English']
   translationRequired: false
@@ -44,6 +46,7 @@ toronto:
   sources:
     - 'https://canada.diplo.de/ca-en/consular-services/visa/long-term'
     - 'https://canada.diplo.de/ca-en/consular-services/visa/eu-blue-card-2653126'
+    - 'https://videx.diplo.de/videx/visum-erfassung/en/videx-langfristiger-aufenthalt'
     - 'https://canada.diplo.de/ca-en/consular-services/15-terminbuchung'
     - 'https://canada.diplo.de/ca-en/about-us/generalkonsulat2'
   lastChecked: '2026-06-10'
@@ -70,6 +73,7 @@ toronto:
     maxAgeMonths: 3
     spec: 'German biometric specifications; white background; do not attach to application form'
   applicationForm: 'VIDEX online form, printed and signed; online residence visa application may be available through the Consular Services Portal'
+  formMode: videx_online
   noStapling: true
   documentLanguages: ['German', 'English']
   translationRequired: false

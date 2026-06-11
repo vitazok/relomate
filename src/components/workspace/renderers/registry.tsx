@@ -227,6 +227,35 @@ export const DraftRequestResult: Renderer = ({ output }) => {
   );
 };
 
+export const VidexCompletenessResult: Renderer = ({ output }) => {
+  const data = output.data as {
+    total?: number;
+    filled?: number;
+    formOutput?: { mode?: string; consulateId?: string | null };
+    missing?: Array<{ fieldNumber: number; label: string }>;
+  };
+  const total = data.total ?? 0;
+  const filled = data.filled ?? 0;
+  const missing = data.missing ?? [];
+  const title =
+    data.formOutput?.mode === 'csp_integrated'
+      ? 'CSP form readiness'
+      : data.formOutput?.mode === 'videx_online'
+        ? 'VIDEX readiness'
+        : 'Form readiness';
+  const preview = missing
+    .slice(0, 3)
+    .map((field) => `${field.fieldNumber}. ${field.label}`)
+    .join(', ');
+
+  return (
+    <span className="block rounded-md border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs text-zinc-700">
+      {title}: {filled} of {total} fields filled
+      {preview ? ` - missing ${preview}${missing.length > 3 ? ', ...' : ''}` : ''}
+    </span>
+  );
+};
+
 const registry: Record<string, Renderer> = {
   update_case_result: UpdateCaseResult,
   read_case_result: ReadCaseResult,
@@ -237,6 +266,7 @@ const registry: Record<string, Renderer> = {
   document_upload_request: DocumentUploadRequest,
   document_extraction_status: DocumentExtractionStatus,
   draft_request_result: DraftRequestResult,
+  videx_completeness_result: VidexCompletenessResult,
 };
 
 // Dispatch keys on `type` only; `output.version` is intentionally ignored while

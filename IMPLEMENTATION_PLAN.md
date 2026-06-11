@@ -285,28 +285,40 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 
 ---
 
-## Phase 5 — VIDEX Form Filling
+## Phase 5 — Route-Aware Forms
 
-**Goal:** System fills VIDEX in the background. User never touches the source form. Missing fields surfaced as Tasks.
+**Goal:** System tracks route-specific form readiness. Bengaluru Blue Card uses the Consular Services Portal integrated form; Toronto remains a VIDEX-online flow. Missing fields are surfaced as Tasks.
 
-**Sliced into 4 cards** — the field-map port + PDF pipeline + Forms UI + gap-filling are distinct file sets and each is a session on its own. 5-1 is the foundation the rest build on.
+**Sliced into cards** — the field-map port, route-aware form mode, output pipeline, Forms UI, and gap-filling are distinct file sets. 5-1 and 5-2A are the foundations the rest build on.
 
 ### Card 5-1 — VIDEX field map + completeness engine
 - **Goal:** Port the 37-field VIDEX map and a pure completeness report (no PDF, no UI yet).
 - **Tasks:**
-  - [ ] `src/lib/drafting/videx.ts`: 37 fields × AcroForm names + transforms; port AcroForm IDs from `immigration/` repo.
-  - [ ] Each field maps to a CaseFacts/Profile leaf path (validated via `validateLeafPath`).
-  - [ ] Pure `assessVidexCompleteness(case) → { filled, missing[], total }`.
-  - [ ] `fill_videx_form` tool returns the completeness report (no PDF dispatch).
-  - [ ] Unit tests: priya-strong completeness, each transform, missing-field detection.
-- **Verify:** `tsc --noEmit` + serial vitest on `tests/drafting/videx*`.
+  - [x] `src/lib/drafting/videx.ts`: 37 fields × AcroForm names + transforms; port AcroForm IDs from `immigration/` repo.
+  - [x] Each field maps to a CaseFacts/Profile leaf path (validated via `validateLeafPath`).
+  - [x] Pure `assessVidexCompleteness(case) → { filled, missing[], total }`.
+  - [x] `fill_videx_form` tool returns the completeness report (no PDF dispatch).
+  - [x] Unit tests: priya-strong completeness, each transform, missing-field detection.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` → 24 passing.
 - **Deferred:** PDF generation (5-2), Forms UI (5-3), gap-filling (5-4).
-- **Decisions:** confirm the source repo (`immigration/` vs `formular/`) actually holds current AcroForm IDs before porting — lookup, not brainstorm.
+- **Decisions:** resolved: `vitazok/formular` is empty; `vitazok/immigration` holds the useful AcroForm ID reference. Its implementation is Schengen-short-stay shaped, so only AcroForm IDs and transform patterns were ported.
 
-### Card 5-2 — PDF filling pipeline (Inngest)
-- **Goal:** Generate a filled, previewable PDF from the completeness map.
+### Card 5-2A — Route-aware forms foundation ✅
+- **Goal:** Make Forms route-aware before any PDF pipeline work: Bengaluru is CSP-integrated; Toronto remains VIDEX-online.
 - **Tasks:**
-  - [ ] PDF pipeline (port + adapt `formular/`/`immigration/`): load blank → AcroForm fill via pdf-lib → coordinate-overlay fallback → cover page with summary.
+  - [x] Add structured `formMode` to `config/rules/consulates.yaml` (`csp_integrated` for Bengaluru, `videx_online` for Toronto).
+  - [x] Add pure helper `requiredFormOutputForCase(caseFacts)` returning `csp_integrated | videx_online | unknown`.
+  - [x] Update journey/forms copy so the locked phase does not imply VIDEX applies to every route.
+  - [x] Make `fill_videx_form` return route-aware `formOutput` metadata while keeping the completeness report.
+  - [x] Add Bengaluru/Toronto tests.
+- **Verify:** ✅ `pnpm exec tsc --noEmit`; `pnpm exec vitest run tests/forms/output.test.ts tests/rules-loader.test.ts tests/journey/loader.test.ts tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` → 43 passing.
+- **Deferred:** Toronto VIDEX PDF/export pipeline; CSP-specific portal guidance/UI; any scraping or automation of the CSP/VIDEX websites.
+
+### Card 5-2B — Toronto VIDEX output pipeline
+- **Goal:** Generate/export a Toronto VIDEX-ready packet only after a reliable template/source strategy exists.
+- **Tasks:**
+  - [ ] Confirm the safe source strategy for a printable Toronto VIDEX output (generated template, user-supplied PDF, or other non-scraping workflow).
+  - [ ] PDF pipeline: load template → AcroForm fill via pdf-lib → coordinate-overlay fallback → cover page with summary.
   - [ ] `generate_filled_pdf` tool dispatches an Inngest worker (returns job id; agent doesn't await — rule 13).
   - [ ] Worker stores draft PDF in R2; flatten only on approval.
   - [ ] Reuse the `drafts`/`approvals` foundation (`subjectType:'draft'`, type `videx`).
@@ -314,16 +326,18 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
 - **Deferred:** Forms UI (5-3); gap-filling (5-4).
 
 ### Card 5-3 — Forms workspace section
-- **Goal:** Surface VIDEX completeness + preview + approval in the workspace.
+- **Goal:** Surface route-specific form readiness + preview/approval where applicable in the workspace.
 - **Tasks:**
-  - [ ] Forms section: completeness gauge ("28 of 37"), missing-fields list with "Provide" buttons, side-by-side preview when complete.
-  - [ ] Approve action triggers the final flattened PDF (5-2 worker).
+  - [ ] Forms section: route mode (`csp_integrated` vs `videx_online`), completeness gauge ("28 of 37"), missing-fields list with "Provide" buttons.
+  - [ ] Toronto VIDEX flow: side-by-side preview when complete if 5-2B is available.
+  - [ ] Bengaluru CSP flow: readiness checklist and portal guidance, no generated VIDEX PDF claim.
+  - [ ] Approve action triggers the final flattened PDF only for output modes with a generated PDF pipeline.
   - [ ] Nav wiring (follow the settled section-host pattern).
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/components` (forms section, gauge).
 - **Deferred:** conversational gap-filling (5-4).
 
 ### Card 5-4 — Conversational gap-filling
-- **Goal:** Agent surfaces missing VIDEX fields as structured questions; answers update the case and re-check the form.
+- **Goal:** Agent surfaces missing form fields as structured questions; answers update the case and re-check route-specific readiness.
 - **Tasks:**
   - [ ] `request_missing_field` tool surfaces missing fields as structured questions.
   - [ ] User answers in chat (or the form widget from 5-3) → `update_case` → form re-checked.
@@ -331,9 +345,10 @@ Do NOT copy: route handlers, chat UI components, renderer registry, Drizzle sche
   - [ ] Update prompt/tool catalog (`lookup_anabin` stays last) + handover docs.
 - **Verify:** `tsc --noEmit` + serial vitest on `tests/ai tests/drafting/videx*`; persona E2E: priya-strong reaches 100% via chat + uploads; remove a field → task created.
 
-### Phase 5 verification gate (after all 4 cards)
-- [ ] priya-strong reaches 100% VIDEX completeness through chat + uploads
-- [ ] Generated PDF opens in standard PDF viewer; values in correct fields
+### Phase 5 verification gate
+- [ ] priya-strong reaches 100% Bengaluru CSP form readiness through chat + uploads
+- [ ] toronto-strong-pretravel reaches 100% VIDEX readiness through chat + uploads
+- [ ] Generated PDF/export, if implemented for Toronto, opens in standard PDF viewer; values in correct fields
 - [ ] Missing-field flow works end-to-end (intentionally remove a field; verify task created)
 - [ ] All existing persona tests still pass
 
