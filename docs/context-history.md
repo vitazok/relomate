@@ -494,7 +494,7 @@ Verification: `pnpm exec tsc --noEmit`;
 `node --env-file=.env.local node_modules/vitest/vitest.mjs run --no-file-parallelism tests/drafting`
 with network access to the configured Supabase pooler (7 passing).
 
-### Phase 5-1 — VIDEX field map + completeness engine (2026-06-11, current branch)
+### Phase 5-1 — VIDEX field map + completeness engine (2026-06-11, merged to main PR #26)
 
 The first VIDEX slice adds a pure field-map/completeness layer only. It does not generate,
 preview, store, flatten, or approve a PDF. The `formular` public repo was empty at lookup time;
@@ -532,7 +532,7 @@ Verification: `pnpm exec tsc --noEmit`;
 `pnpm exec vitest run tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts
 tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (24 passing).
 
-### Phase 5-2A — route-aware forms foundation (2026-06-11, current branch)
+### Phase 5-2A — route-aware forms foundation (2026-06-11, merged to main PR #26)
 
 Official-source check before 5-2 PDF work showed the form path is route-specific, not one generic
 Germany-wide VIDEX PDF pipeline. The India national-visa page
@@ -572,7 +572,7 @@ Verification: `pnpm exec tsc --noEmit`;
 tests/journey/loader.test.ts tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts
 tests/ai/agent-turn.test.ts tests/components/renderers.test.ts` (43 passing).
 
-### Phase 5-3 — Forms workspace section (2026-06-11, current branch)
+### Phase 5-3 — Forms workspace section (2026-06-11, merged to main PR #27)
 
 This slice surfaces the route-aware forms foundation in the internal case workspace. It intentionally
 does not add PDF generation, PDF preview, approval, or field-specific chat updates; those remain
@@ -606,7 +606,7 @@ Verification: `pnpm exec tsc --noEmit`;
 tests/drafting/videx.test.ts tests/ai/fill_videx_form.test.ts tests/ai/agent-turn.test.ts`
 (48 passing).
 
-### Phase 5-4 — Conversational gap-filling (2026-06-11, current branch)
+### Phase 5-4 — Conversational gap-filling (2026-06-11, merged to main PR #27)
 
 This slice adds the chat-side loop for actionable missing form fields. It does not add new schema
 leaves for currently unmodelled VIDEX fields, so the Phase 5 "100%" gate remains blocked by known
@@ -674,10 +674,10 @@ tests/tasks/service.test.ts` with network access to the configured Supabase pool
 | 4C-1 Anabin justification draft | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-2 regenerate draft with framing | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
 | 4C-3 drafts completeness signal | complete, merged to main (PR #25) | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 5-1 VIDEX field map + completeness engine | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 5-2A route-aware forms foundation | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 5-3 Forms workspace section | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
-| 5-4 conversational gap-filling | complete on current branch | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-1 VIDEX field map + completeness engine | complete, merged to main (PR #26) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-2A route-aware forms foundation | complete, merged to main (PR #26) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-3 Forms workspace section | complete, merged to main (PR #27) | `IMPLEMENTATION_PLAN.md`; this file, above |
+| 5-4 conversational gap-filling | complete, merged to main (PR #27) | `IMPLEMENTATION_PLAN.md`; this file, above |
 
 ### Codebase-review hardening (2026-06-03, merged to main PR #7) — full detail
 
